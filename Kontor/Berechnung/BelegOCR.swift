@@ -81,7 +81,11 @@ enum BelegOCR {
         await withCheckedContinuation { cont in
             let req = VNRecognizeTextRequest { request, _ in
                 let obs = request.results as? [VNRecognizedTextObservation] ?? []
-                cont.resume(returning: obs.compactMap { $0.topCandidates(1).first?.string })
+                let fragmente = obs.compactMap { o -> TextFragment? in
+                    guard let s = o.topCandidates(1).first?.string else { return nil }
+                    return TextFragment(text: s, box: o.boundingBox)
+                }
+                cont.resume(returning: zeilen(aus: fragmente))
             }
             req.recognitionLevel = .accurate
             req.recognitionLanguages = ["de-DE", "en-US"]
@@ -89,6 +93,38 @@ enum BelegOCR {
             DispatchQueue.global(qos: .userInitiated).async {
                 try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
             }
+        }
+    }
+
+    /// Ein erkanntes Textfragment mit seiner Position (Vision-Normalkoordinaten, Ursprung unten links).
+    struct TextFragment {
+        var text: String
+        var box: CGRect
+    }
+
+    /// Rekonstruiert echte Lesezeilen aus einzelnen Vision-Fragmenten: nach y-Mitte gruppieren
+    /// (gleiche Zeile, wenn vertikal nah genug) und je Zeile nach x links→rechts sortieren.
+    /// Wichtig für rechtsbündige Beträge, die Vision sonst als eigene Fragmente in unbestimmter
+    /// Reihenfolge liefert – sie landen so wieder neben ihrem Label („Summe netto … 3.145,00 €").
+    static func zeilen(aus fragmente: [TextFragment]) -> [String] {
+        guard !fragmente.isEmpty else { return [] }
+        let sortiert = fragmente.sorted { $0.box.midY > $1.box.midY }   // oben zuerst
+        var zeilen: [[TextFragment]] = []
+        var aktuell: [TextFragment] = []
+        var zeilenY = sortiert[0].box.midY
+        var zeilenH = sortiert[0].box.height
+        for f in sortiert {
+            let toleranz = max(zeilenH, f.box.height) * 0.6
+            if aktuell.isEmpty || abs(f.box.midY - zeilenY) <= toleranz {
+                aktuell.append(f)
+            } else {
+                zeilen.append(aktuell)
+                aktuell = [f]; zeilenY = f.box.midY; zeilenH = f.box.height
+            }
+        }
+        if !aktuell.isEmpty { zeilen.append(aktuell) }
+        return zeilen.map { gruppe in
+            gruppe.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ")
         }
     }
 
