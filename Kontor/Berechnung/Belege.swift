@@ -68,6 +68,12 @@ enum Belege {
         return "\(jahr)/\(ziel.lastPathComponent)"
     }
 
+    /// Löscht eine Belegdatei aus dem App-Container (sandbox-konform, no-op bei nil/leer/fehlend).
+    static func loesche(_ relativ: String?) {
+        guard let relativ, !relativ.isEmpty else { return }
+        try? FileManager.default.removeItem(at: url(fuer: relativ))
+    }
+
     /// Bündelt die angegebenen Belege als ZIP an der Zielposition (für den Jahresabschluss).
     static func exportiereAlsZip(pfade: [String], nach ziel: URL) throws {
         let temp = FileManager.default.temporaryDirectory

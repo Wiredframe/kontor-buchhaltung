@@ -383,8 +383,11 @@ struct AusgabenView: View {
     private func loesche(_ ids: Set<PersistentIdentifier>) {
         guard bestaetigeLoeschung(ids.count) else { return }
         selection.subtract(ids)
+        let pfade = alle.filter { ids.contains($0.id) }.map(\.belegPfad)
         for e in alle where ids.contains(e.id) { context.delete(e) }
         for t in zahlungen where ids.contains(t.id) { context.delete(t) }
+        try? context.save()
+        entferneVerwaisteBelege(pfade, context)
     }
 
     /// Kopiert die wiederkehrenden Buchungen (Fixkosten/Subscriptions) des Vormonats in den Zielmonat.

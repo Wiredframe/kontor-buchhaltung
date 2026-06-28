@@ -24,45 +24,57 @@ struct EinnahmeDaten {
 /// On-Device-OCR (Apple Vision) für Belege + heuristische Feld-Extraktion.
 enum BelegOCR {
 
+    /// Wie viele PDF-Seiten höchstens gelesen werden (Beträge/Summen stehen oft erst auf S. 2).
+    static let maxSeiten = 2
+
     static func analysiere(_ url: URL) async -> BelegDaten {
-        guard let cg = bild(von: url) else { return BelegDaten() }
-        let zeilen = await texterkennung(cg)
-        return extrahiere(aus: zeilen)
+        extrahiere(aus: await texterkennung(seiten: bilder(von: url)))
     }
 
     static func analysiereEinnahme(_ url: URL) async -> EinnahmeDaten {
-        guard let cg = bild(von: url) else { return EinnahmeDaten() }
-        let zeilen = await texterkennung(cg)
-        return extrahiereEinnahme(aus: zeilen)
+        extrahiereEinnahme(aus: await texterkennung(seiten: bilder(von: url)))
     }
 
-    // MARK: - Bild laden (PDF erste Seite oder Bilddatei)
+    // MARK: - Bilder laden (bis zu `maxSeiten` PDF-Seiten oder eine Bilddatei)
 
-    private static func bild(von url: URL) -> CGImage? {
+    private static func bilder(von url: URL) -> [CGImage] {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-        if url.pathExtension.lowercased() == "pdf",
-           let doc = PDFDocument(url: url), let page = doc.page(at: 0) {
-            let rect = page.bounds(for: .mediaBox)
-            let scale: CGFloat = 2.5
-            let groesse = NSSize(width: rect.width * scale, height: rect.height * scale)
-            let img = NSImage(size: groesse)
-            img.lockFocus()
-            NSColor.white.setFill(); NSRect(origin: .zero, size: groesse).fill()
-            if let ctx = NSGraphicsContext.current?.cgContext {
-                ctx.scaleBy(x: scale, y: scale)
-                page.draw(with: .mediaBox, to: ctx)
-            }
-            img.unlockFocus()
-            var r = NSRect(origin: .zero, size: groesse)
-            return img.cgImage(forProposedRect: &r, context: nil, hints: nil)
+        if url.pathExtension.lowercased() == "pdf", let doc = PDFDocument(url: url) {
+            return (0..<min(doc.pageCount, maxSeiten)).compactMap { doc.page(at: $0).flatMap(rendere) }
         }
         if let img = NSImage(contentsOf: url) {
             var r = NSRect(origin: .zero, size: img.size)
-            return img.cgImage(forProposedRect: &r, context: nil, hints: nil)
+            if let cg = img.cgImage(forProposedRect: &r, context: nil, hints: nil) { return [cg] }
         }
-        return nil
+        return []
+    }
+
+    /// Rendert eine PDF-Seite als CGImage (2,5× für bessere Texterkennung).
+    private static func rendere(_ page: PDFPage) -> CGImage? {
+        let rect = page.bounds(for: .mediaBox)
+        let scale: CGFloat = 2.5
+        let groesse = NSSize(width: rect.width * scale, height: rect.height * scale)
+        guard groesse.width > 0, groesse.height > 0 else { return nil }
+        let img = NSImage(size: groesse)
+        img.lockFocus()
+        NSColor.white.setFill(); NSRect(origin: .zero, size: groesse).fill()
+        if let ctx = NSGraphicsContext.current?.cgContext {
+            ctx.scaleBy(x: scale, y: scale)
+            page.draw(with: .mediaBox, to: ctx)
+        }
+        img.unlockFocus()
+        var r = NSRect(origin: .zero, size: groesse)
+        return img.cgImage(forProposedRect: &r, context: nil, hints: nil)
+    }
+
+    /// Texterkennung über mehrere Seiten – die Zeilen werden in Seitenreihenfolge zusammengeführt
+    /// (Kopf/Kunde/Datum von S. 1 bleiben vorn, Summen von S. 2 kommen hinzu).
+    private static func texterkennung(seiten: [CGImage]) async -> [String] {
+        var zeilen: [String] = []
+        for cg in seiten { zeilen += await texterkennung(cg) }
+        return zeilen
     }
 
     private static func texterkennung(_ cg: CGImage) async -> [String] {

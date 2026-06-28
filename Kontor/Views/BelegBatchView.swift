@@ -27,6 +27,20 @@ func belegDateien(_ urls: [URL]) -> [URL] {
     return urls.filter { erlaubt.contains($0.pathExtension.lowercased()) }
 }
 
+/// Entfernt Belegdateien, die nach dem Löschen von Einträgen niemand mehr referenziert
+/// (prüft alle belegtragenden Modelle, damit ein geteilter Anhang nicht verschwindet).
+/// Nach `context.delete` + `save()` aufrufen, damit die Prüfung den neuen Stand sieht.
+@MainActor
+func entferneVerwaisteBelege(_ pfade: [String?], _ context: ModelContext) {
+    let kandidaten = Set(pfade.compactMap { $0 }.filter { !$0.isEmpty })
+    guard !kandidaten.isEmpty else { return }
+    var nochGenutzt = Set<String>()
+    nochGenutzt.formUnion(((try? context.fetch(FetchDescriptor<ExpenseEntry>())) ?? []).compactMap(\.belegPfad))
+    nochGenutzt.formUnion(((try? context.fetch(FetchDescriptor<Income>())) ?? []).compactMap(\.belegPfad))
+    nochGenutzt.formUnion(((try? context.fetch(FetchDescriptor<PurchaseEntry>())) ?? []).compactMap(\.belegPfad))
+    for p in kandidaten where !nochGenutzt.contains(p) { Belege.loesche(p) }
+}
+
 /// Bearbeitbarer Entwurf eines Belegs (ein Dokument). Wird per OCR vorbefüllt und vom
 /// Nutzer korrigiert, bevor er als `Income`/`ExpenseEntry` übernommen wird.
 @Observable

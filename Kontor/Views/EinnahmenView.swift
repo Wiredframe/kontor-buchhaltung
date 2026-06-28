@@ -161,7 +161,10 @@ struct EinnahmenView: View {
     private func loesche(_ ids: Set<Income.ID>) {
         guard bestaetigeLoeschung(ids.count) else { return }
         selection.subtract(ids)
+        let pfade = alle.filter { ids.contains($0.id) }.map(\.belegPfad)
         for e in alle where ids.contains(e.id) { context.delete(e) }
+        try? context.save()
+        entferneVerwaisteBelege(pfade, context)
     }
 }
 

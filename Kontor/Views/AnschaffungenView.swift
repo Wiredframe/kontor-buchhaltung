@@ -110,7 +110,10 @@ struct AnschaffungenView: View {
     private func loesche(_ ids: Set<PurchaseEntry.ID>) {
         guard bestaetigeLoeschung(ids.count) else { return }
         selection.subtract(ids)
+        let pfade = alle.filter { ids.contains($0.id) }.map(\.belegPfad)
         for e in alle where ids.contains(e.id) { context.delete(e) }
+        try? context.save()
+        entferneVerwaisteBelege(pfade, context)
     }
 
     /// Verschiebt die gewählten Einkäufe ins Ausgaben-Ledger: je Einkauf eine **private**
