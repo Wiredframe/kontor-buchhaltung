@@ -68,6 +68,16 @@ func verfuegbareJahre(_ ctx: ModelContext) -> ClosedRange<Int> {
     return (jahre.min() ?? heute)...(jahre.max() ?? heute)
 }
 
+/// Rechnet den wählbaren Jahresbereich aus den Daten neu und hält die aktuelle Filter-Auswahl
+/// gültig (klemmt sie in den Bereich, falls das gewählte Jahr keine Daten mehr hat). Wird
+/// reaktiv bei Datenänderungen aufgerufen, damit neue/entfernte Jahre sofort greifen.
+@MainActor func aktualisiereJahre(_ zeit: Zeitkontext, _ context: ModelContext) {
+    zeit.jahre = verfuegbareJahre(context)
+    if !zeit.jahre.contains(zeit.filter.jahr) {
+        zeit.filter.jahr = min(max(zeit.filter.jahr, zeit.jahre.lowerBound), zeit.jahre.upperBound)
+    }
+}
+
 /// Jahres-Auswahl als Dropdown. Ohne expliziten `bereich` kommen die Jahre aus dem
 /// Zeitkontext (aus den Daten abgeleitet) – keine fest verdrahteten Jahreszahlen.
 struct JahrWaehler: View {
