@@ -6,6 +6,8 @@ vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät
 
 **macOS 15+** · SwiftUI + SwiftData · Bundle-ID `de.wiredframe.Kontor` · keine Telemetrie
 
+→ Aufbau & Entscheidungen: [ARCHITEKTUR.md](ARCHITEKTUR.md) (Schichten, Datenmodell, Diagramme)
+
 ---
 
 ## ⚠️ Geltungsbereich & Haftungsausschluss
