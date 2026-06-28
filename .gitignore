@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+build-release/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+
+# Xcode per-user data (shared schemes are tracked, user data is not)
+xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Obsidian / sonstiges
+*.swp
