@@ -92,6 +92,14 @@ struct BelegOCRTests {
         #expect(c.year == 2026 && c.month == 6 && c.day == 14)
     }
 
+    @Test func mehrwertsteuerAusgeschrieben() {
+        // USt-Zeile als ausgeschriebenes „Mehrwertsteuer" (auch „Mehrwert-Steuer" via Wortstamm).
+        let d = BelegOCR.extrahiere(aus: ["Anbieter X", "Netto 100,00", "Mehrwertsteuer 19 % 19,00", "Gesamtbetrag 119,00"])
+        #expect(d.vst == dez("19.00"))
+        #expect(d.steuerart == .inland19)
+        #expect(BelegOCR.extrahiere(aus: ["Mehrwert-Steuer 19,00", "Gesamt 119,00"]).vst == dez("19.00"))
+    }
+
     @Test func groessterBetragAlsFallback() {
         let d = BelegOCR.extrahiere(aus: ["Beleg ohne Schlagworte", "Posten A 10,00", "Posten B 119,00"])
         #expect(d.brutto == dez("119.00"))           // kein „Gesamt" → größter Betrag

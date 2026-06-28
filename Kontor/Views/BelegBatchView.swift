@@ -224,19 +224,21 @@ struct BelegBatchView: View {
             Spacer()
             if let e = aktuell {
                 Button("Überspringen") { ueberspringen(e) }
-                // Kein .disabled bei fehlendem Betrag: das blockierte sonst „Trotzdem neu anlegen"/
-                // „Übernehmen" ohne Feedback. Mehrfach-Anlage ist durch die Idempotenz ausgeschlossen
-                // (erneutes Bestätigen aktualisiert denselben Eintrag); „Betrag fehlt" warnt nur.
+                // Ohne Betrag wird nicht angelegt (Sperre + „Betrag fehlt"-Hinweis) – ein Betrag
+                // wird erwartet. Mehrfach-Anlage ist zusätzlich durch die Idempotenz ausgeschlossen.
                 if e.schonAngelegt {
                     Button("Aktualisieren") { uebernehmen(e, alsDublette: false) }
                         .keyboardShortcut(.defaultAction)
+                        .disabled(betragFehlt(e))
                 } else if e.dublette != nil {
                     Button("Trotzdem neu anlegen") { uebernehmen(e, alsDublette: false) }
+                        .disabled(betragFehlt(e))
                     Button("Zusammenführen") { uebernehmen(e, alsDublette: true) }
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Übernehmen & weiter") { uebernehmen(e, alsDublette: false) }
                         .keyboardShortcut(.defaultAction)
+                        .disabled(betragFehlt(e))
                 }
             } else {
                 Button("Schließen") { dismiss() }.keyboardShortcut(.defaultAction)
