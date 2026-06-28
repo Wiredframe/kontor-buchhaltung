@@ -50,6 +50,7 @@ struct AufgabenView: View {
                     .width(min: 96, ideal: 120)
             }
             .environment(\.defaultMinListRowHeight, 36)
+            .onDeleteCommand { loesche(selection) }
             .contextMenu(forSelectionType: MonthlyTask.ID.self) { ids in
                 Button("Duplizieren") { duplizieren(ids) }
                 Button("Löschen", role: .destructive) { loesche(ids) }

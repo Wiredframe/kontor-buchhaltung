@@ -43,6 +43,7 @@ struct AnschaffungenView: View {
                     .width(min: 90, ideal: 100)
             }
             .environment(\.defaultMinListRowHeight, 34)
+            .onDeleteCommand { loesche(selection) }
             .contextMenu(forSelectionType: PurchaseEntry.ID.self) { ids in
                 Button("Duplizieren") { duplizieren(ids) }
                 Button("In Ausgaben verschieben") { nachAusgaben(ids) }
