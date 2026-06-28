@@ -57,6 +57,8 @@ struct AusgabenView: View {
     @State private var sparte: SparteFilter = .alle
     @State private var suche = ""
     @State private var zielAktiv = false
+    @State private var batchURLs: [URL] = []
+    @State private var zeigeBatch = false
 
     enum SidebarModus: String, CaseIterable, Identifiable {
         case eintrag = "Eintrag", vorlagen = "Vorlagen"
@@ -241,8 +243,10 @@ struct AusgabenView: View {
             .environment(\.defaultMinListRowHeight, 34)
             .onChange(of: selection) { _, neu in if neu.count == 1 { sidebarModus = .eintrag } }
             .dropDestination(for: URL.self) { urls, _ in
-                for url in urls { verarbeiteBeleg(url) }
-                return !urls.isEmpty
+                let dok = belegDateien(urls)
+                guard !dok.isEmpty else { return false }
+                batchURLs = dok; zeigeBatch = true
+                return true
             } isTargeted: { zielAktiv = $0 }
             .overlay {
                 if zielAktiv {
@@ -276,6 +280,7 @@ struct AusgabenView: View {
                 } label: {
                     Label("Neu", systemImage: "plus")
                 }
+                Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
                 Button { vormonatDuplizieren() } label: { Label("Vormonat duplizieren", systemImage: "doc.on.doc") }
                     .help("Kopiert die wiederkehrenden Buchungen des Vormonats in \(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))")
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
@@ -323,28 +328,17 @@ struct AusgabenView: View {
             }
             .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
         }
+        .sheet(isPresented: $zeigeBatch) {
+            BelegBatchView(modus: .ausgabe, urls: batchURLs)
+        }
     }
 
-    private func verarbeiteBeleg(_ url: URL) {
-        Task {
-            let daten = await BelegOCR.analysiere(url)
-            let datum = daten.datum ?? Date()
-            let pfad = Belege.speichere(url, jahr: appKalender.component(.year, from: datum))
-            await MainActor.run {
-                let st = daten.steuerart ?? .inland19
-                let e = ExpenseEntry(
-                    datum: datum,
-                    bezeichnung: daten.anbieter ?? url.deletingPathExtension().lastPathComponent,
-                    anbieter: daten.anbieter ?? "",
-                    brutto: daten.brutto ?? 0,
-                    vst: st == .reverseCharge ? 0 : (daten.vst ?? 0),
-                    steuerart: st,
-                    kategorie: .laufend, betrieblich: true, belegPfad: pfad,
-                    art: .betriebsausgabe)
-                context.insert(e); try? context.save()
-                selection = [e.id]; sidebarModus = .eintrag; zeigeInspektor = true
-            }
-        }
+    private func belegeWaehlen() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf, .image]
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        batchURLs = panel.urls; zeigeBatch = true
     }
 
     // MARK: Aktionen
@@ -536,6 +530,9 @@ struct AusgabeInspektor: View {
                 .disabled(eintrag.steuerart != .inland19)
             }
             LabeledContent("Netto", value: eintrag.netto.euro)
+            if let z = eintrag.zahlungsdatum {
+                LabeledContent("Bezahlt am", value: z.formatted(.dateTime.day().month().year()))
+            }
             Picker("Kategorie", selection: $eintrag.kategorie) {
                 ForEach(Kategorie.allCases) { Text($0.bezeichnung).tag($0) }
             }

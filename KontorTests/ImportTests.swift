@@ -106,6 +106,35 @@ struct ImportTests {
         #expect(ziel != nil)
     }
 
+    @Test func ausgabeMatchUeberRechnungsnummer() throws {
+        let c = try container()
+        // Per PDF erfasste Ausgabe mit Rechnungsnummer, Zahlung kommt erst Wochen später.
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Adobe", anbieter: "Adobe",
+                                          brutto: dez("119"), vst: dez("19"), steuerart: .inland19,
+                                          rechnungsnummer: "RE-2026-0042"))
+        try c.mainContext.save()
+        let b = buchung("-119,00", name: "ADOBE/Dublin/IE", zweck: "Rechnung RE-2026-0042 Danke", am: 20) // 19 Tage später
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        let ziel = ImportAnwendung.ziel(b, z, c.mainContext)
+        #expect(ziel != nil)                                  // über RN gefunden, trotz Datumsabstand > 5 Tage
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .ueberschreiben(ziel!), c.mainContext)
+        #expect(try c.mainContext.fetchCount(FetchDescriptor<ExpenseEntry>()) == 1)   // keine Dublette
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.zahlungsdatum == tag(2026, 6, 20))          // Zahltag festgehalten
+    }
+
+    @Test func ausgabeMatchBreiteresFenster() throws {
+        let c = try container()
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Hosting", anbieter: "Hosting",
+                                          brutto: dez("50"), vst: 0, steuerart: .reverseCharge))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        // 19 Tage Abstand → innerhalb des großzügigen Fensters (30 Tage)
+        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", am: 20), z, c.mainContext) != nil)
+        // > 30 Tage Abstand und keine RN → kein Treffer
+        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", monat: 8, am: 5), z, c.mainContext) == nil)
+    }
+
     @Test func ueberspringenLegtNichtsAn() throws {
         let c = try container()
         let b = buchung("-3,00", name: "Parkhaus City")

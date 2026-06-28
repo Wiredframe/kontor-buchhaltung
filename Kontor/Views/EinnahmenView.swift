@@ -13,6 +13,8 @@ struct EinnahmenView: View {
     @State private var zeigeInspektor = true
     @State private var suche = ""
     @State private var zielAktiv = false
+    @State private var batchURLs: [URL] = []
+    @State private var zeigeBatch = false
 
     private var gefiltert: [Income] {
         alle.filter { e in
@@ -74,8 +76,10 @@ struct EinnahmenView: View {
             }
             .environment(\.defaultMinListRowHeight, 34)
             .dropDestination(for: URL.self) { urls, _ in
-                for url in urls { verarbeiteRechnung(url) }
-                return !urls.isEmpty
+                let dok = belegDateien(urls)
+                guard !dok.isEmpty else { return false }
+                batchURLs = dok; zeigeBatch = true
+                return true
             } isTargeted: { zielAktiv = $0 }
             .overlay {
                 if zielAktiv {
@@ -96,6 +100,7 @@ struct EinnahmenView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button { neu() } label: { Label("Neu", systemImage: "plus") }
+                Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
             }
         }
@@ -120,6 +125,9 @@ struct EinnahmenView: View {
             }
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
+        .sheet(isPresented: $zeigeBatch) {
+            BelegBatchView(modus: .einnahme, urls: batchURLs)
+        }
     }
 
     private func farbe(_ s: InvoiceStatus) -> Color {
@@ -136,32 +144,12 @@ struct EinnahmenView: View {
         selection = [e.id]; zeigeInspektor = true
     }
 
-    private func verarbeiteRechnung(_ url: URL) {
-        Task {
-            let d = await BelegOCR.analysiereEinnahme(url)
-            let datum = d.datum ?? Date()
-            await MainActor.run {
-                if let nr = d.rechnungsnummer, let vorhanden = alle.first(where: { $0.rechnungsnummer == nr }) {
-                    if vorhanden.belegPfad == nil {        // PDF an vorhandenen Eintrag nachtragen
-                        vorhanden.belegPfad = Belege.speichere(url, jahr: appKalender.component(.year, from: datum))
-                    }
-                    selection = [vorhanden.id]; zeigeInspektor = true; return   // Duplikat vermeiden
-                }
-                let pfad = Belege.speichere(url, jahr: appKalender.component(.year, from: datum))
-                let e = Income(
-                    kunde: d.kunde ?? url.deletingPathExtension().lastPathComponent,
-                    rnNetto: d.rnNetto ?? 0,
-                    ust: d.ust ?? 0,
-                    rechnungsdatum: datum,
-                    status: .offen,
-                    rechnungsnummer: d.rechnungsnummer,
-                    belegPfad: pfad)
-                context.insert(e)
-                try? context.save()        // ID permanent → Auswahl bleibt gültig
-                selection = [e.id]
-                zeigeInspektor = true
-            }
-        }
+    private func belegeWaehlen() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf, .image]
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        batchURLs = panel.urls; zeigeBatch = true
     }
     private func duplizieren(_ ids: Set<Income.ID>) {
         for e in alle where ids.contains(e.id) {

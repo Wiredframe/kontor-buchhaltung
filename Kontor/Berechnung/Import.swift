@@ -75,7 +75,15 @@ enum ImportAnwendung {
             return nahestes((try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
                             betragVon: { -$0.preis }, datumVon: { $0.datum })
         case .betriebsausgabe, .fixkosten, .subscription:
-            return nahestes((try? ctx.fetch(FetchDescriptor<ExpenseEntry>())) ?? [], betrag, b.buchungstag,
+            let ausgaben = (try? ctx.fetch(FetchDescriptor<ExpenseEntry>())) ?? []
+            // Zuerst über die Rechnungsnummer (z. B. per OCR erfasst) – unabhängig vom Datumsabstand.
+            let zweckZiffern = b.verwendungszweck.filter(\.isNumber)
+            if !zweckZiffern.isEmpty, let m = ausgaben.first(where: { e in
+                guard let nr = e.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
+                return zweckZiffern.contains(nr)
+            }) { return m.persistentModelID }
+            // Sonst über Betrag + großzügiges Datumsfenster (PDF-Erfassung liegt oft Wochen vor der Zahlung).
+            return nahestes(ausgaben, betrag, b.buchungstag, toleranzTage: 30,
                             betragVon: { $0.brutto }, datumVon: { $0.datum })
         case .steuer:
             // Offener, geplanter Termin gleicher Art im selben Jahr (Betrag passt oder Termin noch ohne
@@ -146,13 +154,17 @@ enum ImportAnwendung {
                                     : z.kategorie == .subscription ? .subscription : .betriebsausgabe
                 let vst = z.betrieblich ? Steuer.vorsteuerVorschlag(brutto: betrag, steuerart: z.steuerart) : 0
                 if let e: ExpenseEntry = hole(ziel, ctx) {
-                    e.datum = b.buchungstag; e.brutto = betrag; e.vst = vst; e.steuerart = z.steuerart
+                    // `datum` bleibt das EÜR-maßgebliche (Abfluss-)Datum = Buchungstag (wie bisher),
+                    // `zahlungsdatum` hält den Zahltag zusätzlich fest; eine bereits erfasste
+                    // Rechnungsnummer (OCR) wird nicht überschrieben.
+                    e.datum = b.buchungstag; e.zahlungsdatum = b.buchungstag
+                    e.brutto = betrag; e.vst = vst; e.steuerart = z.steuerart
                     e.bezeichnung = name; e.anbieter = name; e.betrieblich = z.betrieblich; e.art = art
                     nachricht = "Ausgabe aktualisiert"
                 } else {
                     ctx.insert(ExpenseEntry(datum: b.buchungstag, bezeichnung: name, anbieter: name, brutto: betrag,
                                             vst: vst, steuerart: z.steuerart, kategorie: .laufend,
-                                            betrieblich: z.betrieblich, art: art))
+                                            betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
                     nachricht = "Ausgabe angelegt"
                 }
             case .einnahme:

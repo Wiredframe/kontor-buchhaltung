@@ -66,6 +66,8 @@ enum Backup {
         var umlagefaehig: Bool? = nil
         var belegPfad: String? = nil
         var art: AusgabeArt? = nil   // optional → ältere Backups bleiben lesbar
+        var rechnungsnummer: String? = nil
+        var zahlungsdatum: Date? = nil
     }
     struct EinnahmeDTO: Codable {
         var kunde: String
@@ -124,7 +126,8 @@ enum Backup {
                 AusgabeDTO(datum: $0.datum, bezeichnung: $0.bezeichnung, anbieter: $0.anbieter,
                     brutto: $0.brutto, vst: $0.vst, steuerart: $0.steuerart, kategorie: $0.kategorie,
                     betrieblich: $0.betrieblich,
-                    umlagefaehig: $0.umlagefaehig, belegPfad: $0.belegPfad, art: $0.art) },
+                    umlagefaehig: $0.umlagefaehig, belegPfad: $0.belegPfad, art: $0.art,
+                    rechnungsnummer: $0.rechnungsnummer, zahlungsdatum: $0.zahlungsdatum) },
             einnahmen: try context.fetch(FetchDescriptor<Income>()).map {
                 EinnahmeDTO(kunde: $0.kunde, rnNetto: $0.rnNetto, ust: $0.ust,
                     rechnungsdatum: $0.rechnungsdatum, zahlungsdatum: $0.zahlungsdatum,
@@ -271,7 +274,8 @@ enum Backup {
             context.insert(ExpenseEntry(datum: d.datum, bezeichnung: d.bezeichnung, anbieter: d.anbieter,
                 brutto: d.brutto, vst: d.vst, steuerart: d.steuerart, kategorie: d.kategorie,
                 betrieblich: d.betrieblich, umlagefaehig: d.umlagefaehig ?? false,
-                belegPfad: d.belegPfad, art: d.art)); neu += 1
+                belegPfad: d.belegPfad, art: d.art,
+                rechnungsnummer: d.rechnungsnummer, zahlungsdatum: d.zahlungsdatum)); neu += 1
         }
         var vorlageKeys = Set(try context.fetch(FetchDescriptor<Vorlage>()).map { $0.bezeichnung.lowercased() + "|" + $0.art.rawValue })
         for d in snap.vorlagen ?? [] {

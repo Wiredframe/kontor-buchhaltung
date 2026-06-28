@@ -9,6 +9,7 @@ struct BelegDaten {
     var brutto: Decimal?
     var vst: Decimal?
     var steuerart: Steuerart?
+    var rechnungsnummer: String?
 }
 
 /// Felder einer Ausgangs-(Einnahmen-)Rechnung (OCR-Extraktion).
@@ -90,6 +91,7 @@ enum BelegOCR {
             ?? groessterBetrag(in: zeilen)
         d.anbieter = anbieter(in: zeilen)
         d.steuerart = steuerart(text: low, vst: d.vst)
+        d.rechnungsnummer = rechnungsnummer(in: zeilen)
         return d
     }
 

@@ -165,6 +165,10 @@ final class ExpenseEntry {
     /// Routet die Buchung in die richtige Ansicht (nil = Betriebsausgabe). Optional, weil neu
     /// (nicht-optionale Enum-Felder crashen die Store-Migration).
     var art: AusgabeArt?
+    /// Rechnungsnummer (z. B. aus OCR) – stabilster Schlüssel für den Kontoauszug-Abgleich.
+    var rechnungsnummer: String?
+    /// Zahltag aus dem Kontoauszug (rein informativ – die EÜR zählt weiterhin nach `datum`).
+    var zahlungsdatum: Date?
 
     /// Netto = Brutto − Vorsteuer (berechnet, nicht gespeichert).
     var netto: Decimal { brutto - vst }
@@ -182,7 +186,9 @@ final class ExpenseEntry {
         betrieblich: Bool = true,
         umlagefaehig: Bool = false,
         belegPfad: String? = nil,
-        art: AusgabeArt? = nil
+        art: AusgabeArt? = nil,
+        rechnungsnummer: String? = nil,
+        zahlungsdatum: Date? = nil
     ) {
         self.datum = datum
         self.bezeichnung = bezeichnung
@@ -195,6 +201,8 @@ final class ExpenseEntry {
         self.umlagefaehig = umlagefaehig
         self.belegPfad = belegPfad
         self.art = art
+        self.rechnungsnummer = rechnungsnummer
+        self.zahlungsdatum = zahlungsdatum
     }
 }
 

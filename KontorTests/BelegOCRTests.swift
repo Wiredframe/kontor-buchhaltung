@@ -24,6 +24,7 @@ struct BelegOCRTests {
         #expect(d.brutto == dez("35.00"))            // „Gesamtbetrag"
         #expect(d.vst == dez("5.59"))                // „MwSt"
         #expect(d.steuerart == .inland19)            // MwSt vorhanden → Inland 19 %
+        #expect(d.rechnungsnummer == "0027")         // RN auch für Ausgaben extrahiert (Bank-Matching)
         let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
         #expect(c.year == 2026 && c.month == 6 && c.day == 14)
     }
