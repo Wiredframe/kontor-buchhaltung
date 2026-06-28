@@ -68,6 +68,7 @@ struct EinnahmenView: View {
                 }
                 .width(min: 96, ideal: 110)
             }
+            .onDeleteCommand { loesche(selection) }
             .contextMenu(forSelectionType: Income.ID.self) { ids in
                 Button("Als bezahlt markieren (heute)") { bezahltHeute(ids) }
                 Button("Duplizieren (heute)") { duplizieren(ids) }

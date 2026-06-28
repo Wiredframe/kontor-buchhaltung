@@ -231,6 +231,7 @@ struct AusgabenView: View {
                         .width(min: 56, ideal: 80)
                 }
             }
+            .onDeleteCommand { loesche(selection) }
             .contextMenu(forSelectionType: PersistentIdentifier.self) { ids in
                 let ausgabenIds = ids.filter { id in alle.contains { $0.id == id } }
                 Button("Duplizieren (heute)") { duplizieren(ids) }
