@@ -58,6 +58,15 @@ final class BelegEntwurf: Identifiable {
     var dublette: PersistentIdentifier?
     var ergebnis: String?
 
+    /// Pfad des einmal gespeicherten Belegs (Re-Submit kopiert die Datei nicht erneut).
+    var belegPfad: String?
+    /// Der bereits aus diesem Entwurf angelegte Eintrag – erneutes Bestätigen aktualisiert ihn,
+    /// statt eine zweite Buchung zu erzeugen.
+    var income: Income?
+    var ausgabe: ExpenseEntry?
+    /// Wurde der Entwurf schon einmal übernommen? (→ Button heißt „Aktualisieren")
+    var schonAngelegt: Bool { income != nil || ausgabe != nil }
+
     var bruttoEinnahme: Decimal { rnNetto + ust }
     var netto: Decimal { brutto - vst }
     var dateiName: String { url.lastPathComponent }
@@ -148,16 +157,27 @@ struct BelegBatchView: View {
                 Text("Dokument \(idx + 1) / \(entwuerfe.count)")
                     .font(.callout).foregroundStyle(.secondary).monospacedDigit()
             }
+            if let e = aktuell, betragFehlt(e) {
+                Label("Betrag fehlt", systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout).foregroundStyle(.orange)
+            }
             Spacer()
             if let e = aktuell {
                 Button("Überspringen") { ueberspringen(e) }
-                if e.dublette != nil {
+                if e.schonAngelegt {
+                    // Bereits angelegt → denselben Eintrag aktualisieren (nie ein zweiter).
+                    Button("Aktualisieren") { uebernehmen(e, alsDublette: false) }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(betragFehlt(e))
+                } else if e.dublette != nil {
                     Button("Trotzdem neu anlegen") { uebernehmen(e, alsDublette: false) }
+                        .disabled(betragFehlt(e))
                     Button("Zusammenführen") { uebernehmen(e, alsDublette: true) }
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Übernehmen & weiter") { uebernehmen(e, alsDublette: false) }
                         .keyboardShortcut(.defaultAction)
+                        .disabled(betragFehlt(e))
                 }
             } else {
                 Button("Schließen") { dismiss() }.keyboardShortcut(.defaultAction)
@@ -231,9 +251,16 @@ struct BelegBatchView: View {
 
     // MARK: Aktionen
 
+    private func betragFehlt(_ e: BelegEntwurf) -> Bool {
+        modus == .einnahme ? e.bruttoEinnahme == 0 : e.brutto == 0
+    }
+
     private func uebernehmen(_ e: BelegEntwurf, alsDublette: Bool) {
-        let jahr = appKalender.component(.year, from: e.datum)
-        let pfad = Belege.speichere(e.url, jahr: jahr)
+        // Beleg nur einmal pro Entwurf in den Belege-Ordner kopieren (Re-Submit dupliziert die Datei nicht).
+        if e.belegPfad == nil {
+            e.belegPfad = Belege.speichere(e.url, jahr: appKalender.component(.year, from: e.datum))
+        }
+        let pfad = e.belegPfad
         let rn = e.rechnungsnummer.isEmpty ? nil : e.rechnungsnummer
 
         if alsDublette, let pid = e.dublette {
@@ -251,23 +278,28 @@ struct BelegBatchView: View {
             }
             e.ergebnis = "zusammengeführt"
         } else {
+            let warSchonAngelegt = e.schonAngelegt
             switch modus {
             case .einnahme:
-                context.insert(Income(
-                    kunde: e.kunde.isEmpty ? e.url.deletingPathExtension().lastPathComponent : e.kunde,
-                    rnNetto: e.rnNetto, ust: e.ust, rechnungsdatum: e.datum, status: .offen,
-                    rechnungsnummer: rn, belegPfad: pfad))
+                // Vorhandenen Eintrag des Entwurfs wiederverwenden (sonst neuen anlegen) → keine Dublette.
+                let inc = e.income ?? Income(kunde: "", rnNetto: 0, ust: 0, rechnungsdatum: e.datum, status: .offen)
+                inc.kunde = e.kunde.isEmpty ? e.url.deletingPathExtension().lastPathComponent : e.kunde
+                inc.rnNetto = e.rnNetto; inc.ust = e.ust; inc.rechnungsdatum = e.datum
+                inc.rechnungsnummer = rn; inc.belegPfad = pfad
+                if e.income == nil { context.insert(inc); e.income = inc }
             case .ausgabe:
-                context.insert(ExpenseEntry(
-                    datum: e.datum,
-                    bezeichnung: e.bezeichnung.isEmpty ? e.url.deletingPathExtension().lastPathComponent : e.bezeichnung,
-                    anbieter: e.anbieter, brutto: e.brutto,
-                    vst: e.steuerart == .reverseCharge ? 0 : e.vst, steuerart: e.steuerart,
-                    kategorie: .laufend, betrieblich: e.betrieblich, belegPfad: pfad,
-                    art: e.art, rechnungsnummer: rn))
+                let ex = e.ausgabe ?? ExpenseEntry(datum: e.datum, bezeichnung: "", anbieter: "",
+                                                   brutto: 0, vst: 0, steuerart: e.steuerart)
+                ex.datum = e.datum
+                ex.bezeichnung = e.bezeichnung.isEmpty ? e.url.deletingPathExtension().lastPathComponent : e.bezeichnung
+                ex.anbieter = e.anbieter; ex.brutto = e.brutto
+                ex.vst = e.steuerart == .reverseCharge ? 0 : e.vst; ex.steuerart = e.steuerart
+                ex.betrieblich = e.betrieblich; ex.art = e.art
+                ex.rechnungsnummer = rn; ex.belegPfad = pfad
+                if e.ausgabe == nil { context.insert(ex); e.ausgabe = ex }
             }
             sichtbarMachen(e.datum)
-            e.ergebnis = "übernommen"
+            e.ergebnis = warSchonAngelegt ? "aktualisiert" : "übernommen"
         }
         try? context.save()
         e.status = .uebernommen
