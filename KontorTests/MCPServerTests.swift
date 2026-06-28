@@ -26,7 +26,7 @@ struct MCPServerTests {
                           rechnungsdatum: tag(2026, 2, 15), zahlungsdatum: tag(2026, 2, 20),
                           status: .bezahlt, rechnungsnummer: "R-1"))
         ctx.insert(ExpenseEntry(datum: tag(2026, 2, 10), bezeichnung: "Hosting", anbieter: "Netcup",
-                                brutto: dez("119"), vst: dez("19"), steuerart: .inland19, kategorie: .laufend))
+                                brutto: dez("119"), vst: dez("19"), steuerart: .inland19))
         try ctx.save()
     }
 
@@ -71,9 +71,9 @@ struct MCPServerTests {
         let c = try container(); try seed(c)
         let text = toolText(await ruf(c, "tools/call",
             ["name": "kontor_eur", "arguments": ["jahr": 2026]]))
-        // Einnahmen netto 1000, Ausgaben laufend netto 100 ⇒ Gewinn 900.
+        // Einnahmen netto 1000, Betriebsausgaben netto 100 ⇒ Gewinn 900.
         #expect(text.contains("Einnahmen (bezahlt, netto):  1000.00"))
-        #expect(text.contains("Ausgaben laufend (netto):    100.00"))
+        #expect(text.contains("Betriebsausgaben (netto):    100.00"))
         #expect(text.contains("Gewinn:                      900.00"))
     }
 
@@ -268,7 +268,7 @@ struct MCPServerTests {
 
         // beleg-Spalte der Ausgabenliste zeigt den Pfad.
         let liste = toolText(await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "jahr": 2026]]))
-        #expect(liste.split(separator: "\n").first == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;kategorie;betrieblich;beleg")
+        #expect(liste.split(separator: "\n").first == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg")
         #expect(liste.contains(pfad))
 
         // entfernen=true löst den Verweis (Datei darf bleiben).

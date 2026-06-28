@@ -46,8 +46,8 @@ struct UStVATests {
     /// Synthetische Q1-Ausgaben (Mix aus Reverse-Charge & Inland 19 %, inkl. einer Hardware-
     /// Anschaffung im März). Summen: VSt 205,20 · RC-Netto 58,00 · RC-USt 11,02.
     static func q1Ausgaben2026() -> [AusgabePosten] {
-        func a(_ m: Int, _ tg: Int, _ brutto: String, _ vst: String, _ art: Steuerart, _ kat: Kategorie = .laufend) -> AusgabePosten {
-            AusgabePosten(brutto: dez(brutto), vst: dez(vst), steuerart: art, kategorie: kat, betrieblich: true, datum: tag(2026, m, tg))
+        func a(_ m: Int, _ tg: Int, _ brutto: String, _ vst: String, _ art: Steuerart) -> AusgabePosten {
+            AusgabePosten(brutto: dez(brutto), vst: dez(vst), steuerart: art, betrieblich: true, datum: tag(2026, m, tg))
         }
         return [
             // Januar
@@ -58,7 +58,7 @@ struct UStVATests {
             a(2, 11, "71.40", "11.40", .inland19),      // netto 60,00
             // März (inkl. Hardware-Anschaffung)
             a(3, 1, "20.00", "0.00", .reverseCharge),
-            a(3, 24, "1190.00", "190.00", .inland19, .anschaffung),  // netto 1000,00
+            a(3, 24, "1190.00", "190.00", .inland19),  // netto 1000,00
         ]
     }
 
@@ -75,7 +75,7 @@ struct UStVATests {
 
     @Test func anschaffungNettoHardware() {
         let hardware = AusgabePosten(brutto: dez("1190.00"), vst: dez("190.00"),
-                                     steuerart: .inland19, kategorie: .anschaffung,
+                                     steuerart: .inland19,
                                      betrieblich: true, datum: tag(2026, 3, 24))
         #expect(hardware.netto == dez("1000.00"))
     }
@@ -188,9 +188,9 @@ struct EUERTests {
                            zahlungsdatum: tag(2026, 1, 15), status: .bezahlt, ausfalldatum: nil),
         ]
         let ausgaben = [
-            AusgabePosten(brutto: dez("119"), vst: dez("19"), steuerart: .inland19, kategorie: .laufend,
+            AusgabePosten(brutto: dez("119"), vst: dez("19"), steuerart: .inland19,
                           betrieblich: true, datum: tag(2026, 3, 1)),   // netto 100, betrieblich → zählt
-            AusgabePosten(brutto: dez("50"), vst: dez("0"), steuerart: .steuerfrei, kategorie: .laufend,
+            AusgabePosten(brutto: dez("50"), vst: dez("0"), steuerart: .steuerfrei,
                           betrieblich: false, datum: tag(2026, 3, 1)),  // privat → zählt nicht
         ]
         // (2400 + 500) − 100 = 2800

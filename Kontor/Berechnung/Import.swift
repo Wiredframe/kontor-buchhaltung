@@ -163,7 +163,7 @@ enum ImportAnwendung {
                     nachricht = "Ausgabe aktualisiert"
                 } else {
                     ctx.insert(ExpenseEntry(datum: b.buchungstag, bezeichnung: name, anbieter: name, brutto: betrag,
-                                            vst: vst, steuerart: z.steuerart, kategorie: .laufend,
+                                            vst: vst, steuerart: z.steuerart,
                                             betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
                     nachricht = "Ausgabe angelegt"
                 }

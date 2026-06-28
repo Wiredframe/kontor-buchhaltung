@@ -18,22 +18,6 @@ enum Steuerart: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// Ausgaben-Kategorie für die EÜR.
-enum Kategorie: String, Codable, CaseIterable, Identifiable {
-    case laufend      // laufende monatliche Betriebsausgaben
-    case jaehrlich    // jährliche Posten (z. B. Domain)
-    case anschaffung  // Anschaffung / Sofortabzug (MacBook, iPhone)
-
-    var id: String { rawValue }
-    var bezeichnung: String {
-        switch self {
-        case .laufend:     "laufend"
-        case .jaehrlich:   "jährlich"
-        case .anschaffung: "Anschaffung"
-        }
-    }
-}
-
 /// Wiederholungs-Intervall einer Vorlage.
 enum Intervall: String, Codable, CaseIterable, Identifiable {
     case monatlich

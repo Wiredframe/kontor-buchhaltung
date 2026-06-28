@@ -18,13 +18,10 @@ struct MonatsAuswertung: Hashable {
 /// Aggregierte Jahreswerte für die EÜR-Übersicht.
 struct JahresAuswertung: Hashable {
     var einnahmenBezahlt: Decimal
-    var ausgabenLaufend: Decimal
-    var ausgabenJaehrlich: Decimal
-    var ausgabenAnschaffung: Decimal
+    var ausgabenNetto: Decimal
     var vstGesamt: Decimal
 
-    var ausgabenGesamt: Decimal { ausgabenLaufend + ausgabenJaehrlich + ausgabenAnschaffung }
-    var gewinn: Decimal { einnahmenBezahlt - ausgabenGesamt }
+    var gewinn: Decimal { einnahmenBezahlt - ausgabenNetto }
 }
 
 extension Steuer {
@@ -81,23 +78,16 @@ extension Steuer {
         (1...4).reduce(Decimal(0)) { $0 + ustva(einnahmen: einnahmen, ausgaben: ausgaben, periode: Periode.quartal(jahr, $1)).zahllast }
     }
 
-    /// EÜR-Jahresauswertung (Einnahmen nach Zufluss, Ausgaben nach Kategorie netto).
+    /// EÜR-Jahresauswertung (Einnahmen nach Zufluss, betriebliche Ausgaben netto).
     static func jahresauswertung(jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten]) -> JahresAuswertung {
         let p = Periode.jahr(jahr)
         let einnahmenBezahlt = einnahmen
             .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
-        func nettoSumme(_ kat: Kategorie) -> Decimal {
-            ausgaben.filter { $0.betrieblich && $0.kategorie == kat && p.enthaelt($0.datum) }
-                .reduce(Decimal(0)) { $0 + $1.netto }
-        }
-        let vst = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }
-            .reduce(Decimal(0)) { $0 + $1.vst }
+        let betrieblich = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }
         return JahresAuswertung(
             einnahmenBezahlt: einnahmenBezahlt,
-            ausgabenLaufend: nettoSumme(.laufend),
-            ausgabenJaehrlich: nettoSumme(.jaehrlich),
-            ausgabenAnschaffung: nettoSumme(.anschaffung),
-            vstGesamt: vst)
+            ausgabenNetto: betrieblich.reduce(Decimal(0)) { $0 + $1.netto },
+            vstGesamt: betrieblich.reduce(Decimal(0)) { $0 + $1.vst })
     }
 }

@@ -61,7 +61,6 @@ enum Backup {
         var bezeichnung, anbieter: String
         var brutto, vst: Decimal
         var steuerart: Steuerart
-        var kategorie: Kategorie
         var betrieblich: Bool
         var umlagefaehig: Bool? = nil
         var belegPfad: String? = nil
@@ -124,7 +123,7 @@ enum Backup {
                     snapshotProMonat: $0.snapshotProMonat) },
             ausgaben: try context.fetch(FetchDescriptor<ExpenseEntry>()).map {
                 AusgabeDTO(datum: $0.datum, bezeichnung: $0.bezeichnung, anbieter: $0.anbieter,
-                    brutto: $0.brutto, vst: $0.vst, steuerart: $0.steuerart, kategorie: $0.kategorie,
+                    brutto: $0.brutto, vst: $0.vst, steuerart: $0.steuerart,
                     betrieblich: $0.betrieblich,
                     umlagefaehig: $0.umlagefaehig, belegPfad: $0.belegPfad, art: $0.art,
                     rechnungsnummer: $0.rechnungsnummer, zahlungsdatum: $0.zahlungsdatum) },
@@ -272,7 +271,7 @@ enum Backup {
             if ausgabeKeys.contains(k) { skip += 1; continue }
             ausgabeKeys.insert(k)
             context.insert(ExpenseEntry(datum: d.datum, bezeichnung: d.bezeichnung, anbieter: d.anbieter,
-                brutto: d.brutto, vst: d.vst, steuerart: d.steuerart, kategorie: d.kategorie,
+                brutto: d.brutto, vst: d.vst, steuerart: d.steuerart,
                 betrieblich: d.betrieblich, umlagefaehig: d.umlagefaehig ?? false,
                 belegPfad: d.belegPfad, art: d.art,
                 rechnungsnummer: d.rechnungsnummer, zahlungsdatum: d.zahlungsdatum)); neu += 1

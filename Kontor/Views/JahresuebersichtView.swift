@@ -118,17 +118,15 @@ struct JahresuebersichtView: View {
                         rechts: .init(titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast,
                                       farbe: w.steuerlast < 0 ? Stil.heroNegativ : .white))
 
-                    // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (nach Kategorie) = Gewinn.
+                    // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
                     Panel(titel: "Einnahmenüberschussrechnung (EÜR)",
                           aktion: { nav.zeigeAusgabenJahr(jahr: jahr, betrieblich: true, zeit: zeit) }) {
                         VStack(spacing: 2) {
                             Kartenzeile(label: "Betriebseinnahmen (Zufluss, netto)", wert: w.a.einnahmenBezahlt, icon: "eurosign.circle")
                             Divider().padding(.vertical, 4)
-                            Kartenzeile(label: "Laufende Ausgaben (monatlich)", wert: w.a.ausgabenLaufend, icon: "arrow.triangle.2.circlepath", minus: true)
-                            Kartenzeile(label: "Jährliche Ausgaben", wert: w.a.ausgabenJaehrlich, icon: "calendar", minus: true)
-                            Kartenzeile(label: "Anschaffungen (Sofortabzug)", wert: w.a.ausgabenAnschaffung, icon: "shippingbox", minus: true)
+                            Kartenzeile(label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard", minus: true)
                             Summenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? .red : Stil.gewinn)
-                            Text("Einnahmen nach Zahlungseingang (Zufluss), Ausgaben netto nach Kategorie. Klick öffnet die betrieblichen Ausgaben des Jahres.")
+                            Text("Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }

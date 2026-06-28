@@ -84,13 +84,13 @@ enum Demodaten {
             for (bez, anb, brutto, vst, art, kind, t) in wiederkehrend {
                 ctx.insert(ExpenseEntry(datum: tag(jahr, m, t), bezeichnung: bez, anbieter: anb,
                                         brutto: dez(brutto), vst: dez(vst), steuerart: art,
-                                        kategorie: .laufend, betrieblich: true, art: kind))
+                                        betrieblich: true, art: kind))
             }
         }
         // Einmalige Anschaffung (Sofortabzug): Laptop im März, netto 1.200,00.
         ctx.insert(ExpenseEntry(datum: tag(jahr, 3, 14), bezeichnung: "MacBook Air", anbieter: "Apple",
                                 brutto: dez("1428.00"), vst: dez("228.00"), steuerart: .inland19,
-                                kategorie: .anschaffung, betrieblich: true, art: .betriebsausgabe))
+                                betrieblich: true, art: .betriebsausgabe))
     }
 
     @MainActor
@@ -107,7 +107,7 @@ enum Demodaten {
             for (bez, anb, brutto, art, t) in wiederkehrend {
                 ctx.insert(ExpenseEntry(datum: tag(jahr, m, t), bezeichnung: bez, anbieter: anb,
                                         brutto: dez(brutto), vst: 0, steuerart: .steuerfrei,
-                                        kategorie: .laufend, betrieblich: false, art: art))
+                                        betrieblich: false, art: art))
             }
         }
     }

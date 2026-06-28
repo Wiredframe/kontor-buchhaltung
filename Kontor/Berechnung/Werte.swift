@@ -9,7 +9,6 @@ struct AusgabePosten: Hashable {
     var brutto: Decimal
     var vst: Decimal
     var steuerart: Steuerart
-    var kategorie: Kategorie
     var betrieblich: Bool
     var datum: Date
 
@@ -40,7 +39,7 @@ struct MonatsSnapshot: Codable, Hashable {
 extension ExpenseEntry {
     var posten: AusgabePosten {
         AusgabePosten(brutto: brutto, vst: vst, steuerart: steuerart,
-                      kategorie: kategorie, betrieblich: betrieblich, datum: datum)
+                      betrieblich: betrieblich, datum: datum)
     }
 }
 
