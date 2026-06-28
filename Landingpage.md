@@ -54,22 +54,29 @@ Native macOS-App in SwiftUI. Schnell, ruhig, aufgeräumt. Inline bearbeiten, ein
 
 ---
 
-## 3 · Das Herzstück: zwei Kalender, eine Wahrheit
+## 3 · Das Herzstück: Was bleibt wirklich dir?
 
-> 🎯 Das *eine* Feature, das Kontor von allem abhebt – ausführlich, weil es das Vertrauen begründet.
+> 🎯 Die eine Frage, die jeden Freiberufler nachts umtreibt – und die Kontor als Erstes beantwortet.
 
-Die meisten Tools führen **ein** Datum pro Rechnung. Das ist der Geburtsfehler.
+Auf dem Konto liegen 6.000 €. Aber wie viel davon gehört wirklich **dir**?
 
-Kontor trennt sauber, was das Finanzamt trennt:
+Genau das rechnet Kontor – Monat für Monat als **Wasserfall** vom Brutto bis zur einzigen Zahl, die zählt:
 
-| | maßgebliches Datum | wofür |
-|---|---|---|
-| **Umsatzsteuer / UStVA** | Rechnungsdatum (**Soll**) | wann die USt entsteht |
-| **Gewinn / Einkommensteuer (EÜR)** | Zahlungsdatum (**Zufluss**) | wann das Geld wirklich da ist |
+```
+Umsatz (brutto)
+−  Umsatzsteuer-Zahllast
++  Vorsteuer-Erstattung
+−  KSK-Beitrag
+−  Einkommensteuer-Rücklage
+−  private Fixkosten
+=  Frei verfügbar
+```
 
-**Dieselbe Rechnung wirkt in unterschiedlichen Perioden** – im Februar in der UStVA, im April im Gewinn, wenn der Kunde zahlt. Kontor hält beide Sichten gleichzeitig korrekt. Du musst nie wählen, welche Wahrheit gerade gilt.
+Keine Schätzung aus dem Bauch, keine böse Überraschung am Quartalsende. Kontor kennt deine Soll-USt, deine KSK, deinen ESt-Satz und deine Rücklagen – und zeigt dir **schwarz auf weiß, was am Monatsende übrig bleibt.**
 
-> Das ist kein Schalter in den Einstellungen. Das ist das Fundament.
+> Der Unterschied zwischen *„ich hab Geld auf dem Konto"* und *„ich weiß, was mir gehört."*
+
+> 📸 Der „Frei verfügbar"-Wasserfall im Monatsabschluss – Brutto oben, die grüne Zahl ganz unten.
 
 ---
 
@@ -91,9 +98,6 @@ ESt-Rücklage **pauschal** `(Gewinn − KSK) × Satz` – bewusst grob und eher 
 
 ### Forderungsausfall nach §17
 Wird eine Rechnung uneinbringlich, korrigiert Kontor die USt **und** löst die ESt-Rücklage auf – im richtigen Monat, abgeschlossene Perioden bleiben unberührt.
-
-### „Frei verfügbar" – die Zahl, die zählt
-Der Monatsabschluss rechnet als Wasserfall vom Brutto über Steuerrücklage, KSK, ESt **und** private Fixkosten bis zur einzigen Zahl, die dich nachts beruhigt: **was wirklich dir gehört.**
 
 ### Frag deine Buchhaltung (KI-Zugriff über MCP)
 > 🎯 Das „Wow" für die moderne Zielgruppe. Klein halten, aber prominent zeigen.
@@ -294,9 +298,9 @@ Ja: Beleg-Export als ZIP pro Jahr und JSON-Export für alles Übrige.
 - Leichtigkeit: „Ein Klick zum Abschluss." · „Jede Zahl kopierbar."
 
 **Empfohlene Visuals (Reihenfolge der Seite):**
-1. Dashboard (Hero) · 2. Die Zwei-Kalender-Tabelle (Abschnitt 3) · 3. UStVA-Ansicht mit KZ-Badges ·
-4. Monatsabschluss-Wasserfall „Frei verfügbar" · 5. Kontoauszug-Triage · 6. KI-Chat-Split-Screen ·
-7. Sidebar mit allen Modulen · 8. Preis-Cards (Einmalkauf / Fork).
+1. Dashboard (Hero) · 2. „Frei verfügbar"-Wasserfall im Monatsabschluss (Abschnitt 3) ·
+3. UStVA-Ansicht mit KZ-Badges · 4. Kontoauszug-Triage · 5. KI-Chat-Split-Screen ·
+6. Sidebar mit allen Modulen · 7. Preis-Cards (Einmalkauf / Fork).
 
 **Tonalität:** sachlich-selbstbewusst, kein Hype-Sprech. Kurze Sätze. Deutsche Steuerbegriffe korrekt
 verwenden – die Zielgruppe erkennt Halbwissen sofort und Präzision schafft Vertrauen.
