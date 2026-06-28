@@ -232,6 +232,7 @@ struct AusgabenView: View {
                 }
             }
             .onDeleteCommand { loesche(selection) }
+            .onChange(of: alle.count, initial: true) { aktualisiereJahre(zeit, context) }
             .contextMenu(forSelectionType: PersistentIdentifier.self) { ids in
                 let ausgabenIds = ids.filter { id in alle.contains { $0.id == id } }
                 Button("Duplizieren (heute)") { duplizieren(ids) }

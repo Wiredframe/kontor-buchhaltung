@@ -58,6 +58,7 @@ struct LebensmittelView: View {
             }
             .environment(\.defaultMinListRowHeight, 34)
             .onDeleteCommand { loesche(selection) }
+            .onChange(of: alle.count, initial: true) { aktualisiereJahre(zeit, context) }
             .contextMenu(forSelectionType: GroceryEntry.ID.self) { ids in
                 Button("Duplizieren") { duplizieren(ids) }
                 Button("Löschen", role: .destructive) { loesche(ids) }

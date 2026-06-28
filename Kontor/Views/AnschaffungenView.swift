@@ -44,6 +44,7 @@ struct AnschaffungenView: View {
             }
             .environment(\.defaultMinListRowHeight, 34)
             .onDeleteCommand { loesche(selection) }
+            .onChange(of: alle.count, initial: true) { aktualisiereJahre(zeit, context) }
             .contextMenu(forSelectionType: PurchaseEntry.ID.self) { ids in
                 Button("Duplizieren") { duplizieren(ids) }
                 Button("In Ausgaben verschieben") { nachAusgaben(ids) }

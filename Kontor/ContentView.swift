@@ -130,7 +130,7 @@ struct ContentView: View {
                 aufDemodaten: {
                     Demodaten.einspielen(context)
                     UserDefaults.standard.set(true, forKey: "onboardingErledigt")
-                    zeit.jahre = verfuegbareJahre(context)
+                    aktualisiereJahre(zeit, context)
                     nav.modul = .dashboard
                     zeigeOnboarding = false
                 },
@@ -141,13 +141,13 @@ struct ContentView: View {
             .interactiveDismissDisabled()
         }
         .task {
-            zeit.jahre = verfuegbareJahre(context)
+            aktualisiereJahre(zeit, context)
             // Erst-Start: nur bei komplett leerem Store die Demodaten-/Leer-Auswahl zeigen.
             if !UserDefaults.standard.bool(forKey: "onboardingErledigt"), Demodaten.istLeer(context) {
                 zeigeOnboarding = true
             }
         }
-        .onChange(of: nav.modul) { _, _ in zeit.jahre = verfuegbareJahre(context) }
+        .onChange(of: nav.modul) { _, _ in aktualisiereJahre(zeit, context) }
     }
 
     /// Routet auf die Ansicht des gewählten Moduls.
