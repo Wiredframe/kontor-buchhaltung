@@ -15,7 +15,7 @@
 ### Kontor ist die Buchhaltungs-App für Freiberufler, die Steuern ernst nimmt und die Cloud verweigert.
 EÜR, Umsatzsteuer-Voranmeldung, KSK, Rücklagen – alles korrekt, alles lokal auf deinem Mac. Keine Server, keine Abos, keine Datenreise.
 
-🔘 **Kontor für macOS laden** &nbsp;&nbsp; 🔘 *Funktionen ansehen*
+🔘 **Kontor für macOS – 19,99 € (Einmalkauf)** &nbsp;&nbsp; 🔘 *Funktionen ansehen*
 
 > 📸 Hero-Shot: Dashboard mit Gewinn-Trend, dezent, viel Weißraum. Macht Lust, nicht Angst.
 
@@ -42,7 +42,7 @@ Wenn du Freiberufler bist, KSK-versichert, deine EÜR selber machst und quartals
 > 🎯 Die komplette Positionierung auf drei Karten. Jede Karte = ein Grund zu bleiben.
 
 ### 🧮 Rechnet steuerlich richtig
-Nicht „auch Buchhaltung", sondern **deine** Buchhaltung: Soll-Versteuerung, Zuflussprinzip, §13b, §17, §32a, KSK. Die Logik ist in eine getestete Engine gegossen – geprüft gegen echte Vorjahreswerte.
+Nicht „auch Buchhaltung", sondern **deine** Buchhaltung: Soll-Versteuerung, Zuflussprinzip, §13b, §17, KSK, pauschale ESt-Rücklage. Die Logik steckt in einer getesteten Engine – Schritt für Schritt gegen nachrechenbare Werte geprüft.
 
 ### 🔒 Bleibt bei dir
 **Local-first, offline, Sandbox an.** Deine Umsätze verlassen den Mac nicht. Kein Konto, kein Login, kein Tracking. Backup liegt als Datei in deinem Ordner – nicht in fremder Hand.
@@ -78,7 +78,7 @@ Kontor trennt sauber, was das Finanzamt trennt:
 > 🎯 Die USP-Galerie. Jeder Block: fettes Versprechen + ein, zwei Sätze. Scanbar.
 
 ### Künstlersozialkasse, endlich mitgedacht
-KSK-Beitragssätze mit Historie (gültig-ab, JAE, KV/RV/PV). Der Beitragssatz ist die **Soll-Quelle** für alle berechneten KSK-Beträge in Monat, Jahr und Rücklage. Du pflegst den Bescheid, Kontor rechnet den Rest.
+KSK je Monat als drei Beträge **KV / RV / PV** (in der Reihenfolge deines Bescheids). Direkt im Monatsabschluss gepflegt und **automatisch vom Vormonat geerbt** – einmal eintragen, gilt fort. Der Monatswert ist die **Soll-Quelle** für Rücklage und Jahres-KSK; die tatsächliche Abbuchung liegt als **Ist** im Zahlungs-Ledger. (JAE nur als Info, keine Rechengröße.)
 
 ### UStVA zum Abtippen – formular-getreu nach ELSTER
 Keine kryptischen Summen, sondern exakt die Kennzahlen, die im Formular stehen: **KZ 81** (Bemessung), **KZ 66** (Vorsteuer Inland), **KZ 84/85** (§13b), **KZ 67**, **KZ 83** (Zahllast). Mit Klartext-Label und Erklärung je Zeile. Voranmeldung wird Abschreiben.
@@ -87,7 +87,7 @@ Keine kryptischen Summen, sondern exakt die Kennzahlen, die im Formular stehen: 
 Auslands-Tools (Figma, ChatGPT & Co.) nach §13b: USt in KZ 84/85, zugleich als Vorsteuer abziehbar → **cash-neutral**. Aber der Netto-Betrag bleibt eine echte Betriebsausgabe in der EÜR. Genau so, wie es das Gesetz will – nicht „ungefähr".
 
 ### Rücklagen, die du verstehst
-ESt-Rücklage pauschal `(RN − KSK) × Satz` **oder** als §32a-Tarifschätzung – umschaltbar. Der Satz ist **monatlich** justierbar, ohne bereits abgeschlossene Monate anzufassen. Du steuerst deine Rücklage agil, statt einmal im Jahr zu erschrecken.
+ESt-Rücklage **pauschal** `(Gewinn − KSK) × Satz` – bewusst grob und eher konservativ, KSK als Vorsorgeaufwand abgezogen. Der Satz ist **monatlich** justierbar (z. B. ab Februar 15 %), ohne bereits abgeschlossene Monate anzufassen. Du steuerst deine Rücklage agil, statt einmal im Jahr zu erschrecken.
 
 ### Forderungsausfall nach §17
 Wird eine Rechnung uneinbringlich, korrigiert Kontor die USt **und** löst die ESt-Rücklage auf – im richtigen Monat, abgeschlossene Perioden bleiben unberührt.
@@ -98,7 +98,7 @@ Der Monatsabschluss rechnet als Wasserfall vom Brutto über Steuerrücklage, KSK
 ### Frag deine Buchhaltung (KI-Zugriff über MCP)
 > 🎯 Das „Wow" für die moderne Zielgruppe. Klein halten, aber prominent zeigen.
 
-Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude – und frag in normaler Sprache: *„Wie hoch ist mein EÜR-Gewinn 2026?", „Zeig mir alle offenen Rechnungen", „UStVA Q2?".* Lesen über **alle** Module, sparsames Schreiben inklusive – und das alles **nur lokal auf 127.0.0.1**, Token-geschützt, mit automatischem Backup vor jedem Schreibzugriff. Deine KI sieht deine Zahlen, das Internet nie.
+Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude – und frag in normaler Sprache: *„Wie hoch ist mein EÜR-Gewinn 2026?", „Zeig mir alle offenen Rechnungen", „UStVA Q2?".* Lesen über **alle** Module, sparsames Schreiben inklusive – und das alles **nur lokal auf 127.0.0.1**, Token in der Keychain, mit automatischem Backup vor dem ersten Schreibzugriff. Deine KI sieht deine Zahlen, das Internet nie.
 
 > 📸 Split-Screen: links Kontor, rechts ein Chat „Wie hoch ist meine Zahllast für Q1?" → fertige Zahl.
 
@@ -109,29 +109,28 @@ Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude 
 > 🎯 Der Vollständigkeits-Beweis. Als Raster/Akkordeon. Zeigt: das ist kein Prototyp, das ist fertig.
 
 **Auswertungen in drei Zeithorizonten**
-- **Monatsabschluss** – Gewinn-Rechnung, Rücklagenkonto, Erwartete Ausgaben aus Vorlagen, „Monat abschließen".
-- **UStVA** – pro Quartal oder Monat, formular-getreu.
-- **Jahresabschluss (EÜR)** – Einnahmen nach Zufluss, Ausgaben nach Kategorie, Gewinn, Vorsteuer, Steuerlast, KSK-Jahr, ESt-Abgleich.
+- **Monatsabschluss** – Gewinn-Wasserfall, Rücklagenkonto (USt, Vorsteuer, KSK, ESt) inkl. §17-Korrektur; KSK-Beträge und ESt-Satz pro Monat im Tab „Werte"; „Monat abschließen" friert den Stand als Snapshot ein.
+- **UStVA** – pro Quartal oder Monat, formular-getreu nach ELSTER.
+- **Jahresabschluss (EÜR)** – Einnahmen nach Zufluss, Ausgaben nach Kategorie, Gewinn, Vorsteuer, Steuerlast, KSK-Jahr (KV/RV/PV), ESt-Abgleich.
 
-**Stammdaten, die mitdenken**
-- **Einnahmen** – Ausgangsrechnungen mit Status (offen/bezahlt/ausgefallen), der das Zahlungsdatum führt.
-- **Betriebsausgaben** – brutto/VSt/netto, Steuerart, Kategorie, umlagefähig.
-- **Subscriptions & Vorlagen** – wiederkehrende Regeln erzeugen die erwarteten Monatsausgaben.
-- **Fixkosten** – privat (Liquidität) und betrieblich (EÜR) getrennt.
-- **KSK** – Beitragshistorie, mit Komfort „Gesamtbetrag → KV/RV/PV aufteilen".
-- **Zahlungen** – Ledger aller tatsächlichen Zahlungen (Ist), Erstattungen als Negativbetrag.
+**Erfassen**
+- **Einnahmen** – Ausgangsrechnungen mit Status (offen/bezahlt/ausgefallen), der Zahlungs- und Ausfalldatum automatisch führt.
+- **Ausgaben – ein Ledger für *alle* Abflüsse.** Betriebsausgaben, Fixkosten, Subscriptions sowie **Vorsorge (KSK)** und **Steuern** in **einer** Tabelle, gefiltert nach **Art · Sparte · Monat**. Pro Posten brutto/VSt/netto, Steuerart (Inland 19 %, Reverse-Charge §13b, steuerfrei), umlagefähig. Wiederkehrendes als **datierte Buchungen** – rechts wahlweise der Editor oder die **Vorlagen-Sidebar** (Vorlage per Klick in den gewählten Monat buchen) bzw. „Vormonat duplizieren". Privat (nur Liquidität) und betrieblich (EÜR) sauber getrennt.
 
 **Arbeitsfläche**
-- **Kontoauszug-Import** – Sparkasse-CSV (CAMT) einlesen, jede Buchung per Karten-Triage zuordnen. Kontor **lernt** Händler & Gläubiger und schlägt beim nächsten Mal vor. Idempotent: kein Doppelimport.
+- **Kontoauszug-Import** – Sparkasse-CSV (CAMT) einlesen, jede Buchung per Karten-Triage zuordnen. Kontor **lernt** Händler & Gläubiger und schlägt beim nächsten Mal vor. Idempotent: kein Doppelimport, jederzeit neu zuordenbar.
 - **Aufgaben** – einmalig, monatlich, quartalsweise, jährlich. Reminders-Logik: abgehakt → die nächste Fälligkeit erscheint von selbst.
 
 **Privat**
-- **Lebensmittel** & **Anschaffungen** mit optionalen Budgets, sauber getrennt vom Betrieblichen.
+- **Privat-Übersicht**, **Lebensmittel** & **Anschaffungen** mit optionalen Budgets, sauber getrennt vom Betrieblichen.
 
 **Belege & Sicherheit**
-- PDF/Bild per Drag-&-Drop, Inline-Vorschau, **OCR** (Vision) für Belegdaten.
+- PDF/Bild per Drag-&-Drop, Inline-Vorschau, **OCR** (Apple Vision) für Belegdaten.
 - **Beleg-Export als ZIP** pro Jahr – für Steuerberater oder Betriebsprüfung.
 - Tägliches Auto-Backup, Komplett-Backup mit Belegen, JSON-Export/-Import (dedupliziert).
+
+**Sanfter Einstieg**
+- Beim ersten Start wählst du: **leer beginnen** oder mit **Demodaten** (fiktive Persona) ausprobieren – risikofrei, jederzeit löschbar.
 
 > 📸 Sidebar-Screenshot mit allen Modulen – zeigt die Breite auf einen Blick.
 
@@ -145,15 +144,14 @@ Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude 
 - **Inspector statt Sheet.** Bearbeiten passiert in einem ruhigen Flyout neben der Tabelle, live gebunden – kein Modal, das dich aus dem Kontext reißt.
 - **Ein Klick, fertig.** „Duplizieren (heute)", „bezahlt → heutiges Datum", Inline-„+" direkt in der Tabelle.
 - **Jede Zahl ist kopierbar.** Klick auf einen Wert legt ihn in die Zwischenablage – fürs ELSTER-Formular oder die Mail an den Berater.
-- **Soll und Ist sauseinandergehalten.** KSK-Beitragssatz = Soll, die echte Abbuchung = Ist im Zahlungs-Ledger. Keine stille Vermischung.
-- **„Keine Buchung ohne Beleg."** Das Zahlungs-Ledger ist reines Ist und wird primär aus dem Kontoauszug gespeist.
-- **Datierte Sätze, die Geschichte respektieren.** ESt-Satz ab Februar 15 %? Kein Problem – ältere Monate bleiben, wie sie waren.
+- **Soll und Ist sauber auseinandergehalten.** KSK-Monatswert = Soll, die echte Abbuchung = Ist im Zahlungs-Ledger. Keine stille Vermischung.
+- **Datierte Sätze, die Geschichte respektieren.** ESt-Satz ab Februar 15 %? Kein Problem – ältere Monate bleiben, wie sie waren; KSK-Werte erben einzeln vom Vormonat.
 - **USt-Vorauszahlung im Januar?** Kontor weiß, dass die zum **Vorjahr** gehört (Fälligkeitsfenster, mit/ohne Dauerfristverlängerung) und ordnet sie automatisch richtig zu.
 - **Geteilter Zeitraum.** Wechselst du das Modul, bleibt der gewählte Monat/das Jahr erhalten. Das Dashboard zeigt trotzdem immer „heute".
 - **Abschluss-Sidebars.** Der Monatsabschluss zeigt die fälligen Monatsaufgaben, der Jahresabschluss die jährlichen – ganze Zeile klickt ab.
 - **Geld ist `Decimal`, nie `Double`.** Cent-genau, keine Rundungsgespenster. Klingt nach Detail, ist Vertrauen.
 - **Zurückhaltendes Design.** Neutrale graue Icons, Farbe nur dort, wo sie etwas bedeutet – in Summen und roten Negativwerten. Ruhe statt Ampel-Chaos.
-- **Geprüft gegen echte Zahlen.** Die Berechnungs-Engine läuft gegen Golden-Werte aus realen Vorjahren – nicht „sollte stimmen", sondern *stimmt*.
+- **Geprüft, nicht gehofft.** Die Berechnungs-Engine läuft gegen nachrechenbare Demo-Werte (synthetische Fixtures) – Soll/Zufluss, §13b-Rundung, §17, Rücklagen. Stimmt, statt „sollte stimmen".
 
 ---
 
@@ -168,7 +166,7 @@ Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude 
 - deine Zahlen lieber **auf dem eigenen Gerät** hast als in der Cloud,
 - und eine App willst, die *deinen* Fall kann – nicht 90 % von jedermanns Fall.
 
-**Kontor ist (noch) nicht für dich, wenn** du eine GmbH mit doppelter Buchführung, Lohnabrechnung für Angestellte oder Multi-User-Teams brauchst.
+**Kontor ist (noch) nicht für dich, wenn** du Ist-Versteuerung oder Kleinunternehmer (§19) brauchst, ausgangsseitig 7 % USt verrechnest, oder eine GmbH mit doppelter Buchführung, Lohnabrechnung und Multi-User-Teams führst.
 
 ---
 
@@ -178,15 +176,62 @@ Kontor bringt einen **lokalen MCP-Server** mit. Schalt ihn ein, verbinde Claude 
 
 - **100 % lokal.** SwiftUI + SwiftData, native macOS-App. Kein Netzwerk, keine Telemetrie, App-Sandbox aktiv.
 - **Deine Daten gehören dir.** Alles liegt im App-Container deines Macs. Backups sind klartextlesbare JSON-Dateien in deinem Ordner.
-- **Korrektheit ist getestet.** Die Steuerlogik steckt in reinen, geprüften Berechnungs-Bausteinen – verifiziert gegen echte Vorjahreswerte.
-- **Optionaler KI-Zugriff – ebenfalls lokal.** Der MCP-Server lauscht nur auf `127.0.0.1`, ist Token-geschützt und sichert vor jedem Schreibzugriff automatisch.
-- **Keine Abo-Falle.** *(Modell hier einsetzen: Einmalkauf / faire Lizenz – Entscheidung offen.)*
+- **Korrektheit ist getestet.** Die Steuerlogik steckt in reinen, geprüften Berechnungs-Bausteinen – verifiziert gegen nachrechenbare Demo-Werte.
+- **Optionaler KI-Zugriff – ebenfalls lokal.** Der MCP-Server lauscht nur auf `127.0.0.1`, ist Token-geschützt (Keychain) und sichert vor dem ersten Schreibzugriff automatisch.
+- **Quelltext offen.** Kontor ist source-available auf GitHub (PolyForm Perimeter) – prüf den Code, vertrau nicht nur dem Versprechen.
+- **Kein Abo.** Einmalkauf statt Abo-Falle (siehe Preis).
 
 > ⚠️ Pflicht-Disclaimer im Footer: „Kontor ersetzt keine Steuerberatung. Berechnungen sind Schätzungen."
 
 ---
 
-## 9 · Häufige Fragen
+## 9 · Preis
+
+> 🎯 Eine klare, faire Entscheidung. Zwei Wege nebeneinander – kaufen oder selbst bauen. Kein Abo, keine Tricks.
+
+> 📸 Zwei gleich große Cards nebeneinander. Links die Standard-Wahl (hervorgehoben), rechts die Advanced-Wahl.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 💳 Einmalkauf
+# 19,99 €
+**einmalig – kein Abo**
+
+Die fertige, signierte & notarisierte App für deinen Mac. Alle Funktionen, keine Cloud, keine Folgekosten.
+
+- Voller Funktionsumfang
+- Lokal & offline, App-Sandbox
+- Optionaler KI-Zugriff (MCP)
+
+🔘 **Für macOS kaufen – 19,99 €**
+
+</td>
+<td width="50%" valign="top">
+
+### 🛠️ Selbst bauen · Spendenbasiert
+# Dein Fork
+**für Advanced User**
+
+Der Quelltext ist offen. Bau dir mit Xcode oder Claude Code deinen **eigenen, privaten Fork** und schneide Kontor exakt auf dich zu.
+
+- Forken, anpassen, selbst bauen – frei
+- Nur für **dich**, kein Weiterverkauf
+- Wenn dir Kontor hilft: **freue ich mich über eine Spende** ☕
+
+🔘 *Quellcode auf GitHub* &nbsp; 🔘 *Spenden*
+
+</td>
+</tr>
+</table>
+
+> Beide Wege sind ausdrücklich erlaubt. Was **nicht** geht: Kontor (oder einen Fork) als Konkurrenzprodukt
+> verkaufen – dafür gibt es die Lizenz [PolyForm Perimeter](LICENSE).
+
+---
+
+## 10 · Häufige Fragen
 
 > 🎯 Letzte Einwände abräumen. Echte Fragen, ehrliche Antworten.
 
@@ -195,6 +240,9 @@ Nein. Kontor läuft komplett offline. Du brauchst kein Konto, keinen Login.
 
 **Wo liegen meine Daten?**
 Ausschließlich auf deinem Mac, im sandboxed App-Container. Backups schreibst du als Datei, wohin du willst.
+
+**Einmalkauf oder Abo?**
+Einmalkauf: 19,99 €, fertig. Kein Abo, keine Folgekosten. Wer mag und es kann, baut sich stattdessen einen eigenen Fork und gibt freiwillig eine Spende.
 
 **Kann ich meine Bankumsätze importieren?**
 Ja – den CSV-CAMT-Export deiner Sparkasse. Du ordnest jede Buchung selbst zu, Kontor lernt mit und schlägt künftig vor.
@@ -205,12 +253,15 @@ Es liefert dir alle ELSTER-Kennzahlen formular-getreu zum Übertragen. *(ELSTER-
 **Und die KI – sieht die meine Daten?**
 Nur wenn du den MCP-Server einschaltest, und auch dann nur lokal. Nichts geht ins Internet.
 
+**Darf ich Kontor anpassen / forken?**
+Ja, für dich selbst – ausdrücklich erwünscht. Du darfst deinen Fork nur nicht verkaufen oder als konkurrierendes Produkt weitergeben.
+
 **Funktioniert das mit meinem Steuerberater?**
 Ja: Beleg-Export als ZIP pro Jahr und JSON-Export für alles Übrige.
 
 ---
 
-## 10 · Schluss-CTA
+## 11 · Schluss-CTA
 
 > 🎯 Der eine klare nächste Schritt. Wiederholt das Kernversprechen in einem Satz.
 
@@ -218,7 +269,7 @@ Ja: Beleg-Export als ZIP pro Jahr und JSON-Export für alles Übrige.
 
 ### Kontor macht die Buchhaltung, die Freiberufler wirklich haben – korrekt, lokal, leicht.
 
-🔘 **Jetzt für macOS laden** &nbsp;&nbsp; 🔘 *Alle Funktionen im Detail*
+🔘 **Für macOS kaufen – 19,99 €** &nbsp;&nbsp; 🔘 *Quellcode auf GitHub*
 
 ---
 
@@ -239,13 +290,13 @@ Ja: Beleg-Export als ZIP pro Jahr und JSON-Export für alles Übrige.
 
 **Microcopy-Bausteine:**
 - Vertrauen: „Bleibt auf deinem Mac." · „Kein Konto. Kein Abo. Keine Cloud."
-- Kompetenz: „Formular-getreu nach ELSTER." · „Geprüft gegen echte Vorjahreswerte."
+- Kompetenz: „Formular-getreu nach ELSTER." · „Cent-genau mit `Decimal`."
 - Leichtigkeit: „Ein Klick zum Abschluss." · „Jede Zahl kopierbar."
 
 **Empfohlene Visuals (Reihenfolge der Seite):**
 1. Dashboard (Hero) · 2. Die Zwei-Kalender-Tabelle (Abschnitt 3) · 3. UStVA-Ansicht mit KZ-Badges ·
 4. Monatsabschluss-Wasserfall „Frei verfügbar" · 5. Kontoauszug-Triage · 6. KI-Chat-Split-Screen ·
-7. Sidebar mit allen Modulen.
+7. Sidebar mit allen Modulen · 8. Preis-Cards (Einmalkauf / Fork).
 
 **Tonalität:** sachlich-selbstbewusst, kein Hype-Sprech. Kurze Sätze. Deutsche Steuerbegriffe korrekt
 verwenden – die Zielgruppe erkennt Halbwissen sofort und Präzision schafft Vertrauen.
