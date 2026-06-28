@@ -58,7 +58,7 @@ flowchart TD
         v["Dashboard · Monatsabschluss · Kontoauszug · Aufgaben<br/>Ausgaben · Einnahmen · UStVA · Jahresabschluss<br/>Privat · Lebensmittel · Anschaffungen · Einstellungen"]
     end
 
-    subgraph model["Model/ — SwiftData @Model"]
+    subgraph model["Model/ — SwiftData-Modelle"]
         m["Entities · Enums · Helpers"]
     end
 
@@ -73,9 +73,9 @@ flowchart TD
 
     tests["KontorTests/ — Swift Testing (in-memory)"]
 
-    views -->|@Query / @Bindable| model
+    views -->|"@Query / @Bindable"| model
     views -->|ruft| engine
-    model -->|.posten| seam
+    model -->|".posten"| seam
     seam --> engine
     server -->|liest/schreibt| model
     server -->|formatiert| engine
@@ -107,7 +107,7 @@ idempotent.
 classDiagram
     class YearSettings {
         jahr, ustvaRhythmus, dauerfrist
-        kskRV_KV_PV_ProMonat (Monat-Dicts)
+        kskRV_KV_PV_ProMonat
         estSatzProMonat, snapshotProMonat
     }
     class ExpenseEntry {
