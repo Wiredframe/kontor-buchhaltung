@@ -57,8 +57,7 @@ struct AusgabenView: View {
     @State private var sparte: SparteFilter = .alle
     @State private var suche = ""
     @State private var zielAktiv = false
-    @State private var batchURLs: [URL] = []
-    @State private var zeigeBatch = false
+    @State private var batchAuftrag: BelegBatchAuftrag?
 
     enum SidebarModus: String, CaseIterable, Identifiable {
         case eintrag = "Eintrag", vorlagen = "Vorlagen"
@@ -245,7 +244,7 @@ struct AusgabenView: View {
             .dropDestination(for: URL.self) { urls, _ in
                 let dok = belegDateien(urls)
                 guard !dok.isEmpty else { return false }
-                batchURLs = dok; zeigeBatch = true
+                batchAuftrag = BelegBatchAuftrag(urls: dok)
                 return true
             } isTargeted: { zielAktiv = $0 }
             .overlay {
@@ -328,8 +327,10 @@ struct AusgabenView: View {
             }
             .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
         }
-        .sheet(isPresented: $zeigeBatch) {
-            BelegBatchView(modus: .ausgabe, urls: batchURLs)
+        .sheet(item: $batchAuftrag) { auftrag in
+            BelegBatchView(modus: .ausgabe, urls: auftrag.urls) { datum in
+                if !zeit.filter.enthaelt(datum) { zeit.filter.modus = .alle }
+            }
         }
     }
 
@@ -338,7 +339,7 @@ struct AusgabenView: View {
         panel.allowedContentTypes = [.pdf, .image]
         panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
-        batchURLs = panel.urls; zeigeBatch = true
+        batchAuftrag = BelegBatchAuftrag(urls: panel.urls)
     }
 
     // MARK: Aktionen

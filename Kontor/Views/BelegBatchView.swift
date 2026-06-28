@@ -14,6 +14,13 @@ import UniformTypeIdentifiers
 
 enum BelegModus { case einnahme, ausgabe }
 
+/// Trägt die abgelegten Dateien atomar ins Sheet (`.sheet(item:)`) – verhindert, dass die
+/// Präsentation einen veralteten/leeren URL-Stand sieht (klassischer `.sheet(isPresented:)`-Bug).
+struct BelegBatchAuftrag: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+}
+
 /// Filtert abgelegte URLs auf unterstützte Beleg-Dateien (PDF/Bild).
 func belegDateien(_ urls: [URL]) -> [URL] {
     let erlaubt: Set<String> = ["pdf", "png", "jpg", "jpeg", "heic", "heif", "tiff", "tif", "gif", "bmp"]
@@ -78,6 +85,8 @@ final class BelegEntwurf: Identifiable {
 struct BelegBatchView: View {
     let modus: BelegModus
     let urls: [URL]
+    /// Stellt sicher, dass ein neu angelegter Eintrag im Tabellen-Zeitfilter sichtbar ist.
+    var sichtbarMachen: (Date) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -257,6 +266,7 @@ struct BelegBatchView: View {
                     kategorie: .laufend, betrieblich: e.betrieblich, belegPfad: pfad,
                     art: e.art, rechnungsnummer: rn))
             }
+            sichtbarMachen(e.datum)
             e.ergebnis = "übernommen"
         }
         try? context.save()

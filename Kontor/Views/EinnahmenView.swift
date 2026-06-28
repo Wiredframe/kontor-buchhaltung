@@ -13,8 +13,7 @@ struct EinnahmenView: View {
     @State private var zeigeInspektor = true
     @State private var suche = ""
     @State private var zielAktiv = false
-    @State private var batchURLs: [URL] = []
-    @State private var zeigeBatch = false
+    @State private var batchAuftrag: BelegBatchAuftrag?
 
     private var gefiltert: [Income] {
         alle.filter { e in
@@ -78,7 +77,7 @@ struct EinnahmenView: View {
             .dropDestination(for: URL.self) { urls, _ in
                 let dok = belegDateien(urls)
                 guard !dok.isEmpty else { return false }
-                batchURLs = dok; zeigeBatch = true
+                batchAuftrag = BelegBatchAuftrag(urls: dok)
                 return true
             } isTargeted: { zielAktiv = $0 }
             .overlay {
@@ -125,8 +124,10 @@ struct EinnahmenView: View {
             }
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
-        .sheet(isPresented: $zeigeBatch) {
-            BelegBatchView(modus: .einnahme, urls: batchURLs)
+        .sheet(item: $batchAuftrag) { auftrag in
+            BelegBatchView(modus: .einnahme, urls: auftrag.urls) { datum in
+                if !zeit.filter.enthaelt(datum) { zeit.filter.modus = .alle }
+            }
         }
     }
 
@@ -149,7 +150,7 @@ struct EinnahmenView: View {
         panel.allowedContentTypes = [.pdf, .image]
         panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
-        batchURLs = panel.urls; zeigeBatch = true
+        batchAuftrag = BelegBatchAuftrag(urls: panel.urls)
     }
     private func duplizieren(_ ids: Set<Income.ID>) {
         for e in alle where ids.contains(e.id) {
