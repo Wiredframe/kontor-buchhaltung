@@ -158,7 +158,6 @@ final class ExpenseEntry {
     var brutto: Decimal
     var vst: Decimal
     var steuerart: Steuerart
-    var kategorie: Kategorie
     var betrieblich: Bool
     var umlagefaehig: Bool = false
     var belegPfad: String?
@@ -182,7 +181,6 @@ final class ExpenseEntry {
         brutto: Decimal,
         vst: Decimal,
         steuerart: Steuerart,
-        kategorie: Kategorie = .laufend,
         betrieblich: Bool = true,
         umlagefaehig: Bool = false,
         belegPfad: String? = nil,
@@ -196,7 +194,6 @@ final class ExpenseEntry {
         self.brutto = brutto
         self.vst = vst
         self.steuerart = steuerart
-        self.kategorie = kategorie
         self.betrieblich = betrieblich
         self.umlagefaehig = umlagefaehig
         self.belegPfad = belegPfad
@@ -238,7 +235,7 @@ final class Vorlage {
         ExpenseEntry(
             datum: datum, bezeichnung: bezeichnung, anbieter: anbieter,
             brutto: betragBrutto, vst: Steuer.vorsteuerVorschlag(brutto: betragBrutto, steuerart: steuerart),
-            steuerart: steuerart, kategorie: .laufend, betrieblich: betrieblich,
+            steuerart: steuerart, betrieblich: betrieblich,
             umlagefaehig: umlagefaehig, art: art)
     }
 }

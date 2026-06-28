@@ -127,7 +127,7 @@ struct AnschaffungenView: View {
             context.insert(ExpenseEntry(
                 datum: e.datum, bezeichnung: e.bezeichnung, anbieter: "",
                 brutto: e.preis, vst: 0, steuerart: .steuerfrei,
-                kategorie: .anschaffung, betrieblich: false,
+                betrieblich: false,
                 belegPfad: e.belegPfad, art: .betriebsausgabe))
             context.delete(e)
         }

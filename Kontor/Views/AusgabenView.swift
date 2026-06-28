@@ -361,7 +361,7 @@ struct AusgabenView: View {
             let art: AusgabeArt = typ == .fixkosten ? .fixkosten : typ == .subscription ? .subscription : .betriebsausgabe
             let datum = zeit.filter.modus == .monat ? ersterTag(zielJahrMonat.jahr, zielJahrMonat.monat) : Date()
             let e = ExpenseEntry(datum: datum, bezeichnung: "", anbieter: "", brutto: 0, vst: 0,
-                                 steuerart: .inland19, kategorie: .laufend, betrieblich: true,
+                                 steuerart: .inland19, betrieblich: true,
                                  art: art)
             context.insert(e); try? context.save()
             neueID = e.id
@@ -374,7 +374,7 @@ struct AusgabenView: View {
     private func duplizieren(_ ids: Set<PersistentIdentifier>) {
         for e in alle where ids.contains(e.id) {
             context.insert(ExpenseEntry(datum: Date(), bezeichnung: e.bezeichnung, anbieter: e.anbieter,
-                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart, kategorie: e.kategorie,
+                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
                 betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
         }
         for t in zahlungen where ids.contains(t.id) {
@@ -406,7 +406,7 @@ struct AusgabenView: View {
             }
             if schonDa { continue }
             context.insert(ExpenseEntry(datum: zielDatum, bezeichnung: e.bezeichnung, anbieter: e.anbieter,
-                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart, kategorie: e.kategorie,
+                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
                 betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
         }
         try? context.save()
@@ -539,9 +539,6 @@ struct AusgabeInspektor: View {
             LabeledContent("Netto", value: eintrag.netto.euro)
             if let z = eintrag.zahlungsdatum {
                 LabeledContent("Bezahlt am", value: z.formatted(.dateTime.day().month().year()))
-            }
-            Picker("Kategorie", selection: $eintrag.kategorie) {
-                ForEach(Kategorie.allCases) { Text($0.bezeichnung).tag($0) }
             }
             Toggle("Umlagefähig", isOn: $eintrag.umlagefaehig)
             Section("Beleg") {

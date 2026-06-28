@@ -33,7 +33,7 @@ enum KontorMCP {
                      beschreibung: "Kompakter Finanz-Schnappschuss eines Jahres: EÜR-Gewinn, USt-Zahllast, offene Rechnungen, KSK/Monat, Betriebsausgaben, nächste Frist.",
                      schema: obj(props: ["jahr": zahl("Kalenderjahr, Default = laufendes Jahr.")])),
             Werkzeug(name: "kontor_eur",
-                     beschreibung: "EÜR-Jahresrechnung (Zuflussprinzip): bezahlte Einnahmen, Ausgaben nach Kategorie (netto), Vorsteuer, Gewinn.",
+                     beschreibung: "EÜR-Jahresrechnung (Zuflussprinzip): bezahlte Einnahmen, Betriebsausgaben (netto), Vorsteuer, Gewinn.",
                      schema: obj(props: ["jahr": zahl("Kalenderjahr.")], required: ["jahr"])),
             Werkzeug(name: "kontor_ustva",
                      beschreibung: "UStVA-Kennzahlen (Soll) einer Periode: KZ81/USt19/KZ66/KZ84/KZ85/KZ67, §17-Korrektur, Zahllast KZ83. Quartal ODER Monat angeben.",
@@ -178,7 +178,7 @@ enum KontorMCP {
             "USt-Zahllast (Jahr, Soll):   \(g(zahllast)) €",
             "Offene Rechnungen:           \(offene.count) (\(g(offeneSumme)) €)",
             "KSK/Monat:                   \(g(ksk)) €",
-            "Betriebsausgaben (netto):    \(g(jahresA.ausgabenGesamt)) €",
+            "Betriebsausgaben (netto):    \(g(jahresA.ausgabenNetto)) €",
         ]
         if let f = naechsteFrist(ctx) { z.append("Nächste Frist:               \(tagText(f.faellig)) – \(f.kind.bezeichnung) \(g(f.betrag)) €") }
         return z.joined(separator: "\n")
@@ -190,10 +190,7 @@ enum KontorMCP {
         return """
         EÜR \(jahr)
         Einnahmen (bezahlt, netto):  \(g(a.einnahmenBezahlt)) €
-        Ausgaben laufend (netto):    \(g(a.ausgabenLaufend)) €
-        Ausgaben jährlich (netto):   \(g(a.ausgabenJaehrlich)) €
-        Ausgaben Anschaffung (netto):\(g(a.ausgabenAnschaffung)) €
-        Ausgaben gesamt (netto):     \(g(a.ausgabenGesamt)) €
+        Betriebsausgaben (netto):    \(g(a.ausgabenNetto)) €
         Vorsteuer gesamt:            \(g(a.vstGesamt)) €
         Gewinn:                      \(g(a.gewinn)) €
         """
@@ -278,9 +275,9 @@ enum KontorMCP {
         case "ausgaben":
             let rows = alle(ExpenseEntry.self, ctx).filter { imZeitraum($0.datum) }
                 .sorted { $0.datum < $1.datum }.prefix(limit)
-            return csv(kopf(["datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "kategorie", "betrieblich", "beleg"]),
+            return csv(kopf(["datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg"]),
                        rows.map { zeile($0, [tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
-                                   $0.steuerart.rawValue, $0.kategorie.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? ""]) })
+                                   $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? ""]) })
         case "fixkosten", "subscriptions":
             // Datierte Buchungen (Fixkosten/Subscriptions) – nach Art gefiltert, mit Zeitraum.
             let zielArt: AusgabeArt = (typ == "subscriptions") ? .subscription : .fixkosten
@@ -356,7 +353,7 @@ enum KontorMCP {
             let st: Steuerart = enumWert(f["steuerart"]) ?? .inland19
             obj = ExpenseEntry(datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
                                brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
-                               steuerart: st, kategorie: enumWert(f["kategorie"]) ?? .laufend,
+                               steuerart: st,
                                betrieblich: f["betrieblich"] as? Bool ?? true, umlagefaehig: f["umlagefaehig"] as? Bool ?? false)
         case "fixkosten", "subscriptions", "subscription":
             guard let bez = f["bezeichnung"] as? String,
@@ -366,7 +363,7 @@ enum KontorMCP {
             let zielArt: AusgabeArt = (typ == "fixkosten") ? .fixkosten : .subscription
             obj = ExpenseEntry(datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
                                brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
-                               steuerart: st, kategorie: .laufend,
+                               steuerart: st,
                                betrieblich: f["betrieblich"] as? Bool ?? false,
                                umlagefaehig: f["umlagefaehig"] as? Bool ?? false, art: zielArt)
         case "vorlagen", "vorlage":
@@ -431,7 +428,6 @@ enum KontorMCP {
             if let v = dezArg(f["brutto"]) { o.brutto = v }
             if let v: Steuerart = enumWert(f["steuerart"]) { o.steuerart = v }
             if let v = dezArg(f["vst"]) { o.vst = v }
-            if let v: Kategorie = enumWert(f["kategorie"]) { o.kategorie = v }
             if let v = f["betrieblich"] as? Bool { o.betrieblich = v }
             if let v = f["umlagefaehig"] as? Bool { o.umlagefaehig = v }
         case "fixkosten", "subscriptions", "subscription", "fixkosten_eintrag":
