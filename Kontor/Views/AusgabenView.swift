@@ -331,6 +331,8 @@ struct AusgabenView: View {
         }
         .sheet(item: $batchAuftrag) { auftrag in
             BelegBatchView(modus: .ausgabe, urls: auftrag.urls) { datum in
+                // Filter so öffnen, dass der neu angelegte Eintrag garantiert sichtbar ist (wie „+").
+                artFilter = .alle; sparte = .alle; suche = ""
                 if !zeit.filter.enthaelt(datum) { zeit.filter.modus = .alle }
             }
         }
