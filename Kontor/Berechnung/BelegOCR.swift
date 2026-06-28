@@ -28,11 +28,11 @@ enum BelegOCR {
     static let maxSeiten = 2
 
     static func analysiere(_ url: URL) async -> BelegDaten {
-        extrahiere(aus: await texterkennung(seiten: bilder(von: url)))
+        extrahiere(fragmente: await fragmente(von: url))
     }
 
     static func analysiereEinnahme(_ url: URL) async -> EinnahmeDaten {
-        extrahiereEinnahme(aus: await texterkennung(seiten: bilder(von: url)))
+        extrahiereEinnahme(fragmente: await fragmente(von: url))
     }
 
     // MARK: - Bilder laden (bis zu `maxSeiten` PDF-Seiten oder eine Bilddatei)
@@ -69,23 +69,25 @@ enum BelegOCR {
         return img.cgImage(forProposedRect: &r, context: nil, hints: nil)
     }
 
-    /// Texterkennung über mehrere Seiten – die Zeilen werden in Seitenreihenfolge zusammengeführt
-    /// (Kopf/Kunde/Datum von S. 1 bleiben vorn, Summen von S. 2 kommen hinzu).
-    private static func texterkennung(seiten: [CGImage]) async -> [String] {
-        var zeilen: [String] = []
-        for cg in seiten { zeilen += await texterkennung(cg) }
-        return zeilen
+    /// Fragmente über mehrere Seiten – Folgeseiten werden in y nach unten verschoben, damit die
+    /// Lesereihenfolge (Kopf/Kunde/Datum S. 1, Summen ggf. S. 2) erhalten bleibt.
+    private static func fragmente(von url: URL) async -> [TextFragment] {
+        var alle: [TextFragment] = []
+        for (i, cg) in bilder(von: url).enumerated() {
+            let f = await erkenneFragmente(cg)
+            alle += i == 0 ? f : f.map { TextFragment(text: $0.text, box: $0.box.offsetBy(dx: 0, dy: -CGFloat(i))) }
+        }
+        return alle
     }
 
-    private static func texterkennung(_ cg: CGImage) async -> [String] {
+    private static func erkenneFragmente(_ cg: CGImage) async -> [TextFragment] {
         await withCheckedContinuation { cont in
             let req = VNRecognizeTextRequest { request, _ in
                 let obs = request.results as? [VNRecognizedTextObservation] ?? []
-                let fragmente = obs.compactMap { o -> TextFragment? in
+                cont.resume(returning: obs.compactMap { o -> TextFragment? in
                     guard let s = o.topCandidates(1).first?.string else { return nil }
                     return TextFragment(text: s, box: o.boundingBox)
-                }
-                cont.resume(returning: zeilen(aus: fragmente))
+                })
             }
             req.recognitionLevel = .accurate
             req.recognitionLanguages = ["de-DE", "en-US"]
@@ -126,6 +128,86 @@ enum BelegOCR {
         return zeilen.map { gruppe in
             gruppe.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ")
         }
+    }
+
+    // MARK: - Geometrie-genaue Felder (rein, testbar)
+
+    /// Betrag in **derselben Zeile rechts** vom Schlagwort. Schlagworte werden in Prioritäts-
+    /// reihenfolge geprüft; je Treffer wird der am weitesten rechts stehende parsbare Betrag der
+    /// Zeilenhöhe genommen. Ignoriert Nachbarspalten anderer Zeilen (z. B. die Stundenzahl).
+    static func betragRechtsVomLabel(_ schlagworte: [String], _ frag: [TextFragment]) -> Decimal? {
+        for wort in schlagworte {
+            guard let label = frag.first(where: { f in
+                let l = f.text.lowercased()
+                // Kurze, mehrdeutige Steuerworte nur an Wortgrenzen (sonst matcht „Sch**ust**er"/
+                // „pri**vat**"); zusätzlich USt-IdNr./VAT-ID ausschließen (kein Steuerbetrag).
+                if wort == "ust" || wort == "vat" {
+                    guard l.range(of: "\\b" + wort + "\\b", options: .regularExpression) != nil else { return false }
+                    for verbot in ["ustid", "ust-id", "ust id", "idnr", "id-nr", "vatid", "vat id"] where l.contains(verbot) {
+                        return false
+                    }
+                    return true
+                }
+                return l.contains(wort)
+            }) else { continue }
+            let tol = max(label.box.height, 0.001) * 0.8
+            let kandidaten = frag
+                .filter { abs($0.box.midY - label.box.midY) <= tol && $0.box.minX >= label.box.minX - 0.01 }
+                .sorted { $0.box.minX < $1.box.minX }
+            for f in kandidaten.reversed() { if let b = betraege(in: f.text).max() { return b } }
+        }
+        return nil
+    }
+
+    /// Empfänger über Geometrie: erste nicht-numerische Zeile **links unterhalb** der Absenderzeile
+    /// („•"); blendet die rechte Absender-Kontaktspalte über die x-Position aus.
+    static func empfaenger(_ frag: [TextFragment]) -> String? {
+        guard let sender = frag.first(where: { f in
+            let l = f.text.lowercased()
+            return f.text.contains("•") && !l.contains("iban") && !l.contains("bic") && !l.contains("zahlungsinfo")
+        }) else { return nil }
+        let kandidaten = frag
+            .filter { $0.box.midY < sender.box.midY - 0.001 && abs($0.box.minX - sender.box.minX) <= 0.12 }
+            .sorted { $0.box.midY > $1.box.midY }   // oben zuerst
+        for f in kandidaten {
+            let t = f.text.trimmingCharacters(in: .whitespaces)
+            if let c = t.first, !c.isNumber, t.count >= 2 { return t }
+        }
+        return nil
+    }
+
+    /// Ausgabe-Beleg geometrie-genau: Text-Felder aus den rekonstruierten Zeilen, Beträge rechts
+    /// vom Schlagwort (sonst Zeilen-Fallback).
+    static func extrahiere(fragmente frag: [TextFragment]) -> BelegDaten {
+        let zeilen = zeilen(aus: frag)
+        var d = extrahiere(aus: zeilen)
+        if let v = betragRechtsVomLabel(["mwst", "mehrwertsteuer", "umsatzsteuer", "ust", "vat"], frag) { d.vst = v }
+        if let b = betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag) { d.brutto = b }
+        d.steuerart = steuerart(text: zeilen.joined(separator: "\n").lowercased(), vst: d.vst)
+        return d
+    }
+
+    /// Ausgangs-(Einnahmen-)Rechnung geometrie-genau: Empfänger aus der linken Spalte, Beträge
+    /// rechts vom jeweiligen Schlagwort (USt am robustesten als Brutto − Netto).
+    static func extrahiereEinnahme(fragmente frag: [TextFragment]) -> EinnahmeDaten {
+        let zeilen = zeilen(aus: frag)
+        var d = EinnahmeDaten()
+        d.datum = rechnungsdatum(in: zeilen) ?? ersteDatum(in: zeilen)
+        d.rechnungsnummer = rechnungsnummer(in: zeilen)
+        d.kunde = empfaenger(frag) ?? kunde(in: zeilen)
+        d.rnNetto = betragRechtsVomLabel(["summe netto", "netto", "zwischensumme"], frag)
+            ?? betragNahe(["summe netto", "netto", "zwischensumme"], in: zeilen)
+        let gesamt = betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], frag)
+            ?? betragNahe(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], in: zeilen)
+            ?? groessterBetrag(in: zeilen)
+        if let netto = d.rnNetto, let g = gesamt, g > netto {
+            d.ust = g - netto
+        } else {
+            d.ust = betragRechtsVomLabel(["umsatzsteuer", "mwst", "mehrwertsteuer", "ust", "vat"], frag)
+                ?? betragNahe(["umsatzsteuer", "mwst", "mehrwertsteuer", "vat"], in: zeilen)
+            if d.rnNetto == nil, let g = gesamt, let u = d.ust, g > u { d.rnNetto = g - u }
+        }
+        return d
     }
 
     // MARK: - Heuristische Extraktion (rein, testbar)
