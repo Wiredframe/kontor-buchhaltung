@@ -503,6 +503,7 @@ private struct ArtLeiste: View {
 // MARK: - Inspector: Ausgabe bearbeiten
 
 struct AusgabeInspektor: View {
+    @Environment(\.modelContext) private var context
     @Bindable var eintrag: ExpenseEntry
     @FocusState private var fokus: Bool
 
@@ -547,7 +548,12 @@ struct AusgabeInspektor: View {
                     HStack {
                         Text((p as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         Spacer()
-                        Button("Entfernen", role: .destructive) { eintrag.belegPfad = nil }
+                        Button("Entfernen", role: .destructive) {
+                            let alt = eintrag.belegPfad
+                            eintrag.belegPfad = nil
+                            try? context.save()
+                            entferneVerwaisteBelege([alt], context)
+                        }
                     }
                 } else {
                     BelegDropArea { url in

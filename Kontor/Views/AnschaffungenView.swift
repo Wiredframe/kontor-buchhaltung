@@ -153,6 +153,7 @@ struct AnschaffungenView: View {
 }
 
 struct AnschaffungInspektor: View {
+    @Environment(\.modelContext) private var context
     @Bindable var eintrag: PurchaseEntry
     @FocusState private var fokus: Bool
     var body: some View {
@@ -166,7 +167,12 @@ struct AnschaffungInspektor: View {
                     HStack {
                         Text((p as NSString).lastPathComponent).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         Spacer()
-                        Button("Entfernen", role: .destructive) { eintrag.belegPfad = nil }
+                        Button("Entfernen", role: .destructive) {
+                            let alt = eintrag.belegPfad
+                            eintrag.belegPfad = nil
+                            try? context.save()
+                            entferneVerwaisteBelege([alt], context)
+                        }
                     }
                 } else {
                     BelegDropArea { url in
