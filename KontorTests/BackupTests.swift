@@ -1,0 +1,210 @@
+import Testing
+import Foundation
+import SwiftData
+@testable import Kontor
+
+struct BackupTests {
+
+    /// Kleines, in sich geschlossenes Test-Fixture: je Entität wenige, bekannte Datensätze –
+    /// reicht für Export/Import/Roundtrip.
+    private func befuelle(_ ctx: ModelContext) {
+        ctx.insert(YearSettings(jahr: 2026, estPauschalSatz: dez("0.15")))
+        ctx.insert(Vorlage(bezeichnung: "Figma", anbieter: "Figma", betragBrutto: dez("35.00"),
+                           steuerart: .reverseCharge, betrieblich: true, art: .subscription))
+        ctx.insert(Vorlage(bezeichnung: "Miete", betragBrutto: dez("725.00"),
+                           steuerart: .steuerfrei, betrieblich: false, art: .fixkosten))
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 5), bezeichnung: "Figma", anbieter: "Figma",
+                                brutto: dez("35.00"), vst: dez("0"), steuerart: .reverseCharge, art: .subscription))
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 5), bezeichnung: "ChatGPT", anbieter: "OpenAI",
+                                brutto: dez("7.99"), vst: dez("1.27"), steuerart: .inland19))
+        ctx.insert(Income(kunde: "Kunde A", rnNetto: dez("1000"), ust: dez("190"),
+                          rechnungsdatum: tag(2026, 1, 10), status: .offen, rechnungsnummer: "2026-001"))
+        ctx.insert(Income(kunde: "Kunde B", rnNetto: dez("500"), ust: dez("95"),
+                          rechnungsdatum: tag(2026, 2, 10), status: .bezahlt, rechnungsnummer: "2026-002"))
+        ctx.insert(MonthlyTask(titel: "Miete überweisen", monat: tag(2026, 1, 1), intervall: .monatlich))
+        ctx.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("50.00"), ort: "Rewe"))
+        ctx.insert(PurchaseEntry(datum: tag(2026, 1, 8), bezeichnung: "Amazon", preis: dez("45.77")))
+        ctx.insert(TaxPayment(kind: .ustVz, jahr: 2026, faellig: tag(2026, 4, 10), betrag: dez("100")))
+    }
+
+    private func container() throws -> ModelContainer {
+        try ModelContainer(
+            for: YearSettings.self, ExpenseEntry.self, Vorlage.self,
+                Income.self, MonthlyTask.self,
+                GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
+                ZuordnungsRegel.self, ImportBuchung.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    }
+
+    @Test func exportEnthaeltAlleDatenUndIstDekodierbar() throws {
+        let ctx = ModelContext(try container())
+        befuelle(ctx)
+        ctx.insert(ZuordnungsRegel(schluessel: "test haendler", kategorie: .lebensmittel, betrieblich: false))
+        try ctx.save()
+
+        let data = try Backup.exportData(ctx)
+        #expect(!data.isEmpty)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let snap = try decoder.decode(Backup.Snapshot.self, from: data)
+
+        #expect(snap.jahre.count == 1)
+        #expect(snap.vorlagen?.count == 2)
+        #expect(snap.ausgaben.count == 2)
+        #expect(snap.einnahmen.count == 2)
+        #expect(snap.aufgaben.count == 1)
+        #expect(snap.anschaffungen.count == 1)
+        #expect(snap.lebensmittel.count == 1)
+        #expect(snap.jahre.first?.estPauschalSatz == dez("0.15"))
+        #expect(snap.zuordnungsRegeln?.count == 1)        // Import-Lernregel wird mitgesichert
+    }
+
+    private func kontext() throws -> ModelContext { ModelContext(try container()) }
+
+    private func zaehle(_ ctx: ModelContext) throws -> [Int] {
+        [try ctx.fetchCount(FetchDescriptor<YearSettings>()),
+         try ctx.fetchCount(FetchDescriptor<Vorlage>()),
+         try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()),
+         try ctx.fetchCount(FetchDescriptor<Income>()),
+         try ctx.fetchCount(FetchDescriptor<MonthlyTask>()),
+         try ctx.fetchCount(FetchDescriptor<GroceryEntry>()),
+         try ctx.fetchCount(FetchDescriptor<PurchaseEntry>()),
+         try ctx.fetchCount(FetchDescriptor<TaxPayment>()),
+         try ctx.fetchCount(FetchDescriptor<ZuordnungsRegel>())]
+    }
+
+    @Test func roundtripExportImport() throws {
+        let quelle = try kontext()
+        befuelle(quelle)
+        quelle.insert(ZuordnungsRegel(schluessel: "test haendler", kategorie: .lebensmittel, betrieblich: false))
+        quelle.insert(ZuordnungsRegel(schluessel: "finanzamt", kategorie: .steuer, betrieblich: false, steuerKind: .estVz))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        let r = try Backup.importData(data, in: ziel)
+        #expect(r.uebersprungen == 0)
+        #expect(try zaehle(quelle) == zaehle(ziel))   // identische Datenbestände
+
+        let r2 = try Backup.importData(data, in: ziel) // erneuter Import dedupliziert
+        #expect(r2.neu == 0)
+        #expect(try zaehle(quelle) == zaehle(ziel))
+
+        // erweiterte Felder bleiben erhalten
+        #expect(try ziel.fetch(FetchDescriptor<Vorlage>()).contains { $0.art == .fixkosten })
+        #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
+    }
+
+    /// Bug-Fix: ein bestehendes Jahr darf beim Import nicht komplett übersprungen werden –
+    /// die später dazugekommenen KSK/ESt-Monatswerte müssen additiv zurückkommen, ohne
+    /// bereits vorhandene Monate zu überschreiben.
+    @Test func importMergtKSKundESTInBestehendesJahr() throws {
+        let quelle = try kontext()
+        let ys = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        ys.setzeKSKBetrag(monat: 1, .rv, dez("232.5"))
+        ys.setzeKSKBetrag(monat: 1, .kv, dez("213.13"))
+        ys.estSatzProMonat["6"] = dez("0.16")
+        quelle.insert(ys)
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        // Ziel hat das Jahr schon, aber ohne KSK/ESt-Monatswerte (wie nach Datenverlust).
+        let ziel = try kontext()
+        let leer = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        leer.estSatzProMonat["1"] = dez("0.19")   // bestehender Monat bleibt unangetastet
+        ziel.insert(leer)
+        try ziel.save()
+
+        let r = try Backup.importData(data, in: ziel)
+        #expect(r.neu == 1)   // gemergt = als „neu/ergänzt" gezählt
+        let nachher = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(nachher.kskTeile(monat: 1).rv == dez("232.5"))
+        #expect(nachher.kskTeile(monat: 1).kv == dez("213.13"))
+        #expect(nachher.estSatzProMonat["6"] == dez("0.16"))
+        #expect(nachher.estSatzProMonat["1"] == dez("0.19"))   // nicht überschrieben
+        #expect(try ziel.fetchCount(FetchDescriptor<YearSettings>()) == 1)   // kein Dublikat-Jahr
+    }
+
+    @Test func artNachtragKlassifiziert() throws {
+        let ctx = try kontext()
+        // Altbestand ohne art:
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 1), bezeichnung: "Strom", anbieter: "",
+                                brutto: dez("80"), vst: dez("0"), steuerart: .steuerfrei, betrieblich: false))
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 2), bezeichnung: "Disney+", anbieter: "Disney+",
+                                brutto: dez("9"), vst: dez("0"), steuerart: .steuerfrei, betrieblich: false))
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 3), bezeichnung: "Figma", anbieter: "Figma",
+                                brutto: dez("35"), vst: dez("0"), steuerart: .reverseCharge, betrieblich: true))
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 4), bezeichnung: "Drucker", anbieter: "Brother",
+                                brutto: dez("120"), vst: dez("19.16"), steuerart: .inland19, betrieblich: true))
+        // bereits gesetzte art bleibt erhalten:
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 5), bezeichnung: "Miete", anbieter: "",
+                                brutto: dez("725"), vst: dez("0"), steuerart: .steuerfrei, betrieblich: false, art: .fixkosten))
+        try ctx.save()
+
+        ArtNachtrag.nachtragen(ctx)
+        let alle = try ctx.fetch(FetchDescriptor<ExpenseEntry>())
+        func art(_ b: String) -> AusgabeArt? { alle.first { $0.bezeichnung == b }?.art }
+        #expect(art("Strom") == .fixkosten)            // privat, kein Abo
+        #expect(art("Disney+") == .subscription)       // Streaming-Name
+        #expect(art("Figma") == .subscription)         // betriebliches Abo (SaaS-Name)
+        #expect(art("Drucker") == .betriebsausgabe)    // betrieblich, kein Abo
+        #expect(art("Miete") == .fixkosten)            // unverändert
+
+        // Idempotent: zweiter Lauf ändert nichts mehr.
+        ArtNachtrag.nachtragen(ctx)
+        #expect(try ctx.fetch(FetchDescriptor<ExpenseEntry>()).allSatisfy { $0.art != nil })
+    }
+
+    /// Zahlung und Erstattung gleicher Art am selben Fälligkeitstag (positiv + negativ) dürfen
+    /// beim Roundtrip nicht kollidieren (Dedup-Key enthält den Betrag).
+    @Test func negativeSteuerzahlungUeberlebtRoundtrip() throws {
+        let quelle = try kontext()
+        quelle.insert(TaxPayment(kind: .ustVz, jahr: 2026, faellig: tag(2026, 4, 10), betrag: dez("200"), bezahlt: true))
+        quelle.insert(TaxPayment(kind: .ustVz, jahr: 2026, faellig: tag(2026, 4, 10), betrag: dez("-50"), bezahlt: true))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        try Backup.importData(data, in: ziel)
+        let zahlungen = try ziel.fetch(FetchDescriptor<TaxPayment>())
+        #expect(zahlungen.count == 2)
+        #expect(zahlungen.contains { $0.betrag == dez("200") })
+        #expect(zahlungen.contains { $0.betrag == dez("-50") })
+    }
+
+    /// Vorwärtskompatibilität: ein **altes** Backup-Schema (ohne KSK/ESt-Monatsdicts, ohne
+    /// Vorlagen/Regeln, Ausgabe ohne `art`/`umlagefaehig`) muss ohne Crash importierbar sein.
+    @Test func importAltesSchemaOhneNeueFelder() throws {
+        let json = """
+        {"exportiertAm":"2026-01-01T00:00:00Z",
+         "jahre":[{"jahr":2024,"ustvaRhythmus":"vierteljaehrlich","dauerfristverlaengerung":false,"versteuerung":"soll","estPauschalSatz":0.15}],
+         "ausgaben":[{"datum":"2024-03-01T00:00:00Z","bezeichnung":"Domain","anbieter":"X","brutto":11.9,"vst":1.9,"steuerart":"inland19","kategorie":"laufend","betrieblich":true}],
+         "einnahmen":[],"aufgaben":[],"lebensmittel":[],"anschaffungen":[],"steuern":[]}
+        """
+        let ziel = try kontext()
+        let r = try Backup.importData(Data(json.utf8), in: ziel)
+        #expect(r.neu == 2)   // 1 Jahr + 1 Ausgabe
+        let ys = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(ys.jahr == 2024)
+        #expect(ys.kskRVProMonat.isEmpty)   // fehlende KSK-Dicts → leer (kein Crash)
+        let aus = try #require(try ziel.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(aus.art == nil)             // fehlendes `art` → Altbestand
+        #expect(aus.umlagefaehig == false)  // fehlend → Default
+    }
+
+    @Test func komplettBackupOrdnerRoundtrip() throws {
+        let quelle = try kontext()
+        befuelle(quelle)
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("KontorTest-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        try Backup.exportiereKomplett(quelle, nach: temp)
+        #expect(FileManager.default.fileExists(atPath: temp.appendingPathComponent("kontor.json").path))
+
+        let ziel = try kontext()
+        let r = try Backup.importiereKomplett(ziel, von: temp)
+        #expect(r.neu > 0)
+        #expect(try zaehle(quelle) == zaehle(ziel))   // alle Entitäten wiederhergestellt
+    }
+}

@@ -1,0 +1,101 @@
+import Testing
+import Foundation
+@testable import Kontor
+
+/// Reine Datenmodell-Logik (ohne Datenbank): Status-/Zahlungsdatum-Konsistenz,
+/// ESt-Satz-Overrides und Monatsabschluss-Status auf `YearSettings`/`Income`.
+struct ModellTests {
+
+    @Test func incomeStatusHaeltZahlungsdatumKonsistent() {
+        let e = Income(kunde: "X", rnNetto: 100, ust: 19, rechnungsdatum: Date())
+        e.setze(status: .bezahlt)
+        #expect(e.status == .bezahlt && e.zahlungsdatum != nil)
+        let datum = e.zahlungsdatum
+        e.setze(status: .bezahlt)                       // erneut bezahlt → Datum bleibt
+        #expect(e.zahlungsdatum == datum)
+        e.setze(status: .offen)                         // offen → Datum gelöscht
+        #expect(e.zahlungsdatum == nil)
+        e.setze(status: .bezahlt); e.setze(status: .ausgefallen)
+        #expect(e.zahlungsdatum == nil)                 // ausgefallen → kein Zufluss
+        #expect(e.ausfalldatum != nil)                  // ausgefallen → Ausfalldatum gesetzt (§17 greift)
+        e.setze(status: .bezahlt)
+        #expect(e.ausfalldatum == nil)                  // wieder bezahlt → Ausfalldatum gelöscht
+    }
+
+    @Test func estSatzErbtVomVormonat() {
+        let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        #expect(s.estSatz(monat: 3) == dez("0.15"))     // nichts gesetzt → Jahres-Standard
+        #expect(s.hatEigenenSatz(monat: 3) == false)
+        s.estSatzProMonat["3"] = dez("0.19")
+        #expect(s.estSatz(monat: 3) == dez("0.19"))     // eigener Wert
+        #expect(s.estSatz(monat: 4) == dez("0.19"))     // April erbt März (Vormonat)
+        #expect(s.estSatz(monat: 2) == dez("0.15"))     // Februar liegt davor → Standard
+        #expect(s.hatEigenenSatz(monat: 4) == false)    // erbt nur, kein eigener Wert
+    }
+
+    @Test func kskBetraegeProMonat() {
+        let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        #expect(s.ksk(monat: 5) == 0)                   // nichts hinterlegt
+        // Feb (synthetisch): RV 230,00 / KV 130,00 / PV 60,00 → Summe 420,00; JAE nur Info.
+        s.setzeJAE(monat: 2, dez("36000"))
+        s.setzeKSKBetrag(monat: 2, .rv, dez("230.00"))
+        s.setzeKSKBetrag(monat: 2, .kv, dez("130.00"))
+        s.setzeKSKBetrag(monat: 2, .pv, dez("60.00"))
+        #expect(s.ksk(monat: 2) == dez("420.00"))
+        #expect(s.kskTeile(monat: 2).rv == dez("230.00"))
+        #expect(s.jae(monat: 2) == dez("36000"))
+        #expect(s.hatEigenenKSK(monat: 2))
+        // Mai erbt Februar (Beträge + JAE) → gleiche Summe, aber kein eigener Wert.
+        #expect(s.ksk(monat: 5) == dez("420.00"))
+        #expect(s.kskTeile(monat: 5).pv == dez("60.00"))
+        #expect(s.jae(monat: 5) == dez("36000"))
+        #expect(s.hatEigenenKSK(monat: 5) == false)
+        #expect(s.ksk(monat: 1) == 0)                   // Januar liegt davor
+        // Einzelner Zweig im Mai überschrieben → Rest erbt unabhängig weiter aus Februar.
+        s.setzeKSKBetrag(monat: 5, .rv, dez("250"))
+        #expect(s.kskTeile(monat: 5).rv == dez("250"))
+        #expect(s.kskTeile(monat: 5).kv == dez("130.00"))
+        #expect(s.hatEigenenKSK(monat: 5))
+    }
+
+    @Test func vorlageErzeugtDatierteBuchung() {
+        // Private Fixkosten-Vorlage (steuerfrei) → Buchung ohne VSt, privat, Art Fixkosten.
+        let miete = Vorlage(bezeichnung: "Miete", betragBrutto: 1000, steuerart: .steuerfrei,
+                            betrieblich: false, art: .fixkosten)
+        let b = miete.buchung(am: tag(2026, 6, 1))
+        #expect(b.bezeichnung == "Miete" && b.brutto == 1000 && b.betrieblich == false)
+        #expect(b.artEffektiv == .fixkosten && b.vst == 0 && b.datum == tag(2026, 6, 1))
+
+        // Betriebliche Subscription (19 %) → VSt automatisch, Art Subscription.
+        let adobe = Vorlage(bezeichnung: "Adobe", betragBrutto: dez("59.49"), steuerart: .inland19,
+                            betrieblich: true, art: .subscription)
+        let ab = adobe.buchung(am: tag(2026, 6, 1))
+        #expect(ab.artEffektiv == .subscription && ab.betrieblich)
+        #expect(ab.vst == Steuer.vorsteuerVorschlag(brutto: dez("59.49"), steuerart: .inland19))
+
+        // Altbestand ohne `art` zählt als Betriebsausgabe.
+        let alt = ExpenseEntry(datum: Date(), bezeichnung: "x", anbieter: "", brutto: 0, vst: 0, steuerart: .steuerfrei)
+        #expect(alt.artEffektiv == .betriebsausgabe)
+    }
+
+    @Test func monatsabschlussStatus() {
+        let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        #expect(s.istAbgeschlossen(monat: 5) == false)
+        s.abschlussProMonat["5"] = Date()
+        #expect(s.istAbgeschlossen(monat: 5))
+        #expect(s.abschlussDatum(monat: 5) != nil)
+        #expect(s.istAbgeschlossen(monat: 6) == false)   // andere Monate unberührt
+    }
+
+    @Test func snapshotEinfrierenUndEntsperren() {
+        let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        #expect(s.snapshot(monat: 3) == nil)
+        let snap = MonatsSnapshot(rn: dez("4000"), ust: dez("760.00"), vst: 0, ustKorrektur: 0,
+                                  ksk: dez("420.00"), est: dez("537.00"), estKorrektur: 0,
+                                  betriebsausgabenNetto: 0, umlagefaehig: 0, privatFix: 0, privatVariabel: 0)
+        s.setzeSnapshot(monat: 3, snap)
+        #expect(s.snapshot(monat: 3) == snap)            // JSON-Roundtrip stimmt
+        s.loescheSnapshot(monat: 3)
+        #expect(s.snapshot(monat: 3) == nil)             // entsperrt → wieder live
+    }
+}
