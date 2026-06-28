@@ -48,7 +48,8 @@ struct LebensmittelView: View {
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("Datum", value: \.datum) { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
                     .width(min: 96, ideal: 110)
-                TableColumn("KW") { Text("KW \(kw($0.datum))").foregroundStyle(.secondary).lineLimit(1) }
+                // KW ist aus dem Datum abgeleitet → chronologisch = KW-Reihenfolge (über Jahre sinnvoller).
+                TableColumn("KW", value: \.datum) { Text("KW \(kw($0.datum))").foregroundStyle(.secondary).lineLimit(1) }
                     .width(min: 56, ideal: 70)
                 TableColumn("Ort", value: \.ort) { Text($0.ort.isEmpty ? "—" : $0.ort).lineLimit(1) }
                     .width(min: 140, ideal: 220)

@@ -79,6 +79,14 @@ enum InvoiceStatus: String, Codable, CaseIterable, Identifiable {
         case .ausgefallen: "ausgefallen"
         }
     }
+    /// Logischer Sortierrang (für sortierbare Tabellenspalte): offen → bezahlt → ausgefallen.
+    var sortRang: Int {
+        switch self {
+        case .offen:       0
+        case .bezahlt:     1
+        case .ausgefallen: 2
+        }
+    }
 }
 
 /// Rhythmus der UStVA (pro Jahr einstellbar). Nur **monatlich** oder **vierteljährlich** –

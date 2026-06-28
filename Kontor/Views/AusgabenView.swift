@@ -25,6 +25,14 @@ private struct LedgerZeile: Identifiable {
     let netto: Decimal?
     let ausgabe: ExpenseEntry?
     let zahlung: TaxPayment?
+
+    // Sortierschlüssel für die optionalen Spalten (Optional ist nicht `Comparable`):
+    /// Sparte – Steuer/Vorsorge (ohne Sparte) ans Ende.
+    var sparteSort: String { sparte ?? "\u{10FFFF}" }
+    /// VSt – ohne Vorsteuer (Steuer/Vorsorge) sortiert als 0.
+    var vstSort: Decimal { vst ?? 0 }
+    /// Netto – ohne Netto (Steuer/Vorsorge) sortiert als 0.
+    var nettoSort: Decimal { netto ?? 0 }
 }
 
 /// Modul „Ausgaben": gemeinsamer Ledger aller Abflüsse – Betriebsausgaben, Fixkosten,
@@ -39,6 +47,7 @@ struct AusgabenView: View {
     @Environment(Zeitkontext.self) private var zeit
     @Environment(Navigation.self) private var nav
     @State private var selection = Set<PersistentIdentifier>()
+    @State private var sortOrder = [KeyPathComparator(\LedgerZeile.datum, order: .reverse)]
     @State private var zeigeInspektor = true
     @State private var sidebarModus: SidebarModus = .eintrag
     /// Im Vorlagen-Tab gewählte Vorlage – steuert den Editor unten in der `VorlagenPanel`.
@@ -172,7 +181,7 @@ struct AusgabenView: View {
 
     var body: some View {
         @Bindable var zeit = zeit
-        let liste = zeilen.sorted { $0.datum > $1.datum }
+        let liste = zeilen.sorted(using: sortOrder)
         return VStack(spacing: 0) {
             ZeitraumLeiste(filter: $zeit.filter) {
                 // Sparte-Filter rechts in der Zeitleiste – spart Breite in der Bereichszeile.
@@ -194,30 +203,30 @@ struct AusgabenView: View {
                 if !neu.hatVorlagen { sidebarModus = .eintrag }
             }
             Divider()
-            Table(liste, selection: $selection) {
-                TableColumn("Datum") { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
+            Table(liste, selection: $selection, sortOrder: $sortOrder) {
+                TableColumn("Datum", value: \.datum) { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
                     .width(min: 64, ideal: 92)
-                TableColumn("Bezeichnung") { Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1) }
+                TableColumn("Bezeichnung", value: \.bezeichnung) { Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1) }
                     .width(min: 70, ideal: 180)
                 // „Art" nur in der Gesamtansicht – sonst ist sie durch die Bereichswahl ohnehin bekannt.
                 if artFilter == .alle {
-                    TableColumn("Art") { Text($0.artLabel).foregroundStyle(.secondary).lineLimit(1) }
+                    TableColumn("Art", value: \.artLabel) { Text($0.artLabel).foregroundStyle(.secondary).lineLimit(1) }
                         .width(min: 60, ideal: 116)
                 }
                 // „Sparte" nur, wo es privat/betrieblich überhaupt gibt.
                 if artFilter.hatSparte {
-                    TableColumn("Sparte") { Text($0.sparte ?? "—").foregroundStyle(.secondary).lineLimit(1) }
+                    TableColumn("Sparte", value: \.sparteSort) { Text($0.sparte ?? "—").foregroundStyle(.secondary).lineLimit(1) }
                         .width(min: 50, ideal: 92)
                 }
-                TableColumn("Betrag") { z in
+                TableColumn("Betrag", value: \.betrag) { z in
                     Text(z.betrag.euro).monospacedDigit().foregroundStyle(z.betrag < 0 ? .red : .primary).lineLimit(1)
                 }
                 .width(min: 60, ideal: 88)
                 // VSt/Netto nur bei Ausgaben – Vorsorge/Steuern haben keine Vorsteuer.
                 if artFilter.hatVorsteuer {
-                    TableColumn("VSt") { Text($0.vst.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
+                    TableColumn("VSt", value: \.vstSort) { Text($0.vst.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
                         .width(min: 50, ideal: 74)
-                    TableColumn("Netto") { Text($0.netto.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
+                    TableColumn("Netto", value: \.nettoSort) { Text($0.netto.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
                         .width(min: 56, ideal: 80)
                 }
             }

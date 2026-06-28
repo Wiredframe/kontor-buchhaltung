@@ -25,7 +25,7 @@ struct AufgabenView: View {
             ZeitraumLeiste(filter: $zeit.filter)
             Divider()
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("") { t in
+                TableColumn("", value: \.erledigtSort) { t in
                     Button { t.erledigt.toggle(); TaskVorlagen.nachAbschluss(t, in: context) } label: {
                         Image(systemName: t.erledigt ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(t.erledigt ? Color.accentColor : .secondary)
@@ -38,7 +38,7 @@ struct AufgabenView: View {
                         .strikethrough(t.erledigt).foregroundStyle(t.erledigt ? .secondary : .primary).lineLimit(1)
                 }
                 .width(min: 200, ideal: 320)
-                TableColumn("Wiederholung") { t in
+                TableColumn("Wiederholung", value: \.intervall.sortRang) { t in
                     if t.istWiederkehrend {
                         Label(t.intervall.bezeichnung, systemImage: "repeat").foregroundStyle(.secondary).lineLimit(1)
                     } else {

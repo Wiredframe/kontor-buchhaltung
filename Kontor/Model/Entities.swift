@@ -269,6 +269,8 @@ final class Income {
     var brutto: Decimal { rnNetto + ust }
     /// Sortierschlüssel für die (optionale) Rechnungsnummer – ohne Nummer ans Ende.
     var rechnungsnummerSort: String { rechnungsnummer ?? "\u{10FFFF}" }
+    /// Sortierschlüssel für das (optionale) Zahlungsdatum – noch unbezahlte ganz nach vorn/hinten.
+    var zahlungsdatumSort: Date { zahlungsdatum ?? .distantPast }
 
     init(
         kunde: String,
@@ -375,6 +377,15 @@ enum TaskIntervall: String, Codable, CaseIterable, Identifiable {
         case .jaehrlich:     "jährlich"
         }
     }
+    /// Sortierrang nach Häufigkeit (für sortierbare Tabellenspalte „Wiederholung").
+    var sortRang: Int {
+        switch self {
+        case .einmalig:      0
+        case .monatlich:     1
+        case .quartalsweise: 2
+        case .jaehrlich:     3
+        }
+    }
 }
 
 /// Eine Aufgabe – einmalig oder wiederkehrend (Reminders-Logik: beim Abhaken einer
@@ -392,6 +403,8 @@ final class MonthlyTask {
     var quartalsMonate: [Int]
 
     var istWiederkehrend: Bool { intervall != .einmalig }
+    /// Sortierschlüssel der Checkbox-Spalte (Bool ist nicht `Comparable`): offen vor erledigt.
+    var erledigtSort: Int { erledigt ? 1 : 0 }
 
     init(titel: String, monat: Date, erledigt: Bool = false,
          intervall: TaskIntervall = .einmalig, faelligTag: Int = 1, quartalsMonate: [Int] = []) {

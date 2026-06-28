@@ -47,16 +47,16 @@ struct EinnahmenView: View {
                     .width(min: 90, ideal: 100)
                 TableColumn("USt", value: \.ust) { Text($0.ust.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
-                TableColumn("Brutto") { Text($0.brutto.euro).monospacedDigit().lineLimit(1) }
+                TableColumn("Brutto", value: \.brutto) { Text($0.brutto.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
                 TableColumn("Rechnung", value: \.rechnungsdatum) { Text($0.rechnungsdatum, format: .dateTime.day().month().year()).lineLimit(1) }
                     .width(min: 96, ideal: 106)
-                TableColumn("Zahlung") { e in
+                TableColumn("Zahlung", value: \.zahlungsdatumSort) { e in
                     if let z = e.zahlungsdatum { Text(z, format: .dateTime.day().month().year()).lineLimit(1) }
                     else { Text("—").foregroundStyle(.secondary) }
                 }
                 .width(min: 96, ideal: 106)
-                TableColumn("Status") { e in
+                TableColumn("Status", value: \.status.sortRang) { e in
                     Menu(e.status.bezeichnung) {
                         ForEach(InvoiceStatus.allCases) { s in
                             Button(s.bezeichnung) { setzeStatus(e, s) }
