@@ -41,37 +41,36 @@ struct BelegOCRTests {
             BelegOCR.TextFragment(text: t, box: CGRect(x: x, y: y, width: 0.18, height: h))
         }
         let frag = [
-            f("Ulf Schuster • Sindelsdorferstraße 27a • 82377 Penzberg", x: 0.06, y: 0.840),
-            f("Stadt Unterschleißheim", x: 0.06, y: 0.815),
-            f("Frau Nadine Wassilko", x: 0.06, y: 0.800),
-            f("Rathausplatz 1", x: 0.06, y: 0.785),
-            f("85716 Unterschleißheim", x: 0.06, y: 0.755),
+            f("Lena Brandt • Oranienstraße 40 • 10999 Berlin", x: 0.06, y: 0.840),
+            f("Nordstern Studio GmbH", x: 0.06, y: 0.815),
+            f("Chausseestraße 5", x: 0.06, y: 0.800),
+            f("10115 Berlin", x: 0.06, y: 0.785),
             // rechte Absender-Kontaktspalte (darf NICHT als Empfänger gewählt werden)
-            f("Ulf Schuster", x: 0.72, y: 0.740),
-            f("Freiberuflicher UI Designer seit 2014", x: 0.55, y: 0.725),
-            f("82377 Penzberg", x: 0.74, y: 0.690),
-            f("UStID DE256451894", x: 0.62, y: 0.600),
-            f("Rechnungsdatum: 26.05.2025", x: 0.58, y: 0.585),
-            f("Rechnung #202505261", x: 0.06, y: 0.530),
+            f("Lena Brandt", x: 0.72, y: 0.740),
+            f("Freiberufliche UI Designerin", x: 0.55, y: 0.725),
+            f("10999 Berlin", x: 0.74, y: 0.690),
+            f("UStID DE300000007", x: 0.62, y: 0.600),
+            f("Rechnungsdatum: 26.05.2026", x: 0.58, y: 0.585),
+            f("Rechnung #202605261", x: 0.06, y: 0.530),
             // Positionszeile: Stundenzahl 37 und Einzelpreis stehen neben dem Betrag
-            f("Konzeption, Gestaltung und UI-Design – Website-Relaunch Stadt", x: 0.06, y: 0.400),
+            f("Konzeption, Gestaltung und UI-Design – Website-Relaunch", x: 0.06, y: 0.400),
             f("37", x: 0.66, y: 0.400), f("85,00 €", x: 0.74, y: 0.400), f("3.145,00 €", x: 0.86, y: 0.400),
             // Summenblock (Label links, Betrag rechtsbündig)
             f("Summe netto", x: 0.66, y: 0.340), f("3.145,00 €", x: 0.86, y: 0.340),
             f("USt. (19%)", x: 0.66, y: 0.318), f("597,55 €", x: 0.86, y: 0.318),
             f("Gesamtbetrag", x: 0.66, y: 0.296), f("3.742,55 €", x: 0.86, y: 0.296),
-            f("Zahlungsinformationen: Sparkasse Penzberg • IBAN: DE08 • BIC: BYLADEM1WHM", x: 0.06, y: 0.045),
+            f("Zahlungsinformationen: Musterbank Berlin • IBAN: DE00 0000 0000 0000 0000 00 • BIC: ABCDDEFFXXX", x: 0.06, y: 0.045),
         ]
-        #expect(BelegOCR.empfaenger(frag) == "Stadt Unterschleißheim")
+        #expect(BelegOCR.empfaenger(frag) == "Nordstern Studio GmbH")
         #expect(BelegOCR.betragRechtsVomLabel(["summe netto", "netto"], frag) == dez("3145.00"))
         #expect(BelegOCR.betragRechtsVomLabel(["ust", "mwst"], frag) == dez("597.55"))   // nicht UStID, nicht 37
         let d = BelegOCR.extrahiereEinnahme(fragmente: frag)
-        #expect(d.kunde == "Stadt Unterschleißheim")
+        #expect(d.kunde == "Nordstern Studio GmbH")
         #expect(d.rnNetto == dez("3145.00"))
         #expect(d.ust == dez("597.55"))
-        #expect(d.rechnungsnummer == "202505261")
+        #expect(d.rechnungsnummer == "202605261")
         let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
-        #expect(c.year == 2025 && c.month == 5 && c.day == 26)
+        #expect(c.year == 2026 && c.month == 5 && c.day == 26)
     }
 
     @Test func extraktionAusRechnungstext() {
