@@ -181,7 +181,7 @@ enum BelegOCR {
     static func extrahiere(fragmente frag: [TextFragment]) -> BelegDaten {
         let zeilen = zeilen(aus: frag)
         var d = extrahiere(aus: zeilen)
-        if let v = betragRechtsVomLabel(["mwst", "mehrwertsteuer", "umsatzsteuer", "ust", "vat"], frag) { d.vst = v }
+        if let v = betragRechtsVomLabel(["mwst", "mehrwert", "umsatzsteuer", "ust", "vat"], frag) { d.vst = v }
         if let b = betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag) { d.brutto = b }
         d.steuerart = steuerart(text: zeilen.joined(separator: "\n").lowercased(), vst: d.vst)
         return d
@@ -203,8 +203,8 @@ enum BelegOCR {
         if let netto = d.rnNetto, let g = gesamt, g > netto {
             d.ust = g - netto
         } else {
-            d.ust = betragRechtsVomLabel(["umsatzsteuer", "mwst", "mehrwertsteuer", "ust", "vat"], frag)
-                ?? betragNahe(["umsatzsteuer", "mwst", "mehrwertsteuer", "vat"], in: zeilen)
+            d.ust = betragRechtsVomLabel(["umsatzsteuer", "mwst", "mehrwert", "ust", "vat"], frag)
+                ?? betragNahe(["umsatzsteuer", "mwst", "mehrwert", "vat"], in: zeilen)
             if d.rnNetto == nil, let g = gesamt, let u = d.ust, g > u { d.rnNetto = g - u }
         }
         return d
@@ -216,7 +216,7 @@ enum BelegOCR {
         var d = BelegDaten()
         let low = zeilen.joined(separator: "\n").lowercased()
         d.datum = ersteDatum(in: zeilen)
-        d.vst = betragNahe(["mwst", "mehrwertsteuer", "umsatzsteuer", "ust", "vat"], in: zeilen)
+        d.vst = betragNahe(["mwst", "mehrwert", "umsatzsteuer", "ust", "vat"], in: zeilen)
         d.brutto = betragNahe(["gesamtbetrag", "rechnungsbetrag", "gesamt", "summe", "total", "zu zahlen", "amount due", "brutto"], in: zeilen)
             ?? groessterBetrag(in: zeilen)
         d.anbieter = anbieter(in: zeilen)
@@ -239,7 +239,7 @@ enum BelegOCR {
         if let netto = d.rnNetto, let g = gesamt, g > netto {
             d.ust = g - netto
         } else {
-            d.ust = betragNahe(["umsatzsteuer", "mwst", "mehrwertsteuer", "vat"], in: zeilen)
+            d.ust = betragNahe(["umsatzsteuer", "mwst", "mehrwert", "vat"], in: zeilen)
             if d.rnNetto == nil, let g = gesamt, let u = d.ust, g > u { d.rnNetto = g - u }
         }
         return d
@@ -289,7 +289,7 @@ enum BelegOCR {
         let reverse = ["reverse charge", "reverse-charge", "reverse charged", "§13b", "13b",
                        "steuerschuldnerschaft des leistungsempfängers", "vat reverse"]
         if reverse.contains(where: { low.contains($0) }) { return .reverseCharge }
-        let vatHinweis = ["mwst", "mehrwertsteuer", "umsatzsteuer", "ust", "19 %", "19%", "7 %", "7%"]
+        let vatHinweis = ["mwst", "mehrwert", "umsatzsteuer", "ust", "19 %", "19%", "7 %", "7%"]
         if (vst ?? 0) > 0 || vatHinweis.contains(where: { low.contains($0) }) { return .inland19 }
         return .reverseCharge   // kein VAT-Hinweis → vermutlich Auslands-/RC-Leistung
     }
