@@ -67,6 +67,7 @@ Umsatz (brutto)
 −  Umsatzsteuer-Zahllast
 +  Vorsteuer-Erstattung
 −  KSK-Beitrag
+-  Betriebsausgaben
 −  Einkommensteuer-Rücklage
 −  private Fixkosten
 =  Frei verfügbar
