@@ -111,6 +111,7 @@ struct EinnahmenView: View {
                 SummenWert(titel: "USt", wert: summeUSt)
                 SummenWert(titel: "offen (brutto)", wert: summeOffen)
                 Spacer()
+                Text("\(gefiltert.count) Einträge").font(.caption).foregroundStyle(.secondary)
             }
             .padding(.horizontal).padding(.vertical, 10)
             .background(.bar)
