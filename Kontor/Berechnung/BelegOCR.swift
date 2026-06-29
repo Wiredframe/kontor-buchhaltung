@@ -182,7 +182,7 @@ enum BelegOCR {
         let zeilen = zeilen(aus: frag)
         var d = extrahiere(aus: zeilen)
         if let v = betragRechtsVomLabel(["mwst", "mehrwert", "umsatzsteuer", "ust", "vat"], frag) { d.vst = v }
-        if let b = betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag) { d.brutto = b }
+        if let b = betragRechtsVomLabel(["amount due", "gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag) { d.brutto = b }
         d.steuerart = steuerart(text: zeilen.joined(separator: "\n").lowercased(), vst: d.vst)
         return d
     }
@@ -309,15 +309,34 @@ enum BelegOCR {
     }
 
     static func ersteDatum(in zeilen: [String]) -> Date? {
-        let muster = [("dd.MM.yyyy", #"\d{1,2}\.\d{1,2}\.\d{4}"#),
-                      ("dd.MM.yy", #"\d{1,2}\.\d{1,2}\.\d{2}\b"#),
-                      ("yyyy-MM-dd", #"\d{4}-\d{2}-\d{2}"#)]
-        let df = DateFormatter(); df.calendar = appKalender; df.locale = Locale(identifier: "de_DE")
+        // Numerische Formate (de_DE genügt – reine Ziffern).
+        let numerisch = [("dd.MM.yyyy", #"\d{1,2}\.\d{1,2}\.\d{4}"#),
+                         ("dd.MM.yy", #"\d{1,2}\.\d{1,2}\.\d{2}\b"#),
+                         ("yyyy-MM-dd", #"\d{4}-\d{2}-\d{2}"#)]
+        // Monatsnamen: englische Auslandsrechnungen (Figma/Anthropic) „June 4, 2025"/„Jun 4, 2025",
+        // dt. „4. Juni 2025". Je Regex-Treffer werden die Format/Locale-Kombis der Reihe nach versucht.
+        let benannt: [(pat: String, fmts: [(fmt: String, loc: String)])] = [
+            (#"[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{1,2},?\s+\d{4}"#,
+             [("MMMM d, yyyy", "en_US_POSIX"), ("MMM d, yyyy", "en_US_POSIX"),
+              ("MMMM d yyyy", "en_US_POSIX"), ("MMM d yyyy", "en_US_POSIX")]),
+            (#"\d{1,2}\.?\s+[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{4}"#,
+             [("d MMMM yyyy", "en_US_POSIX"), ("d MMM yyyy", "en_US_POSIX"),
+              ("d. MMMM yyyy", "de_DE"), ("d MMMM yyyy", "de_DE")]),
+        ]
+        let df = DateFormatter(); df.calendar = appKalender
         for z in zeilen {
-            for (fmt, pat) in muster {
+            for (fmt, pat) in numerisch {
                 if let r = z.range(of: pat, options: .regularExpression) {
-                    df.dateFormat = fmt
+                    df.locale = Locale(identifier: "de_DE"); df.dateFormat = fmt
                     if let d = df.date(from: String(z[r])) { return d }
+                }
+            }
+            for (pat, fmts) in benannt {
+                guard let r = z.range(of: pat, options: [.regularExpression, .caseInsensitive]) else { continue }
+                let s = String(z[r])
+                for (fmt, loc) in fmts {
+                    df.locale = Locale(identifier: loc); df.dateFormat = fmt
+                    if let d = df.date(from: s) { return d }
                 }
             }
         }
