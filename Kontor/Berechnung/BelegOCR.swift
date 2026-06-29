@@ -81,20 +81,16 @@ enum BelegOCR {
     }
 
     private static func erkenneFragmente(_ cg: CGImage) async -> [TextFragment] {
-        await withCheckedContinuation { cont in
-            let req = VNRecognizeTextRequest { request, _ in
-                let obs = request.results as? [VNRecognizedTextObservation] ?? []
-                cont.resume(returning: obs.compactMap { o -> TextFragment? in
-                    guard let s = o.topCandidates(1).first?.string else { return nil }
-                    return TextFragment(text: s, box: o.boundingBox)
-                })
-            }
-            req.recognitionLevel = .accurate
-            req.recognitionLanguages = ["de-DE", "en-US"]
-            req.usesLanguageCorrection = true
-            DispatchQueue.global(qos: .userInitiated).async {
-                try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
-            }
+        // Neue Swift-native Vision-API (macOS 15+): async/await statt GCD-Hop + Continuation –
+        // vermeidet Prioritätsinversion und den Capture des non-Sendable `VNRecognizeTextRequest`.
+        var req = RecognizeTextRequest()
+        req.recognitionLevel = .accurate
+        req.recognitionLanguages = [Locale.Language(identifier: "de-DE"), Locale.Language(identifier: "en-US")]
+        req.usesLanguageCorrection = true
+        guard let obs = try? await req.perform(on: cg) else { return [] }
+        return obs.compactMap { o -> TextFragment? in
+            guard let s = o.topCandidates(1).first?.string else { return nil }
+            return TextFragment(text: s, box: o.boundingBox.cgRect)
         }
     }
 
