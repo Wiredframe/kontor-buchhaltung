@@ -42,3 +42,10 @@ let appKalender: Calendar = {
 func tag(_ jahr: Int, _ monat: Int, _ tag: Int) -> Date {
     appKalender.date(from: DateComponents(year: jahr, month: monat, day: tag))!
 }
+
+/// Liegt Monat `m` im Jahr `jahr` noch in der Zukunft (nach dem laufenden Monat)?
+func istZukunftsmonat(_ m: Int, jahr: Int) -> Bool {
+    let hJ = appKalender.component(.year, from: Date())
+    let hM = appKalender.component(.month, from: Date())
+    return jahr > hJ || (jahr == hJ && m > hM)
+}

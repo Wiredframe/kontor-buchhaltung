@@ -65,11 +65,6 @@ struct PrivatUebersichtView: View {
             return (name: kurzMonat(m), wert: (d as NSDecimalNumber).doubleValue)
         }
     }
-    private func istZukunftsmonat(_ m: Int, jahr: Int) -> Bool {
-        let hJ = appKalender.component(.year, from: Date()), hM = appKalender.component(.month, from: Date())
-        return jahr > hJ || (jahr == hJ && m > hM)
-    }
-
     var body: some View {
         @Bindable var zeit = zeit
         return VStack(spacing: 0) {
