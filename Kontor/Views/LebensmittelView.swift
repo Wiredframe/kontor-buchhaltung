@@ -87,8 +87,7 @@ struct LebensmittelView: View {
         .inspector(isPresented: $zeigeInspektor) {
             Group {
                 if let e = ausgewaehlt { LebensmittelInspektor(eintrag: e, orte: recentOrte) }
-                else { ContentUnavailableView("Kein Eintrag gewählt", systemImage: "sidebar.right",
-                        description: Text("Zeile wählen – oder „+“ für einen neuen Eintrag.")) }
+                else { LeereInspektorView() }
             }
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
