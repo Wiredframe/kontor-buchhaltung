@@ -322,8 +322,7 @@ struct AusgabenView: View {
                         } else if let t = ausgewaehlt?.zahlung {
                             ZahlungInspektor(eintrag: t)
                         } else {
-                            ContentUnavailableView("Kein Eintrag gewählt", systemImage: "sidebar.right",
-                                description: Text("Zeile wählen – oder Tab Vorlagen zum Einfügen."))
+                            LeereInspektorView(hinweis: "Zeile wählen – oder Tab Vorlagen zum Einfügen.")
                         }
                     } else {
                         VorlagenPanel(vorlagen: sichtbareVorlagen, auswahl: $vorlagenAuswahl,
