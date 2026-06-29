@@ -370,16 +370,26 @@ struct AbschlussHero: View {
 
 /// Eine Kennzahl der unteren Summen-Leiste einer Tabelle (Caption + Geldwert) – einheitlich
 /// für Einnahmen/Ausgaben/Einkäufe/Lebensmittel. `farbe` für Hinweise (z. B. rot bei Überzug).
+/// Klick kopiert den Wert (wie alle Kennzahlen/Card-Zeilen) – diese Summen wandern oft direkt
+/// in UStVA/EÜR-Formulare.
 struct SummenWert: View {
     let titel: String
     let wert: Decimal
     var farbe: Color = .primary
+    @State private var kopiert = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(titel).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 5) {
+                Text(titel).font(.caption).foregroundStyle(.secondary)
+                KopierHaken(sichtbar: kopiert)
+            }
             Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(farbe)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { kopiereMitHaken(wert, $kopiert) }
+        .help("Klicken, um den Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereMitHaken(wert, $kopiert) } }
     }
 }
 
