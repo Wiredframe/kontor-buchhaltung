@@ -288,6 +288,7 @@ struct AusgabenView: View {
                 }
                 .help("Neuen Ausgabeeintrag anlegen")
                 Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
+                    .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
                 Button { vormonatDuplizieren() } label: { Label("Vormonat duplizieren", systemImage: "doc.on.doc") }
                     .help("Kopiert die wiederkehrenden Buchungen des Vormonats in \(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))")
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
