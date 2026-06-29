@@ -574,7 +574,7 @@ struct AufgabenInspektorListe: View {
 /// Leerer Zustand für Inspector-Sidebars, wenn kein Eintrag ausgewählt ist.
 struct LeereInspektorView: View {
     var titel: String = "Kein Eintrag gewählt"
-    var hinweis: String = "Zeile wählen – oder „+" für einen neuen Eintrag."
+    var hinweis: String = "Zeile wählen – oder „+“ für einen neuen Eintrag."
 
     var body: some View {
         ContentUnavailableView(titel, systemImage: "sidebar.right",

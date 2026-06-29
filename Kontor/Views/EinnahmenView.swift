@@ -122,7 +122,7 @@ struct EinnahmenView: View {
                 if let e = ausgewaehlt {
                     EinnahmeInspektor(eintrag: e)
                 } else {
-                    LeereInspektorView(hinweis: “Zeile wählen – oder „+” für eine neue Rechnung.”)
+                    LeereInspektorView(hinweis: "Zeile wählen – oder „+“ für eine neue Rechnung.")
                 }
             }
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)

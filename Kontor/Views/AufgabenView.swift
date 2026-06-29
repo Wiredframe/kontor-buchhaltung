@@ -68,8 +68,8 @@ struct AufgabenView: View {
         .inspector(isPresented: $zeigeInspektor) {
             Group {
                 if let t = ausgewaehlt { AufgabenInspektor(task: t) }
-                else { LeereInspektorView(titel: “Keine Aufgabe gewählt”,
-                        hinweis: “Zeile wählen – oder „+” für eine neue Aufgabe.”) }
+                else { LeereInspektorView(titel: "Keine Aufgabe gewählt",
+                        hinweis: "Zeile wählen – oder „+“ für eine neue Aufgabe.") }
             }
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
