@@ -206,9 +206,4 @@ struct AufgabenInspektor: View {
         }
         .buttonStyle(.plain)
     }
-    private func kurzMonat(_ m: Int) -> String {
-        let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
-        let s = df.shortMonthSymbols ?? []
-        return (m >= 1 && m <= s.count) ? s[m - 1] : "\(m)"
-    }
 }
