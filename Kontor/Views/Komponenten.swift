@@ -343,27 +343,32 @@ struct AbschlussHero: View {
     let verlauf: LinearGradient
     let links: Metrik
     let rechts: Metrik
+    @State private var kopiertLinks = false
+    @State private var kopiertRechts = false
 
     var body: some View {
         HStack(spacing: 0) {
-            metrik(links)
+            metrik(links, kopiert: $kopiertLinks)
             Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 60)
-            metrik(rechts)
+            metrik(rechts, kopiert: $kopiertRechts)
         }
         .padding(.vertical, 22).padding(.horizontal, 12)
         .frame(maxWidth: .infinity)
         .background(verlauf, in: RoundedRectangle(cornerRadius: Stil.eckRadius))
     }
 
-    private func metrik(_ m: Metrik) -> some View {
+    private func metrik(_ m: Metrik, kopiert: Binding<Bool>) -> some View {
         VStack(spacing: 6) {
-            Text(m.titel).font(.subheadline).foregroundStyle(.white.opacity(0.85))
+            HStack(spacing: 5) {
+                Text(m.titel).font(.subheadline).foregroundStyle(.white.opacity(0.85))
+                KopierHaken(sichtbar: kopiert.wrappedValue, farbe: .white)
+            }
             Text(m.wert.euro).font(.system(size: 30, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(m.farbe)
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
-        .onTapGesture { kopiereInZwischenablage(m.wert) }
+        .onTapGesture { kopiereMitHaken(m.wert, kopiert) }
         .help("Klicken, um den Wert zu kopieren")
     }
 }
@@ -426,12 +431,14 @@ func kopiereInZwischenablage(_ wert: Decimal) {
     Task { try? await Task.sleep(for: .seconds(1.2)); withAnimation { flag.wrappedValue = false } }
 }
 
-/// Kleines grünes Kopier-Häkchen (für die kopierbaren Card-Zeilen).
+/// Kleines Kopier-Häkchen (für die kopierbaren Card-Zeilen). Standardfarbe grün;
+/// für dunkle Hintergründe (z. B. AbschlussHero-Verlauf) kann `farbe: .white` übergeben werden.
 struct KopierHaken: View {
     let sichtbar: Bool
+    var farbe: Color = .green
     var body: some View {
         if sichtbar {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.caption)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(farbe).font(.caption)
                 .transition(.opacity)
         }
     }
