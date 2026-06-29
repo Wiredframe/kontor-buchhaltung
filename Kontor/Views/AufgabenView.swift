@@ -63,6 +63,7 @@ struct AufgabenView: View {
             ToolbarItemGroup {
                 Button { neu() } label: { Label("Neu", systemImage: "plus") }
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
+                    .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .inspector(isPresented: $zeigeInspektor) {
