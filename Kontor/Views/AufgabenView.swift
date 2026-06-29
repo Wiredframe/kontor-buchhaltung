@@ -31,6 +31,7 @@ struct AufgabenView: View {
                             .foregroundStyle(t.erledigt ? Color.accentColor : .secondary)
                     }
                     .buttonStyle(.borderless)
+                    .help(t.erledigt ? "Als offen markieren" : "Als erledigt markieren")
                 }
                 .width(30)
                 TableColumn("Aufgabe", value: \.titel) { t in
