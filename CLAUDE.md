@@ -21,6 +21,15 @@ stillen Annahmen bei Steuer-/Berechnungslogik:
 - Tests mit **Swift Testing** (`import Testing`, `@Test`, `#expect`).
 - Swift-Sprachmodus aktuell **5.0** (bewusst, um Concurrency-Reibung zu vermeiden;
   später auf 6 hebbar).
+- **String-Delimiter IMMER ASCII `"` (U+0022) — NIE typografische `“` `”` (U+201C/U+201D).**
+  Typografische Quotes als String-Begrenzer brechen den Swift-Build (häufiger Auto-PR-Fehler).
+  Deutsche Anführungszeichen `„…“` (U+201E/U+201C) **nur als Inhalt** in Strings/Kommentaren,
+  nie als Delimiter. Achtung Falle: `„+“` heißt U+201E `+` U+201C — das **schließende** Zeichen
+  ist `“` (U+201C), **kein** ASCII-`"`; schreibt man dort ein ASCII-`"`, endet der String
+  vorzeitig. Gegenprobe vor dem Commit: **`scripts/quote-check.sh`** (Exit ≠ 0 = Treffer) bzw.
+  direkt `rg '”' --glob '*.swift' Kontor KontorTests` — darf **nichts** liefern (U+201D `”`
+  kommt im Code nie legitim vor und ist damit der zuverlässige Indikator für ein als Delimiter
+  verirrtes typografisches Quote).
 - Pro Schritt: bauen + testen, dann ein klarer Commit.
 
 ## Build & Test (CLI)
