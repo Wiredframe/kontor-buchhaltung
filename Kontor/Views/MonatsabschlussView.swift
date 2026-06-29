@@ -477,6 +477,7 @@ struct MonatsabschlussView: View {
         .contentShape(Rectangle())
         .onTapGesture { kopiereInZwischenablage(wert) }
         .help("Klicken, um den Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereInZwischenablage(wert) } }
     }
 
     private func kopiere(_ wert: Decimal) {
