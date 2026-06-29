@@ -271,16 +271,22 @@ struct AusgabenView: View {
                 Menu {
                     Section("Ausgabe") {
                         Button("Betriebsausgabe") { neu(.betriebsausgabe) }
+                            .help("Betriebliche Ausgabe – geht in EÜR und Vorsteuer")
                         Button("Fixkosten") { neu(.fixkosten) }
+                            .help("Fixkosten – z. B. Miete, Internet (betrieblich oder privat)")
                         Button("Subscription") { neu(.subscription) }
+                            .help("Wiederkehrende Abo-Kosten – z. B. Software, Dienste")
                     }
                     Section("Zahlung") {
                         Button("Vorsorgeaufwand") { neu(.vorsorge) }
+                            .help("KSK-Beiträge oder andere Vorsorgeaufwendungen")
                         Button("Steuer") { neu(.steuer) }
+                            .help("Steuerzahlung – z. B. Umsatzsteuer, Einkommensteuer")
                     }
                 } label: {
                     Label("Neu", systemImage: "plus")
                 }
+                .help("Neuen Ausgabeeintrag anlegen")
                 Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
                 Button { vormonatDuplizieren() } label: { Label("Vormonat duplizieren", systemImage: "doc.on.doc") }
                     .help("Kopiert die wiederkehrenden Buchungen des Vormonats in \(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))")
