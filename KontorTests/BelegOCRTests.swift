@@ -158,7 +158,7 @@ struct BelegOCRTests {
             "Date of issue June 4, 2025",
             "Date due June 4, 2025",
             "Figma, Inc.",
-            "Bill to Ulf Schuster",
+            "Bill to Lena Brandt",
             "Subtotal €50.00",
             "Total excluding tax €50.00",
             "Tax (0% on €50.00) €0.00",
