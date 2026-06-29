@@ -70,6 +70,7 @@ struct LebensmittelView: View {
             ToolbarItemGroup {
                 Button { neu() } label: { Label("Neu", systemImage: "plus") }
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
+                    .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {

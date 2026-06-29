@@ -104,6 +104,7 @@ struct EinnahmenView: View {
                 Button { neu() } label: { Label("Neu", systemImage: "plus") }
                 Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
+                    .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {
