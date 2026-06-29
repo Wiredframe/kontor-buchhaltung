@@ -147,6 +147,7 @@ private struct UStVAZeile: View {
     let erklaerung: String
     let wert: Decimal
     var unterzeile = false
+    @State private var kopiert = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -169,13 +170,17 @@ private struct UStVAZeile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
-            Text(wert.euro)
-                .font(.body.weight(unterzeile ? .regular : .medium)).monospacedDigit()
-                .foregroundStyle(unterzeile ? .secondary : .primary)
+            HStack(spacing: 5) {
+                KopierHaken(sichtbar: kopiert)
+                Text(wert.euro)
+                    .font(.body.weight(unterzeile ? .regular : .medium)).monospacedDigit()
+                    .foregroundStyle(unterzeile ? .secondary : .primary)
+            }
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .onTapGesture { kopiereInZwischenablage(wert) }
+        .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereMitHaken(wert, $kopiert) } }
     }
 }
