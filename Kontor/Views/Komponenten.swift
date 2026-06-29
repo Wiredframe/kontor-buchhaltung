@@ -10,7 +10,6 @@ struct Kennzahl: View {
     let titel: String
     let wert: Decimal
     var symbol: String? = nil
-    var akzent: Color = .accentColor
     var betont = false
     var farbe: Color? = nil
     @State private var kopiert = false
