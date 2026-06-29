@@ -79,10 +79,10 @@ struct PrivatUebersichtView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
-                        Kennzahl(titel: "Fixkosten (\(monatsName(monat)))", wert: summeFixkosten, symbol: "house", akzent: Stil.privat)
-                        Kennzahl(titel: "Subscriptions (\(monatsName(monat)))", wert: summeAbos, symbol: "arrow.triangle.2.circlepath", akzent: Stil.privat)
-                        Kennzahl(titel: "Lebensmittel (\(monatsName(monat)))", wert: lebensmittelMonat, symbol: "cart", akzent: Stil.privat)
-                        Kennzahl(titel: "Einkäufe (\(monatsName(monat)))", wert: einkaeufeMonat, symbol: "bag", akzent: Stil.privat)
+                        Kennzahl(titel: "Fixkosten (\(monatsName(monat)))", wert: summeFixkosten, symbol: "house")
+                        Kennzahl(titel: "Subscriptions (\(monatsName(monat)))", wert: summeAbos, symbol: "arrow.triangle.2.circlepath")
+                        Kennzahl(titel: "Lebensmittel (\(monatsName(monat)))", wert: lebensmittelMonat, symbol: "cart")
+                        Kennzahl(titel: "Einkäufe (\(monatsName(monat)))", wert: einkaeufeMonat, symbol: "bag")
                     }
 
                     diagramm
