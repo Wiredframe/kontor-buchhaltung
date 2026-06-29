@@ -65,6 +65,7 @@ struct EinnahmenView: View {
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                     .foregroundStyle(farbe(e.status))
+                    .help("Rechnungsstatus ändern")
                 }
                 .width(min: 96, ideal: 110)
             }
