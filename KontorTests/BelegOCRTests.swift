@@ -130,6 +130,67 @@ struct BelegOCRTests {
         #expect(c.year == 2026 && c.month == 4 && c.day == 2)
     }
 
+    /// Englische Auslandsrechnungen (Figma/Anthropic) datieren als Monatsname – früher fiel das Datum
+    /// komplett aus. „4. Juni 2025" deckt den dt. Monatsnamen mit ab.
+    @Test func englischeUndBenannteDatumsformate() {
+        func ymd(_ s: String) -> (Int, Int, Int)? {
+            BelegOCR.ersteDatum(in: [s]).map {
+                let c = appKalender.dateComponents([.year, .month, .day], from: $0)
+                return (c.year!, c.month!, c.day!)
+            }
+        }
+        #expect(ymd("Date of issue June 4, 2025").map { $0 == (2025, 6, 4) } == true)
+        #expect(ymd("Jun 4, 2025").map { $0 == (2025, 6, 4) } == true)
+        #expect(ymd("4 June 2025").map { $0 == (2025, 6, 4) } == true)
+        #expect(ymd("Rechnungsdatum: 4. Juni 2025").map { $0 == (2025, 6, 4) } == true)
+        // Numerische Formate weiterhin unverändert
+        #expect(ymd("Rechnungsdatum: 14.06.2026").map { $0 == (2026, 6, 14) } == true)
+        // Rechnungsnummer mit Ziffern darf NICHT als Datum durchgehen
+        #expect(BelegOCR.ersteDatum(in: ["Invoice number 86C79197-0015"]) == nil)
+    }
+
+    /// Komplette englische Figma-Rechnung (Reverse-Charge, 0 % VAT): Datum aus „June 4, 2025",
+    /// Steuerart §13b aus „reverse charge basis", Betrag aus „Total".
+    @Test func englischeReverseChargeRechnung() {
+        let zeilen = [
+            "Invoice",
+            "Invoice number 86C79197-0015",
+            "Date of issue June 4, 2025",
+            "Date due June 4, 2025",
+            "Figma, Inc.",
+            "Bill to Ulf Schuster",
+            "Subtotal €50.00",
+            "Total excluding tax €50.00",
+            "Tax (0% on €50.00) €0.00",
+            "Total €50.00",
+            "Amount due €50.00",
+            "Tax to be paid on reverse charge basis",
+        ]
+        let d = BelegOCR.extrahiere(aus: zeilen)
+        #expect(d.anbieter == "Figma")
+        #expect(d.steuerart == .reverseCharge)
+        #expect(d.brutto == dez("50.00"))
+        let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
+        #expect(c.year == 2025 && c.month == 6 && c.day == 4)
+    }
+
+    /// „Amount due" muss vor „Total" greifen – sonst zieht „Total excluding tax" (= Netto bei VAT≠0)
+    /// den falschen Betrag. Geometrie-Pfad (rechtsbündige Beträge je Zeile).
+    @Test func amountDueSchlaegtNettoZeile() {
+        let h: CGFloat = 0.02
+        func f(_ t: String, x: CGFloat, y: CGFloat) -> BelegOCR.TextFragment {
+            BelegOCR.TextFragment(text: t, box: CGRect(x: x, y: y, width: 0.2, height: h))
+        }
+        let frag = [
+            f("Subtotal", x: 0.50, y: 0.34), f("£100.00", x: 0.85, y: 0.34),
+            f("Total excluding tax", x: 0.50, y: 0.30), f("£100.00", x: 0.85, y: 0.30),
+            f("VAT (20%)", x: 0.50, y: 0.26), f("£20.00", x: 0.85, y: 0.26),
+            f("Total", x: 0.50, y: 0.18), f("£120.00", x: 0.85, y: 0.18),
+            f("Amount due", x: 0.50, y: 0.14), f("£120.00", x: 0.85, y: 0.14),
+        ]
+        #expect(BelegOCR.betragRechtsVomLabel(["amount due", "total"], frag) == dez("120.00"))
+    }
+
     @Test func steuerartErkennung() {
         // MwSt-Zeile → Inland; VSt-Betrag aus der Folgezeile
         let inland = BelegOCR.extrahiere(aus: ["DomainFactory", "Netto 10,92", "zzgl. 19 % MwSt", "2,07", "Gesamt 12,99"])
