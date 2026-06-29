@@ -103,6 +103,7 @@ struct EinnahmenView: View {
             ToolbarItemGroup {
                 Button { neu() } label: { Label("Neu", systemImage: "plus") }
                 Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
+                    .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
                 Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
                     .help("Inspector-Seitenleiste ein-/ausblenden")
             }
