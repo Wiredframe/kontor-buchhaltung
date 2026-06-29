@@ -86,10 +86,6 @@ struct DashboardView: View {
             return (name: kurzMonat(m), wert: (d as NSDecimalNumber).doubleValue)
         }
     }
-    private func istZukunftsmonat(_ m: Int, jahr: Int) -> Bool {
-        let hJ = appKalender.component(.year, from: Date()), hM = appKalender.component(.month, from: Date())
-        return jahr > hJ || (jahr == hJ && m > hM)
-    }
     private func kompakt(_ d: Double) -> String { Int(d.rounded()).formatted(.number.locale(Locale(identifier: "de_DE"))) }
     /// Signierte Quadratwurzel: staucht Ausreißer (Mittelweg linear↔log), behält das Vorzeichen.
     private func wurzel(_ w: Double) -> Double { copysign(sqrt(abs(w)), w) }
@@ -211,7 +207,7 @@ struct DashboardView: View {
     // MARK: Insights
 
     private func insightsKarte(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> some View {
-        Panel(titel: "Insights") {
+        Panel(titel: "Hinweise") {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(insights(akt: akt, vormonat: vormonat, ustVA: ustVA), id: \.self) { text in
                     HStack(alignment: .top, spacing: 10) {

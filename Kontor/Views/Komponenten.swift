@@ -111,19 +111,25 @@ struct MonatJahrWaehler: View {
     }
 }
 
-func monatsName(_ monat: Int) -> String {
+private let _deMonthSymbols: [String] = {
     let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
-    let symbols = df.monthSymbols ?? []
-    guard monat >= 1, monat <= symbols.count else { return "\(monat)" }
-    return symbols[monat - 1]
+    return df.monthSymbols ?? []
+}()
+
+private let _deShortMonthSymbols: [String] = {
+    let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
+    return df.shortMonthSymbols ?? []
+}()
+
+func monatsName(_ monat: Int) -> String {
+    guard monat >= 1, monat <= _deMonthSymbols.count else { return "\(monat)" }
+    return _deMonthSymbols[monat - 1]
 }
 
 /// Kurzer Monatsname (z. B. „Jan"), de_DE – für Chart-Achsen und kompakte Tabellen.
 func kurzMonat(_ monat: Int) -> String {
-    let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
-    let symbols = df.shortMonthSymbols ?? []
-    guard monat >= 1, monat <= symbols.count else { return "\(monat)" }
-    return symbols[monat - 1]
+    guard monat >= 1, monat <= _deShortMonthSymbols.count else { return "\(monat)" }
+    return _deShortMonthSymbols[monat - 1]
 }
 
 // MARK: - Zeitraum-Filter (Tabellen)
@@ -394,20 +400,28 @@ struct SummenWert: View {
 }
 
 /// Budget-Kennzahl der Summen-Leiste: „Ist / Budget" für die aktuelle Periode (Woche/Monat),
-/// Ist-Wert rot, sobald er das Budget überschreitet.
+/// Ist-Wert rot, sobald er das Budget überschreitet. Klick kopiert den Ist-Wert.
 struct BudgetWert: View {
     let titel: String
     let ist: Decimal
     let budget: Decimal
+    @State private var kopiert = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(titel).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 5) {
+                Text(titel).font(.caption).foregroundStyle(.secondary)
+                KopierHaken(sichtbar: kopiert)
+            }
             HStack(spacing: 4) {
                 Text(ist.euro).font(.headline).monospacedDigit().foregroundStyle(ist > budget ? .red : .primary)
                 Text("/ \(budget.euro)").font(.caption).foregroundStyle(.secondary).monospacedDigit()
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { kopiereMitHaken(ist, $kopiert) }
+        .help("Klicken, um den Ist-Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereMitHaken(ist, $kopiert) } }
     }
 }
 
@@ -477,6 +491,7 @@ struct Kartenzeile: View {
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereMitHaken(wert, $kopiert) } }
     }
 }
 
@@ -500,6 +515,7 @@ struct Summenzeile: View {
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
+        .contextMenu { Button("Wert kopieren") { kopiereMitHaken(wert, $kopiert) } }
     }
 }
 
