@@ -54,7 +54,15 @@ Kontor ist **kostenlos & quelloffen**. Fertige Builds gibt es unter
 Ab dem ersten erfolgreichen Start öffnet Kontor ganz normal. Wer dem Binary nicht traut, baut es
 selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext liegt offen.
 
-**Homebrew:** Cask in Vorbereitung (`brew install --cask` folgt).
+### Per Homebrew
+
+```bash
+brew tap Wiredframe/kontor
+brew install --cask kontor
+```
+
+Blockt macOS den Start (nicht notarisiert), entweder die Quarantäne wie oben entfernen – oder gleich
+ohne installieren: `brew install --cask --no-quarantine kontor`.
 
 ---
 
