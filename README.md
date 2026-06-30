@@ -4,9 +4,11 @@ Lokale, offline-first Buchhaltungs-App für macOS – zugeschnitten auf einen
 freiberuflichen UI-Designer (KSK-versichert, EÜR, Soll-Versteuerung,
 vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät.
 
+[![Download](https://img.shields.io/badge/Download-macOS-2563eb?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Wiredframe/Kontor/releases) [![Website](https://img.shields.io/badge/Website-Landingpage-7c3aed?style=for-the-badge&logo=safari&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/) [![Spenden](https://img.shields.io/badge/Spenden-Stripe-e11d48?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/#spenden) [![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm_Perimeter-64748b?style=for-the-badge)](LICENSE)
+
 **macOS 15+** · SwiftUI + SwiftData · Bundle-ID `de.wiredframe.Kontor` · keine Telemetrie
 
-### [Website & Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)
+**[Website & Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)**
 
 ---
 
