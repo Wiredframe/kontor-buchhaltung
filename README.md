@@ -31,6 +31,31 @@ Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders 
 
 ---
 
+## Installation
+
+Kontor ist **kostenlos & quelloffen**. Fertige Builds gibt es unter
+[Releases](https://github.com/Wiredframe/Kontor/releases) – **macOS 15+**.
+
+> Die App ist **nicht notariell signiert** (bewusst, ohne kostenpflichtiges Apple-Developer-Programm).
+> Beim ersten Start meldet macOS deshalb sinngemäß „… kann nicht geöffnet werden, Apple kann sie
+> nicht auf Schadsoftware prüfen". Das ist erwartbar – so startest du sie trotzdem:
+
+1. `Kontor.zip` aus den Releases laden, entpacken und **`Kontor.app` nach „Programme"** ziehen.
+2. **Rechtsklick** (Ctrl-Klick) auf `Kontor.app` → **„Öffnen"** → im Dialog erneut **„Öffnen"**.
+3. Blockt macOS weiterhin (v. a. macOS 15 Sequoia): **Systemeinstellungen → Datenschutz &
+   Sicherheit** → ganz unten bei „Kontor wurde blockiert …" auf **„Dennoch öffnen"** klicken.
+4. Notfalls im **Terminal** die Quarantäne-Markierung entfernen, danach normal öffnen:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Kontor.app
+   ```
+
+Ab dem ersten erfolgreichen Start öffnet Kontor ganz normal. Wer dem Binary nicht traut, baut es
+selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext liegt offen.
+
+**Homebrew:** Cask in Vorbereitung (`brew install --cask` folgt).
+
+---
+
 ## Leitprinzipien (Rechen-/Steuerlogik)
 
 Diese Regeln sind in der Engine fest verdrahtet und sollten bei Änderungen
