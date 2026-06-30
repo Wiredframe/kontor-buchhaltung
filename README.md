@@ -59,12 +59,12 @@ selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext lieg
 ```bash
 brew tap wiredframe/kontor
 brew trust --cask wiredframe/kontor/kontor
-brew install --cask kontor
+brew install --cask --no-quarantine kontor
 ```
 
-Der `brew trust`-Schritt ist seit **Homebrew 6** nötig: Fremd-Taps müssen einmalig bestätigt werden
-(Casks dürfen Code ausführen). Blockt macOS danach den Start (nicht notarisiert), die Quarantäne wie
-oben entfernen – oder gleich ohne installieren: `brew install --cask --no-quarantine kontor`.
+`brew trust` ist seit **Homebrew 6** für Fremd-Taps Pflicht (ein Cask darf Code ausführen).
+`--no-quarantine` überspringt den Gatekeeper-Block, weil Kontor nicht notariell signiert ist – sonst
+müsstest du die App beim ersten Start manuell freigeben (siehe oben).
 
 ---
 
