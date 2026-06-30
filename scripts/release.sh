@@ -1,69 +1,59 @@
 #!/usr/bin/env bash
 #
-# release.sh — Kontor signiert (Developer ID) bauen, notarisieren und das Ticket anheften.
+# release.sh — Kontor als kostenloses, AD-HOC signiertes Release bauen (KEINE Notarisierung).
 #
-# Voraussetzungen (einmalig):
-#   1. „Developer ID Application"-Zertifikat im Schlüsselbund (Apple Developer Program).
-#   2. Notary-Zugang als Keychain-Profil hinterlegen:
-#        xcrun notarytool store-credentials kontor-notary \
-#          --apple-id "DEINE_APPLE_ID" --team-id "DEINE_TEAM_ID" \
-#          --password "APP-SPEZIFISCHES-PASSWORT"
+# Warum ad-hoc: Ohne (kostenpflichtiges) Apple-Developer-Programm wird nicht notarisiert.
+# Apple Silicon verlangt aber MINDESTENS eine ad-hoc-Signatur, sonst startet die App gar nicht.
+# Beim ersten Start entfernt der Nutzer die Gatekeeper-Quarantäne (siehe README → Installation).
 #
-# Aufruf:
-#   TEAM_ID=ABCDE12345 NOTARY_PROFILE=kontor-notary ./scripts/release.sh
-#
-# Ergebnis: build-release/Kontor.app (signiert + notarisiert + gestapelt) und Kontor.zip.
+# Aufruf:   ./scripts/release.sh
+# Ergebnis: build-release/Kontor.app (ad-hoc signiert) + Kontor-<version>.zip + SHA256 für den Cask.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-: "${TEAM_ID:?Bitte TEAM_ID setzen (Developer Team ID)}"
-: "${NOTARY_PROFILE:=kontor-notary}"
-
 OUT="build-release"
-ARCHIVE="$OUT/Kontor.xcarchive"
+DERIVED="$OUT/dd"
+ENTITLEMENTS="Kontor/Kontor.entitlements"
 APP="$OUT/Kontor.app"
-ZIP="$OUT/Kontor.zip"
 
-echo "▸ 1/6  PII-Check (kein Release mit eingecheckten Personendaten)"
+echo "▸ 1/5  PII-Check (kein Release mit eingecheckten Personendaten)"
 ./scripts/pii-check.sh
 
-echo "▸ 2/6  Tests"
-xcodebuild test -scheme Kontor -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO \
-  | tail -1
+echo "▸ 2/5  Tests"
+xcodebuild test -scheme Kontor -destination 'platform=macOS' \
+  CODE_SIGNING_ALLOWED=NO -quiet
 
-echo "▸ 3/6  Archive (Developer ID, Hardened Runtime)"
+echo "▸ 3/5  Build (Release, unsigniert)"
 rm -rf "$OUT"; mkdir -p "$OUT"
-xcodebuild archive \
-  -scheme Kontor \
-  -configuration Release \
-  -destination 'generic/platform=macOS' \
-  -archivePath "$ARCHIVE" \
-  DEVELOPMENT_TEAM="$TEAM_ID" \
-  CODE_SIGN_STYLE=Automatic \
-  CODE_SIGN_IDENTITY="Developer ID Application"
+xcodebuild build -scheme Kontor -configuration Release \
+  -destination 'generic/platform=macOS' -derivedDataPath "$DERIVED" \
+  CODE_SIGNING_ALLOWED=NO -quiet
+cp -R "$DERIVED/Build/Products/Release/Kontor.app" "$APP"
 
-echo "▸ 4/6  Export (Developer ID)"
-cat > "$OUT/ExportOptions.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>method</key><string>developer-id</string>
-  <key>teamID</key><string>$TEAM_ID</string>
-  <key>signingStyle</key><string>automatic</string>
-</dict>
-</plist>
-PLIST
-xcodebuild -exportArchive -archivePath "$ARCHIVE" \
-  -exportOptionsPlist "$OUT/ExportOptions.plist" -exportPath "$OUT"
+echo "▸ 4/5  Ad-hoc signieren (inkl. Sandbox-Entitlements)"
+codesign --force --sign - --entitlements "$ENTITLEMENTS" "$APP"
+codesign --verify --strict --verbose=2 "$APP"
 
-echo "▸ 5/6  Notarisieren (notarytool submit --wait)"
+echo "▸ 5/5  ZIP packen + SHA256"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+ZIP="$OUT/Kontor-$VERSION.zip"
 ditto -c -k --keepParent "$APP" "$ZIP"
-xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
 
-echo "▸ 6/6  Ticket anheften & ZIP neu packen"
-xcrun stapler staple "$APP"
-rm -f "$ZIP"; ditto -c -k --keepParent "$APP" "$ZIP"
-xcrun stapler validate "$APP"
+cat <<EOF
 
-echo "✓ Fertig: $APP (notarisiert) und $ZIP"
+✓ Fertig (NICHT notarisiert, ad-hoc signiert)
+   App    : $APP
+   ZIP    : $ZIP
+   Version: $VERSION
+   SHA256 : $SHA
+
+Nächste Schritte:
+   1) Release veröffentlichen (ZIP anhängen):
+        gh release create v$VERSION "$ZIP" \\
+          --title "Kontor $VERSION" \\
+          --notes "Kontor $VERSION – kostenlos & quelloffen. Installation siehe README (nicht notarisiert)."
+   2) Homebrew-Cask aktualisieren (Wiredframe/homebrew-kontor → Casks/kontor.rb):
+        version "$VERSION"
+        sha256 "$SHA"
+EOF
