@@ -1,0 +1,5 @@
+# Finanzierung von Kontor – Spenden sind freiwillig und ohne Gegenleistung.
+# Hauptweg ist die Stripe-Spendenseite (Karte · SEPA · Wero), siehe custom.
+# github greift nur, wenn GitHub Sponsors für den Account aktiviert ist.
+github: [Wiredframe]
+custom: ["https://wiredframe.github.io/kontor-landingpage/#spenden"]
