@@ -6,30 +6,7 @@ vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät
 
 **macOS 15+** · SwiftUI + SwiftData · Bundle-ID `de.wiredframe.Kontor` · keine Telemetrie
 
-### 🌐 [Website & Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)
-
-→ Aufbau & Entscheidungen: [ARCHITEKTUR.md](ARCHITEKTUR.md) (Schichten, Datenmodell, Diagramme)
-
----
-
-## ⚠️ Geltungsbereich & Haftungsausschluss
-
-Kontor ist bewusst für **eine** Steuersituation gebaut – nicht für den allgemeinen Fall.
-Die Engine trifft **fest verdrahtete Annahmen**:
-
-- **Soll-Versteuerung** (USt nach Rechnungsdatum) – **keine** Ist-Versteuerung.
-- **EÜR** (Einnahmen-Überschuss-Rechnung) – keine Bilanzierung.
-- **KSK-versichert** – KV/RV/PV als monatliche Beiträge; ESt-Rücklage als grobe Pauschale.
-- **Ausgangsseitig ausschließlich 19 % USt** – kein 7 %, **kein** Kleinunternehmer (§19),
-  keine steuerfreien Ausgangsumsätze (außer USt = 0).
-- **Quartals- oder Monats-UStVA**, optional mit Dauerfristverlängerung.
-
-Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders kritisch prüfen.
-
-> **Keine Steuerberatung.** Alle Berechnungen sind vereinfachte Schätzungen und ersetzen
-> weder Steuerberater:in noch Steuererklärung. Die Nutzung erfolgt auf eigene Verantwortung;
-> für die Richtigkeit der Zahlen wird **keine Gewähr** übernommen. Prüfe alle Werte
-> eigenständig, bevor du sie gegenüber dem Finanzamt verwendest.
+### [Website & Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)
 
 ---
 
@@ -156,6 +133,8 @@ bewusst beachtet werden:
 
 ## Architektur
 
+Aufbau & Entscheidungen: [ARCHITEKTUR.md](ARCHITEKTUR.md) (Schichten, Datenmodell, Diagramme)
+
 SwiftUI + SwiftData, klar geschichtet:
 
 | Ordner             | Inhalt |
@@ -223,6 +202,27 @@ Kontor ist **local-first**: alle Daten bleiben im sandboxed App-Container, es gi
 Telemetrie** und keinen Netzwerkverkehr außer dem **optionalen** MCP-Server, der ausschließlich
 auf `127.0.0.1` (Loopback) lauscht und Token-geschützt ist. Details und Meldewege siehe
 [SECURITY.md](SECURITY.md).
+
+## Geltungsbereich & Haftungsausschluss
+
+Kontor ist bewusst für **eine** Steuersituation gebaut – nicht für den allgemeinen Fall.
+Die Engine trifft **fest verdrahtete Annahmen**:
+
+- **Soll-Versteuerung** (USt nach Rechnungsdatum) – **keine** Ist-Versteuerung.
+- **EÜR** (Einnahmen-Überschuss-Rechnung) – keine Bilanzierung.
+- **KSK-versichert** – KV/RV/PV als monatliche Beiträge; ESt-Rücklage als grobe Pauschale.
+- **Ausgangsseitig ausschließlich 19 % USt** – kein 7 %, **kein** Kleinunternehmer (§19),
+  keine steuerfreien Ausgangsumsätze (außer USt = 0).
+- **Quartals- oder Monats-UStVA**, optional mit Dauerfristverlängerung.
+
+Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders kritisch prüfen.
+
+> **Keine Steuerberatung.** Alle Berechnungen sind vereinfachte Schätzungen und ersetzen
+> weder Steuerberater:in noch Steuererklärung. Die Nutzung erfolgt auf eigene Verantwortung;
+> für die Richtigkeit der Zahlen wird **keine Gewähr** übernommen. Prüfe alle Werte
+> eigenständig, bevor du sie gegenüber dem Finanzamt verwendest.
+
+---
 
 ## Lizenz
 
