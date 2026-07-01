@@ -61,7 +61,7 @@ enum KontorMCP {
             Werkzeug(name: "kontor_anlegen",
                      beschreibung: """
                      Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
-                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer];
+                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
                      ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
                      fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
                      vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
@@ -209,6 +209,8 @@ enum KontorMCP {
         UStVA \(label)
         KZ81 (Netto 19 %):           \(g(r.kz81)) €
         USt 19 % (auto):             \(g(r.ust81)) €
+        KZ86 (Netto 7 %):            \(g(r.kz86)) €
+        USt 7 % (auto):              \(g(r.ust86)) €
         KZ66 (Vorsteuer Inland):     \(g(r.kz66)) €
         KZ84 (§13b Netto):           \(g(r.kz84)) €
         KZ85 (§13b USt):             \(g(r.kz85)) €
@@ -263,9 +265,11 @@ enum KontorMCP {
             let rows = alle(Income.self, ctx)
                 .filter { imZeitraum($0.rechnungsdatum) && (status == nil || $0.status == status) }
                 .sorted { $0.rechnungsdatum < $1.rechnungsdatum }.prefix(limit)
-            return csv(kopf(["datum", "rechnungsnummer", "kunde", "netto", "ust", "brutto", "status", "zahlungsdatum", "beleg"]),
+            return csv(kopf(["datum", "rechnungsnummer", "kunde", "netto", "ust", "satz", "netto2", "ust2", "satz2", "brutto", "status", "zahlungsdatum", "beleg"]),
                        rows.map { zeile($0, [tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde,
-                                   g($0.rnNetto), g($0.ust), g($0.brutto), $0.status.rawValue,
+                                   g($0.rnNetto), g($0.ust), $0.satzEffektiv.rawValue,
+                                   g($0.rnNetto2), g($0.ust2), $0.satz2?.rawValue ?? "",
+                                   g($0.brutto), $0.status.rawValue,
                                    $0.zahlungsdatum.map(tagText) ?? "", $0.belegPfad ?? ""]) })
         case "offene_rechnungen":
             let rows = alle(Income.self, ctx).filter { $0.status == .offen && imZeitraum($0.rechnungsdatum) }
@@ -346,7 +350,10 @@ enum KontorMCP {
             obj = Income(kunde: kunde, rnNetto: netto, ust: ust, rechnungsdatum: rdat,
                          zahlungsdatum: datum(f["zahlungsdatum"]) ?? (s == .bezahlt ? rdat : nil),
                          status: s, ausfalldatum: datum(f["ausfalldatum"]),
-                         rechnungsnummer: f["rechnungsnummer"] as? String)
+                         rechnungsnummer: f["rechnungsnummer"] as? String,
+                         satz: enumWert(f["satz"]),
+                         rnNetto2: dezArg(f["rnNetto2"]) ?? 0, ust2: dezArg(f["ust2"]) ?? 0,
+                         satz2: enumWert(f["satz2"]))
         case "ausgaben", "ausgabe":
             guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let brutto = dezArg(f["brutto"]) else {
                 throw fehlt("ausgaben", "datum, bezeichnung, brutto") }
@@ -420,6 +427,10 @@ enum KontorMCP {
             if hat("zahlungsdatum") { o.zahlungsdatum = datum(f["zahlungsdatum"]) }
             if hat("ausfalldatum") { o.ausfalldatum = datum(f["ausfalldatum"]) }
             if hat("rechnungsnummer") { o.rechnungsnummer = f["rechnungsnummer"] as? String }
+            if hat("satz") { o.satz = enumWert(f["satz"]) }
+            if let v = dezArg(f["rnNetto2"]) { o.rnNetto2 = v }
+            if let v = dezArg(f["ust2"]) { o.ust2 = v }
+            if hat("satz2") { o.satz2 = enumWert(f["satz2"]) }
         case "ausgaben", "ausgabe":
             let o = try modell(ExpenseEntry.self, id: id, ctx)
             if let v = datum(f["datum"]) { o.datum = v }
