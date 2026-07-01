@@ -102,6 +102,10 @@ enum Demodaten {
         ctx.insert(ExpenseEntry(datum: tag(jahr, 3, 14), bezeichnung: "MacBook Air", anbieter: "Apple",
                                 brutto: dez("1428.00"), vst: dez("228.00"), steuerart: .inland19,
                                 betrieblich: true, art: .betriebsausgabe))
+        // Einmalige 7-%-Betriebsausgabe (ermäßigt): Fachbuch im April, netto 40,00 (VSt 2,80).
+        ctx.insert(ExpenseEntry(datum: tag(jahr, 4, 9), bezeichnung: "Fachbuch Typografie", anbieter: "Buchhandlung",
+                                brutto: dez("42.80"), vst: dez("2.80"), steuerart: .inland7,
+                                betrieblich: true, art: .betriebsausgabe))
     }
 
     @MainActor

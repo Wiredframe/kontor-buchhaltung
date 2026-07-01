@@ -168,6 +168,17 @@ struct MCPServerTests {
         #expect(neu?.artEffektiv == .betriebsausgabe)
     }
 
+    @Test func anlegenAusgabe7ProzentAutoVorsteuer() async throws {
+        let c = try container(); try seed(c)
+        _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "ausgaben",
+            "felder": ["datum": "2026-04-09", "bezeichnung": "Fachbuch", "brutto": "42.80", "steuerart": "inland7"],
+        ]])
+        let neu = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung == "Fachbuch" }
+        #expect(neu?.steuerart == .inland7)
+        #expect(neu?.vst == dez("2.80") && neu?.netto == dez("40.00"))   // 42,80 − 42,80/1,07
+    }
+
     @Test func anlegenEinnahmeMitSatzUndMischung() async throws {
         let c = try container(); try seed(c)
         _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [

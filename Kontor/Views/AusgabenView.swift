@@ -536,14 +536,14 @@ struct AusgabeInspektor: View {
             Picker("Steuerart", selection: $eintrag.steuerart) {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            .onChange(of: eintrag.steuerart) { _, neu in if neu != .inland19 { eintrag.vst = 0 } }
+            .onChange(of: eintrag.steuerart) { _, neu in if !neu.ziehtVorsteuer { eintrag.vst = 0 } }
             TextField("Brutto", value: $eintrag.brutto, format: .currency(code: "EUR"))
             HStack {
                 TextField("Vorsteuer", value: $eintrag.vst, format: .currency(code: "EUR"))
                 Button("aus Brutto") {
                     eintrag.vst = Steuer.vorsteuerVorschlag(brutto: eintrag.brutto, steuerart: eintrag.steuerart)
                 }
-                .disabled(eintrag.steuerart != .inland19)
+                .disabled(!eintrag.steuerart.ziehtVorsteuer)
             }
             LabeledContent("Netto", value: eintrag.netto.euro)
             if let z = eintrag.zahlungsdatum {

@@ -200,5 +200,9 @@ struct BelegOCRTests {
         #expect(BelegOCR.extrahiere(aus: ["Figma", "Reverse charge", "Total 35,00"]).steuerart == .reverseCharge)
         // gar kein VAT-Hinweis → Reverse-Charge (Auslands-Leistung)
         #expect(BelegOCR.extrahiere(aus: ["Anthropic", "Claude Pro", "Total 18,00"]).steuerart == .reverseCharge)
+        // ermäßigter Satz: 7-%-Hinweis ohne 19 % → Inland 7 %
+        #expect(BelegOCR.extrahiere(aus: ["Buchhandlung", "Netto 40,00", "zzgl. 7 % MwSt", "2,80", "Gesamt 42,80"]).steuerart == .inland7)
+        // Mischbeleg (7 % UND 19 %) → Regelsatz 19 %
+        #expect(BelegOCR.extrahiere(aus: ["Kiosk", "7 % MwSt", "19 % MwSt", "Gesamt 50,00"]).steuerart == .inland19)
     }
 }

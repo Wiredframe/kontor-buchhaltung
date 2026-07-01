@@ -117,6 +117,18 @@ struct BackupTests {
         #expect(nur7.satzEffektiv == .satz7 && !nur7.hatZweitenSatz)
     }
 
+    /// Ausgaben-Steuerart „Inland 7 %" übersteht Export→Import (String-rawValue, kein DTO-Feld nötig).
+    @Test func roundtripBewahrtInland7Ausgabe() throws {
+        let quelle = try kontext()
+        quelle.insert(ExpenseEntry(datum: tag(2026, 4, 9), bezeichnung: "Fachbuch", anbieter: "X",
+                                   brutto: dez("42.80"), vst: dez("2.80"), steuerart: .inland7, betrieblich: true))
+        try quelle.save()
+        let ziel = try kontext()
+        _ = try Backup.importData(try Backup.exportData(quelle), in: ziel)
+        let a = try #require(try ziel.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung == "Fachbuch" })
+        #expect(a.steuerart == .inland7 && a.vst == dez("2.80") && a.netto == dez("40.00"))
+    }
+
     /// Bug-Fix: ein bestehendes Jahr darf beim Import nicht komplett übersprungen werden –
     /// die später dazugekommenen KSK/ESt-Monatswerte müssen additiv zurückkommen, ohne
     /// bereits vorhandene Monate zu überschreiben.

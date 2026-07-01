@@ -45,6 +45,14 @@ struct ModellTests {
         #expect(inc.nettoGesamt == dez("1000") && inc.brutto == dez("1190"))
     }
 
+    @Test func vorlage7ProzentBuchtKorrekteVorsteuer() {
+        // Ausgaben-Vorlage mit ermäßigtem Satz → Buchung zieht 7-%-Vorsteuer automatisch.
+        let buch = Vorlage(bezeichnung: "Fachbuch", betragBrutto: dez("42.80"), steuerart: .inland7,
+                           betrieblich: true, art: .betriebsausgabe)
+        let b = buch.buchung(am: tag(2026, 4, 9))
+        #expect(b.steuerart == .inland7 && b.vst == dez("2.80") && b.netto == dez("40.00"))
+    }
+
     @Test func estSatzErbtVomVormonat() {
         let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
         #expect(s.estSatz(monat: 3) == dez("0.15"))     // nichts gesetzt → Jahres-Standard

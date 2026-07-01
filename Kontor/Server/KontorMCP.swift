@@ -62,7 +62,7 @@ enum KontorMCP {
                      beschreibung: """
                      Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
                      einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
-                     ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
+                     ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
                      fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
                      vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
                      zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
