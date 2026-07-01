@@ -563,7 +563,7 @@ enum KontorMCP {
     @MainActor private static func alle<T: PersistentModel>(_ t: T.Type, _ ctx: ModelContext) -> [T] {
         (try? ctx.fetch(FetchDescriptor<T>())) ?? []
     }
-    @MainActor private static func einnahmenPosten(_ ctx: ModelContext) -> [EinnahmePosten] { alle(Income.self, ctx).map(\.posten) }
+    @MainActor private static func einnahmenPosten(_ ctx: ModelContext) -> [EinnahmePosten] { alle(Income.self, ctx).flatMap(\.postenListe) }
     @MainActor private static func ausgabenPosten(_ ctx: ModelContext) -> [AusgabePosten] { alle(ExpenseEntry.self, ctx).map(\.posten) }
 
     @MainActor private static func naechsteFrist(_ ctx: ModelContext) -> TaxPayment? {

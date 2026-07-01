@@ -9,6 +9,7 @@ import Foundation
 enum Steuer {
 
     static let satz19 = dez("0.19")
+    static let satz7  = dez("0.07")
 
     // MARK: - Pro Ausgabe / Einnahme
 
@@ -20,9 +21,9 @@ enum Steuer {
         }
     }
 
-    /// USt (19 %) aus einem Nettobetrag.
-    static func ust(ausNetto rnNetto: Decimal) -> Decimal {
-        (rnNetto * satz19).gerundet()
+    /// USt aus einem Nettobetrag zum gewählten Satz (Default Regelsatz 19 %).
+    static func ust(ausNetto rnNetto: Decimal, satz: UStSatz = .satz19) -> Decimal {
+        (rnNetto * satz.wert).gerundet()
     }
 
     // MARK: - USt / Vorsteuer je Periode
@@ -35,11 +36,11 @@ enum Steuer {
             .reduce(Decimal(0)) { $0 + $1.ust }
     }
 
-    /// KZ 81: Netto-Bemessungsgrundlage der zu 19 % steuerpflichtigen Umsätze (Soll).
-    /// Steuerfreie/nicht steuerbare Umsätze (USt = 0) bleiben hier außen vor.
-    static func umsatzNetto19(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
+    /// Netto-Bemessungsgrundlage der zum gegebenen `satz` steuerpflichtigen Umsätze (Soll):
+    /// KZ 81 (19 %) bzw. KZ 86 (7 %). Steuerfreie/nicht steuerbare Umsätze (USt = 0) bleiben außen vor.
+    static func umsatzNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
         einnahmen
-            .filter { $0.ust != 0 && periode.enthaelt($0.rechnungsdatum) }
+            .filter { $0.satz == satz && $0.ust != 0 && periode.enthaelt($0.rechnungsdatum) }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
     }
 
@@ -89,12 +90,18 @@ enum Steuer {
         (reverseChargeNetto(ausgaben, in: periode) * satz19).gerundet()
     }
 
-    /// Vollständige UStVA-Kennzahlen einer Periode.
+    /// Vollständige UStVA-Kennzahlen einer Periode. Die USt je Satz wird **wie ELSTER** aus der
+    /// Netto-Summe des jeweiligen Buckets berechnet (erst summieren, dann einmal `Summe × Satz` runden) –
+    /// nicht die je Beleg vorgerundeten Beträge aufaddieren.
     static func ustva(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], periode: Periode) -> UStVAErgebnis {
         let rcUSt = reverseChargeUSt(ausgaben, in: periode)
+        let netto19 = umsatzNetto(einnahmen, satz: .satz19, in: periode)
+        let netto7  = umsatzNetto(einnahmen, satz: .satz7,  in: periode)
         return UStVAErgebnis(
-            kz81: umsatzNetto19(einnahmen, in: periode),
-            ust81: ustSoll(einnahmen, in: periode),
+            kz81: netto19,
+            ust81: (netto19 * satz19).gerundet(),
+            kz86: netto7,
+            ust86: (netto7 * satz7).gerundet(),
             kz66: vorsteuer(ausgaben, in: periode),
             kz84: reverseChargeNetto(ausgaben, in: periode),
             kz85: rcUSt,

@@ -28,7 +28,7 @@ struct UStVAView: View {
         quartal = (monat - 1) / 3 + 1
     }
     private var e: UStVAErgebnis {
-        Steuer.ustva(einnahmen: einnahmen.map(\.posten),
+        Steuer.ustva(einnahmen: einnahmen.flatMap(\.postenListe),
                      ausgaben: ausgaben.map(\.posten),
                      periode: periode)
     }

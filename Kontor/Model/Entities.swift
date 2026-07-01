@@ -269,9 +269,25 @@ final class Income {
     var rechnungsnummer: String?
     /// Pfad zur angehängten Rechnungs-PDF (relativ zum Belege-Ordner).
     var belegPfad: String?
+    /// USt-Satz des Regel-Buckets. **Optional** (neu hinzugefügtes Enum-Feld → sonst
+    /// Migrations-Crash bestehender Stores); `nil` = Regelsatz 19 % (Altbestand). Zugriff über `satzEffektiv`.
+    var satz: UStSatz?
+    /// Zweiter Satz-Bucket für **Mischrechnungen** (7 % UND 19 % auf einer Rechnung), z. B. Nutzungsrechte
+    /// 7 % + sonstige Leistung 19 %. `satz2 == nil` ⇒ kein zweiter Satz; Beträge dann 0.
+    var rnNetto2: Decimal = 0
+    var ust2: Decimal = 0
+    var satz2: UStSatz?
 
-    /// Bruttobetrag der Rechnung.
-    var brutto: Decimal { rnNetto + ust }
+    /// Effektiver Satz des Regel-Buckets (Altbestand ohne `satz` = 19 %).
+    var satzEffektiv: UStSatz { satz ?? .satz19 }
+    /// Trägt die Rechnung einen zweiten Steuersatz (Mischrechnung)?
+    var hatZweitenSatz: Bool { satz2 != nil }
+    /// Netto **gesamt** über beide Buckets – Basis für Tabelle/Summen/EÜR/Backup (nie nur `rnNetto`).
+    var nettoGesamt: Decimal { rnNetto + rnNetto2 }
+    /// USt **gesamt** über beide Buckets.
+    var ustGesamt: Decimal { ust + ust2 }
+    /// Bruttobetrag der Rechnung (beide Buckets).
+    var brutto: Decimal { nettoGesamt + ustGesamt }
     /// Sortierschlüssel für die (optionale) Rechnungsnummer – ohne Nummer ans Ende.
     var rechnungsnummerSort: String { rechnungsnummer ?? "\u{10FFFF}" }
     /// Sortierschlüssel für das (optionale) Zahlungsdatum – noch unbezahlte ganz nach vorn/hinten.
@@ -286,7 +302,11 @@ final class Income {
         status: InvoiceStatus = .offen,
         ausfalldatum: Date? = nil,
         rechnungsnummer: String? = nil,
-        belegPfad: String? = nil
+        belegPfad: String? = nil,
+        satz: UStSatz? = nil,
+        rnNetto2: Decimal = 0,
+        ust2: Decimal = 0,
+        satz2: UStSatz? = nil
     ) {
         self.kunde = kunde
         self.rnNetto = rnNetto
@@ -297,6 +317,10 @@ final class Income {
         self.ausfalldatum = ausfalldatum
         self.rechnungsnummer = rechnungsnummer
         self.belegPfad = belegPfad
+        self.satz = satz
+        self.rnNetto2 = rnNetto2
+        self.ust2 = ust2
+        self.satz2 = satz2
     }
 
     /// Setzt den Status und hält Zahlungs-/Ausfalldatum konsistent:
