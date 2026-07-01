@@ -18,8 +18,13 @@ struct UStTests {
     @Test func vorsteuerVorschlag() {
         #expect(Steuer.vorsteuerVorschlag(brutto: dez("7.99"),  steuerart: .inland19) == dez("1.28"))
         #expect(Steuer.vorsteuerVorschlag(brutto: dez("12.99"), steuerart: .inland19) == dez("2.07"))
+        #expect(Steuer.vorsteuerVorschlag(brutto: dez("10.70"), steuerart: .inland7) == dez("0.70"))   // 10,70 − 10,70/1,07
+        #expect(Steuer.vorsteuerVorschlag(brutto: dez("12.99"), steuerart: .inland7) == dez("0.85"))   // 12,99 − 12,99/1,07
         #expect(Steuer.vorsteuerVorschlag(brutto: dez("35.00"), steuerart: .reverseCharge) == 0)
         #expect(Steuer.vorsteuerVorschlag(brutto: dez("9.99"),  steuerart: .steuerfrei) == 0)
+        // Beide Inland-Sätze ziehen Vorsteuer, RC/steuerfrei nicht.
+        #expect(Steuerart.inland19.ziehtVorsteuer && Steuerart.inland7.ziehtVorsteuer)
+        #expect(!Steuerart.reverseCharge.ziehtVorsteuer && !Steuerart.steuerfrei.ziehtVorsteuer)
     }
 
     /// USt-VZ-Zahlung im Jan/Feb zählt fürs Vorjahr – abhängig von Rhythmus & Dauerfristverlängerung.
@@ -299,5 +304,14 @@ struct MehrsatzTests {
         let x = Steuer.ustva(einnahmen: r, ausgaben: [], periode: q1)
         #expect(x.kz86 == dez("30.30"))
         #expect(x.ust86 == dez("2.12"))
+    }
+
+    /// Ausgabenseitig zählt nur die VSt-Summe: eine 7-%-Betriebsausgabe fließt satzunabhängig in
+    /// KZ 66, die EÜR nutzt das Netto (Brutto − VSt). Kein Mischbeleg-/Bucket-Modell nötig.
+    @Test func ausgabe7ProzentInKz66UndEUER() {
+        let a = [AusgabePosten(brutto: dez("107"), vst: dez("7"), steuerart: .inland7,
+                               betrieblich: true, datum: tag(2026, 2, 10))]
+        #expect(Steuer.vorsteuer(a, in: q1) == dez("7"))                                 // KZ 66
+        #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: a, jahr: 2026) == dez("-100"))  // Netto −100
     }
 }

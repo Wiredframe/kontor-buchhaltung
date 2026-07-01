@@ -457,7 +457,7 @@ private struct BelegFormular: View {
             Picker("Steuerart", selection: $entwurf.steuerart) {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            .onChange(of: entwurf.steuerart) { _, neu in if neu != .inland19 { entwurf.vst = 0 } }
+            .onChange(of: entwurf.steuerart) { _, neu in if !neu.ziehtVorsteuer { entwurf.vst = 0 } }
             TextField("Brutto", value: $entwurf.brutto, format: .currency(code: "EUR"))
                 .foregroundStyle(betragFehlt ? .red : .primary)
             HStack {
@@ -465,7 +465,7 @@ private struct BelegFormular: View {
                 Button("aus Brutto") {
                     entwurf.vst = Steuer.vorsteuerVorschlag(brutto: entwurf.brutto, steuerart: entwurf.steuerart)
                 }
-                .disabled(entwurf.steuerart != .inland19)
+                .disabled(!entwurf.steuerart.ziehtVorsteuer)
             }
             LabeledContent("Netto", value: entwurf.netto.euro)
             DatePicker("Datum", selection: $entwurf.datum, displayedComponents: .date)

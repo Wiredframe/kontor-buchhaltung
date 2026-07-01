@@ -285,8 +285,13 @@ enum BelegOCR {
         let reverse = ["reverse charge", "reverse-charge", "reverse charged", "§13b", "13b",
                        "steuerschuldnerschaft des leistungsempfängers", "vat reverse"]
         if reverse.contains(where: { low.contains($0) }) { return .reverseCharge }
-        let vatHinweis = ["mwst", "mehrwert", "umsatzsteuer", "ust", "19 %", "19%", "7 %", "7%"]
-        if (vst ?? 0) > 0 || vatHinweis.contains(where: { low.contains($0) }) { return .inland19 }
+        let hat19 = low.contains("19 %") || low.contains("19%")
+        let hat7  = low.contains("7 %")  || low.contains("7%")
+        let vatHinweis = ["mwst", "mehrwert", "umsatzsteuer", "ust"]
+        if (vst ?? 0) > 0 || hat19 || hat7 || vatHinweis.contains(where: { low.contains($0) }) {
+            // Eindeutiger 7-%-Hinweis (ohne 19 %) → ermäßigt; sonst Regelsatz 19 %.
+            return (hat7 && !hat19) ? .inland7 : .inland19
+        }
         return .reverseCharge   // kein VAT-Hinweis → vermutlich Auslands-/RC-Leistung
     }
 

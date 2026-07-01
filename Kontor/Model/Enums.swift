@@ -5,6 +5,7 @@ import Foundation
 /// Steuerliche Behandlung einer Ausgabe.
 enum Steuerart: String, Codable, CaseIterable, Identifiable {
     case inland19       // 19 % deutsche Vorsteuer abziehbar
+    case inland7        // 7 % ermäßigt, deutsche Vorsteuer abziehbar (z. B. Fachbuch/Zeitschrift)
     case reverseCharge  // §13b: USt in KZ 84/85, cash-neutral, VSt = 0
     case steuerfrei     // keine USt/VSt
 
@@ -12,9 +13,18 @@ enum Steuerart: String, Codable, CaseIterable, Identifiable {
     var bezeichnung: String {
         switch self {
         case .inland19:      "Inland 19 %"
+        case .inland7:       "Inland 7 %"
         case .reverseCharge: "Reverse-Charge (§13b)"
         case .steuerfrei:    "steuerfrei"
         }
+    }
+    /// Zieht diese Steuerart Vorsteuer (beide Inland-Sätze) – im Gegensatz zu RC/steuerfrei (VSt = 0)?
+    var ziehtVorsteuer: Bool { self == .inland19 || self == .inland7 }
+
+    /// Robust gegen Altdaten/unbekannte Werte (Backup-JSON): Unbekanntes → Inland 19 %.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Steuerart(rawValue: raw) ?? .inland19
     }
 }
 

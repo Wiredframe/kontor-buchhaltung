@@ -17,6 +17,7 @@ enum Steuer {
     static func vorsteuerVorschlag(brutto: Decimal, steuerart: Steuerart) -> Decimal {
         switch steuerart {
         case .inland19:                   (brutto - brutto / dez("1.19")).gerundet()
+        case .inland7:                    (brutto - brutto / dez("1.07")).gerundet()
         case .reverseCharge, .steuerfrei: 0
         }
     }
