@@ -23,7 +23,7 @@ struct RobustheitTests {
 
     @Test func ustvaLeerLiefertNull() {
         let e = Steuer.ustva(einnahmen: [], ausgaben: [], periode: Periode.quartal(2026, 1))
-        #expect(e.kz81 == 0 && e.ust81 == 0 && e.kz66 == 0 && e.kz84 == 0 && e.kz85 == 0)
+        #expect(e.kz81 == 0 && e.ust81 == 0 && e.kz86 == 0 && e.ust86 == 0 && e.kz66 == 0 && e.kz84 == 0 && e.kz85 == 0)
         #expect(e.zahllast == 0)
     }
 

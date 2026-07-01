@@ -245,3 +245,59 @@ struct RuecklageTests {
         #expect(a.estKorrektur == dez("-190"))          // 1000 × 19 % (März), nicht 15 %
     }
 }
+
+// MARK: - Mehrere USt-Sätze (7 %/19 %) + Mischrechnungen
+
+struct MehrsatzTests {
+    private func e(_ netto: String, _ ust: String, _ satz: UStSatz, _ status: InvoiceStatus = .offen,
+                   ausfall: Date? = nil, rechnung: Date = tag(2026, 2, 10)) -> EinnahmePosten {
+        EinnahmePosten(rnNetto: dez(netto), ust: dez(ust), satz: satz, rechnungsdatum: rechnung,
+                       zahlungsdatum: nil, status: status, ausfalldatum: ausfall)
+    }
+    private let q1 = Periode.quartal(2026, 1)
+
+    @Test func ustAusNettoErmaessigt() {
+        #expect(Steuer.ust(ausNetto: dez("1000.00"), satz: .satz7) == dez("70.00"))
+        #expect(Steuer.ust(ausNetto: dez("1234.50"), satz: .satz7) == dez("86.42"))  // 86,415 → auf
+        #expect(Steuer.ust(ausNetto: dez("1000.00")) == dez("190.00"))               // Default 19 %
+    }
+
+    @Test func reine7ProzentRechnung() {
+        let x = Steuer.ustva(einnahmen: [e("1000", "70", .satz7)], ausgaben: [], periode: q1)
+        #expect(x.kz81 == 0 && x.ust81 == 0)
+        #expect(x.kz86 == dez("1000") && x.ust86 == dez("70"))
+        #expect(x.zahllast == dez("70"))
+    }
+
+    @Test func kz81UndKz86Gemeinsam() {
+        let r = [e("1000", "190", .satz19), e("500", "35", .satz7, rechnung: tag(2026, 3, 5))]
+        let x = Steuer.ustva(einnahmen: r, ausgaben: [], periode: q1)
+        #expect(x.kz81 == dez("1000") && x.ust81 == dez("190"))
+        #expect(x.kz86 == dez("500") && x.ust86 == dez("35"))
+        #expect(x.zahllast == dez("225"))   // 190 + 35
+    }
+
+    @Test func mischrechnungTraegtInBeideSaetze() {
+        let inc = Income(kunde: "X", rnNetto: dez("2000"), ust: dez("380"), rechnungsdatum: tag(2026, 2, 10),
+                         status: .offen, satz: .satz19, rnNetto2: dez("900"), ust2: dez("63"), satz2: .satz7)
+        let x = Steuer.ustva(einnahmen: inc.postenListe, ausgaben: [], periode: q1)
+        #expect(x.kz81 == dez("2000") && x.ust81 == dez("380"))
+        #expect(x.kz86 == dez("900") && x.ust86 == dez("63"))
+        #expect(x.zahllast == dez("443"))
+    }
+
+    /// §17-Ausfall einer 7-%-Rechnung korrigiert genau die 7-%-USt (self-correcting je Posten).
+    @Test func ausfallEiner7ProzentRechnung() {
+        let r = [e("1000", "70", .satz7, .ausgefallen, ausfall: tag(2026, 2, 15), rechnung: tag(2025, 11, 10))]
+        #expect(Steuer.ustKorrekturAusfall(r, in: q1) == dez("-70"))
+    }
+
+    /// ELSTER-Zeilenrundung: erst Netto je Satz summieren, dann einmal runden
+    /// (3 × 10,10 € → 30,30 × 7 % = 2,121 → 2,12; nicht 3 × 0,71 = 2,13).
+    @Test func zeilenrundungJeSatz() {
+        let r = (1...3).map { _ in e("10.10", "0.71", .satz7) }
+        let x = Steuer.ustva(einnahmen: r, ausgaben: [], periode: q1)
+        #expect(x.kz86 == dez("30.30"))
+        #expect(x.ust86 == dez("2.12"))
+    }
+}

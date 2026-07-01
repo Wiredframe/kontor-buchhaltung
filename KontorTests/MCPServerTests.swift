@@ -83,6 +83,7 @@ struct MCPServerTests {
             ["name": "kontor_ustva", "arguments": ["jahr": 2026, "quartal": 1]]))
         // KZ81 1000, USt 190, KZ66 19 ⇒ Zahllast 171.
         #expect(text.contains("KZ81 (Netto 19 %):           1000.00"))
+        #expect(text.contains("KZ86 (Netto 7 %):"))
         #expect(text.contains("KZ66 (Vorsteuer Inland):     19.00"))
         #expect(text.contains("Zahllast (KZ83):             171.00"))
     }
@@ -92,8 +93,8 @@ struct MCPServerTests {
         let text = toolText(await ruf(c, "tools/call",
             ["name": "kontor_liste", "arguments": ["typ": "einnahmen", "jahr": 2026]]))
         let zeilen = text.split(separator: "\n")
-        #expect(zeilen.first == "datum;rechnungsnummer;kunde;netto;ust;brutto;status;zahlungsdatum;beleg")
-        #expect(text.contains("2026-02-15;R-1;Testkunde;1000.00;190.00;1190.00;bezahlt;2026-02-20"))
+        #expect(zeilen.first == "datum;rechnungsnummer;kunde;netto;ust;satz;netto2;ust2;satz2;brutto;status;zahlungsdatum;beleg")
+        #expect(text.contains("2026-02-15;R-1;Testkunde;1000.00;190.00;satz19;0.00;0.00;;1190.00;bezahlt;2026-02-20"))
     }
 
     @Test func listeStammdatenUndPrivat() async throws {
@@ -165,6 +166,19 @@ struct MCPServerTests {
         #expect(neu?.vst == dez("1.90"))   // 11.90 − 11.90/1.19
         #expect(neu?.netto == dez("10.00"))
         #expect(neu?.artEffektiv == .betriebsausgabe)
+    }
+
+    @Test func anlegenEinnahmeMitSatzUndMischung() async throws {
+        let c = try container(); try seed(c)
+        _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "einnahmen",
+            "felder": ["kunde": "Illu", "rnNetto": "1000", "ust": "70", "rechnungsdatum": "2026-03-01",
+                       "satz": "satz7", "rnNetto2": "500", "ust2": "95", "satz2": "satz19"],
+        ]])
+        let inc = try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde == "Illu" }
+        #expect(inc?.satzEffektiv == .satz7)
+        #expect(inc?.satz2 == .satz19 && inc?.rnNetto2 == dez("500") && inc?.ust2 == dez("95"))
+        #expect(inc?.brutto == dez("1665"))   // 1000+70 + 500+95
     }
 
     @Test func anlegenInAllenModulen() async throws {
