@@ -22,7 +22,7 @@ struct DemodatenTests {
 
         let ctx = c.mainContext
         #expect(try ctx.fetchCount(FetchDescriptor<YearSettings>()) == 1)
-        #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 6)
+        #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 8)   // 6 × 19 % + 1 × 7 % + 1 Mischrechnung
         #expect(try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()) == 61)   // 30 betr. + 1 Anschaffung + 30 privat
         #expect(try ctx.fetchCount(FetchDescriptor<GroceryEntry>()) == 12)
         #expect(try ctx.fetchCount(FetchDescriptor<PurchaseEntry>()) == 3)

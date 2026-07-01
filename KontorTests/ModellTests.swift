@@ -22,6 +22,29 @@ struct ModellTests {
         #expect(e.ausfalldatum == nil)                  // wieder bezahlt → Ausfalldatum gelöscht
     }
 
+    @Test func mischrechnungBucketsUndAggregate() {
+        // Regel-Bucket 19 % + zweiter Bucket 7 % (Nutzungsrechte) auf einer Rechnung.
+        let inc = Income(kunde: "Studio X", rnNetto: dez("2000"), ust: dez("380"),
+                         rechnungsdatum: tag(2026, 5, 22), status: .offen,
+                         satz: .satz19, rnNetto2: dez("900"), ust2: dez("63"), satz2: .satz7)
+        #expect(inc.satzEffektiv == .satz19 && inc.hatZweitenSatz)
+        #expect(inc.nettoGesamt == dez("2900") && inc.ustGesamt == dez("443"))
+        #expect(inc.brutto == dez("3343"))
+        // postenListe → zwei Posten je Satz; daraus trennt die Engine KZ 81/86.
+        let p = inc.postenListe
+        #expect(p.count == 2)
+        #expect(p.contains { $0.satz == .satz19 && $0.rnNetto == dez("2000") })
+        #expect(p.contains { $0.satz == .satz7 && $0.rnNetto == dez("900") })
+    }
+
+    @Test func einSatzRechnungHatNurEinenPosten() {
+        // Altbestand ohne satz → 19 %; kein zweiter Bucket → genau ein Posten.
+        let inc = Income(kunde: "Y", rnNetto: dez("1000"), ust: dez("190"), rechnungsdatum: tag(2026, 2, 1))
+        #expect(inc.satz == nil && inc.satzEffektiv == .satz19 && !inc.hatZweitenSatz)
+        #expect(inc.postenListe.count == 1)
+        #expect(inc.nettoGesamt == dez("1000") && inc.brutto == dez("1190"))
+    }
+
     @Test func estSatzErbtVomVormonat() {
         let s = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
         #expect(s.estSatz(monat: 3) == dez("0.15"))     // nichts gesetzt → Jahres-Standard

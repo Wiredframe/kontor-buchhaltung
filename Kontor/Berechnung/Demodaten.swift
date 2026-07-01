@@ -67,6 +67,17 @@ enum Demodaten {
                                 rechnungsnummer: nr)
             ctx.insert(income)
         }
+        // Ermäßigter Satz 7 %: Einräumung von Nutzungsrechten (z. B. Editorial-Illustration).
+        let ill = dez("1500.00")
+        ctx.insert(Income(kunde: "Feldpost Magazin GmbH", rnNetto: ill, ust: Steuer.ust(ausNetto: ill, satz: .satz7),
+                          rechnungsdatum: tag(jahr, 4, 18), zahlungsdatum: tag(jahr, 5, 6),
+                          status: .bezahlt, rechnungsnummer: "2026-007", satz: .satz7))
+        // Mischrechnung: Reinzeichnung/Beratung 19 % + Nutzungsrechte 7 % auf einer Rechnung.
+        let mischG = dez("2000.00"), mischN = dez("900.00")
+        ctx.insert(Income(kunde: "Studio Ostkreuz GmbH", rnNetto: mischG, ust: Steuer.ust(ausNetto: mischG, satz: .satz19),
+                          rechnungsdatum: tag(jahr, 5, 22), zahlungsdatum: tag(jahr, 6, 9),
+                          status: .bezahlt, rechnungsnummer: "2026-008", satz: .satz19,
+                          rnNetto2: mischN, ust2: Steuer.ust(ausNetto: mischN, satz: .satz7), satz2: .satz7))
     }
 
     @MainActor

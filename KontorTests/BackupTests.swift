@@ -96,6 +96,27 @@ struct BackupTests {
         #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
     }
 
+    /// USt-Satz + Mischrechnungs-Bucket überstehen Export→Import verlustfrei.
+    @Test func roundtripBewahrtUStSatzUndMischrechnung() throws {
+        let quelle = try kontext()
+        quelle.insert(Income(kunde: "Misch", rnNetto: dez("2000"), ust: dez("380"),
+                             rechnungsdatum: tag(2026, 3, 1), status: .offen, rechnungsnummer: "M-1",
+                             satz: .satz19, rnNetto2: dez("900"), ust2: dez("63"), satz2: .satz7))
+        quelle.insert(Income(kunde: "Nur7", rnNetto: dez("1000"), ust: dez("70"),
+                             rechnungsdatum: tag(2026, 3, 2), status: .offen, rechnungsnummer: "M-2", satz: .satz7))
+        try quelle.save()
+
+        let ziel = try kontext()
+        _ = try Backup.importData(try Backup.exportData(quelle), in: ziel)
+        let alle = try ziel.fetch(FetchDescriptor<Income>())
+        let misch = try #require(alle.first { $0.kunde == "Misch" })
+        #expect(misch.satzEffektiv == .satz19)
+        #expect(misch.satz2 == .satz7 && misch.rnNetto2 == dez("900") && misch.ust2 == dez("63"))
+        #expect(misch.brutto == dez("3343"))
+        let nur7 = try #require(alle.first { $0.kunde == "Nur7" })
+        #expect(nur7.satzEffektiv == .satz7 && !nur7.hatZweitenSatz)
+    }
+
     /// Bug-Fix: ein bestehendes Jahr darf beim Import nicht komplett übersprungen werden –
     /// die später dazugekommenen KSK/ESt-Monatswerte müssen additiv zurückkommen, ohne
     /// bereits vorhandene Monate zu überschreiben.
