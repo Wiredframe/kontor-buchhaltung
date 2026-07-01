@@ -73,11 +73,11 @@ einmalig ein Signing-Team wählen (oder „Sign to Run Locally").
   SwiftData-Lightweight-Migration gegen eine Kopie des Produktiv-Stores verifiziert). Die
   einmaligen Migrationen `MonatskostenMigration`/`AusgabenReklassifizierung` (Obsidian-/SubTotal-
   Umzug abgeschlossen) sind ebenfalls weg.
-- **VSt je Ausgabe:** `reverseCharge`/`steuerfrei` → 0; `inland19` → `brutto − brutto/1.19`.
-  `netto = brutto − vst`. **Known Issue (Eingangsseite):** die Ausgabenseite kennt bewusst **nur 19 %**
-  (`Steuerart.inland19`), Reverse-Charge oder steuerfrei – **keinen** 7-%-Vorsteuersatz. Eine seltene
-  7-%-Eingangsrechnung als `inland19` erfassen und die **VSt manuell** korrigieren (kein automatischer
-  7-%-Vorsteuerabzug). Mehrere Sätze gibt es nur **ausgangsseitig** (`Income.satz`/`UStSatz`).
+- **VSt je Ausgabe:** `reverseCharge`/`steuerfrei` → 0; `inland19` → `brutto − brutto/1.19`,
+  `inland7` → `brutto − brutto/1.07`. `netto = brutto − vst`. Ausgabenseitig ist der Satz nur ein
+  **Eingabe-Helfer** für die Vorsteuer (KZ 66 summiert satzunabhängig, EÜR nutzt Netto) – deshalb
+  **kein** Mischbeleg-/Bucket-Modell wie bei Einnahmen; ein Mischbeleg wird über die tatsächliche VSt
+  erfasst (Feld editierbar). `Steuerart.ziehtVorsteuer` = beide Inland-Sätze (steuert das „aus Brutto"-Feld).
 - **Reverse-Charge (§13b, Auslands-Tools):** USt 19 % in **KZ 84 (netto) / KZ 85 (USt)**,
   zugleich als Vorsteuer abziehbar → USt-Saldo 0. **Aber:** der Netto-Betrag bleibt eine
   abziehbare Betriebsausgabe in der EÜR (z. B. Figma 35 € = echte Ausgabe).

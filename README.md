@@ -216,12 +216,8 @@ Die Engine trifft **fest verdrahtete Annahmen**:
 - **KSK-versichert** – KV/RV/PV als monatliche Beiträge; ESt-Rücklage als grobe Pauschale.
 - **Ausgangsseitig 19 % und 7 % USt** (inkl. Mischrechnungen mit beiden Sätzen auf einer Rechnung) –
   **kein** Kleinunternehmer (§19), keine steuerfreien Ausgangsumsätze (außer USt = 0).
+- **Eingangsseitig 19 % und 7 % Vorsteuer**, Reverse-Charge (§13b, cash-neutral) sowie steuerfrei.
 - **Quartals- oder Monats-UStVA**, optional mit Dauerfristverlängerung.
-
-**Bekannte Einschränkung (Eingangsseite):** Ausgaben kennen nur **19 %**, Reverse-Charge (§13b) oder
-steuerfrei – **keinen** 7-%-Vorsteuersatz. Eine seltene 7-%-Eingangsrechnung (z. B. ein Buch) als
-„Inland 19 %" erfassen und die **Vorsteuer im Betrag manuell** anpassen; einen automatischen
-7-%-Vorsteuerabzug gibt es bewusst nicht.
 
 Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders kritisch prüfen.
 
