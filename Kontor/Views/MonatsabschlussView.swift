@@ -192,7 +192,7 @@ struct MonatsabschlussView: View {
     // MARK: Monatsansicht
 
     private var monatsAnsicht: some View {
-        let einP = einnahmen.map(\.posten), ausP = ausgaben.map(\.posten)
+        let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         let z = zahlen(monat, einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -397,7 +397,7 @@ struct MonatsabschlussView: View {
     private struct MonatsZeile: Identifiable { let id: Int; let name: String; let z: Zahlen; let zukunft: Bool }
 
     private var jahresAnsicht: some View {
-        let einP = einnahmen.map(\.posten), ausP = ausgaben.map(\.posten)
+        let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         let zeilen = (1...12).map { MonatsZeile(id: $0, name: monatsName($0),
             z: zahlen($0, einP: einP, ausP: ausP), zukunft: istZukunft($0)) }
         let aktiv = zeilen.filter { !$0.zukunft }
@@ -492,7 +492,7 @@ struct MonatsabschlussView: View {
     private var abgeschlossen: Bool { settings?.istAbgeschlossen(monat: monat) ?? false }
     private func monatAbschliessen() {
         // Aktuellen Stand live berechnen und einfrieren, bevor der Monat als „zu" markiert wird.
-        let einP = einnahmen.map(\.posten), ausP = ausgaben.map(\.posten)
+        let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         settings?.setzeSnapshot(monat: monat, snapshotAus(zahlen(monat, einP: einP, ausP: ausP)))
         settings?.abschlussProMonat[String(monat)] = Date()
     }

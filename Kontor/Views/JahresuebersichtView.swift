@@ -58,7 +58,7 @@ struct JahresuebersichtView: View {
 
     /// Baut die Jahreswerte: Posten/KSK werden **einmal** gemappt, jede Aggregation läuft genau einmal.
     private func baueWerte() -> Jahreswerte {
-        let einP = einnahmen.map(\.posten)
+        let einP = einnahmen.flatMap(\.postenListe)
         let ausP = ausgaben.map(\.posten)
         let est = Steuer.estRuecklageJahr(
             jahr: jahr, einnahmen: einP, ausgaben: ausP, kskFuer: { jahre.ksk(jahr: jahr, monat: $0) },

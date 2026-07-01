@@ -18,6 +18,30 @@ enum Steuerart: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Ausgangs-USt-Satz einer Einnahme/Ausgangsrechnung. Bewusst nur die beiden Regelsätze
+/// **19 % (Regelsatz)** und **7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten)** – kein
+/// 0 %/steuerfrei-Ausgang, kein Kleinunternehmer. Der Decimal-Wert liegt zentral in `Steuer`.
+enum UStSatz: String, Codable, CaseIterable, Identifiable {
+    case satz19   // Regelsatz 19 %
+    case satz7    // ermäßigter Satz 7 %
+
+    var id: String { rawValue }
+    /// Effektiver Steuersatz als Decimal (Konstanten zentral in `Steuer`).
+    var wert: Decimal { self == .satz19 ? Steuer.satz19 : Steuer.satz7 }
+    var bezeichnung: String {
+        switch self {
+        case .satz19: "19 %"
+        case .satz7:  "7 %"
+        }
+    }
+
+    /// Robust gegen Altdaten/unbekannte Werte: Unbekanntes → Regelsatz 19 %.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = UStSatz(rawValue: raw) ?? .satz19
+    }
+}
+
 /// Wiederholungs-Intervall einer Vorlage.
 enum Intervall: String, Codable, CaseIterable, Identifiable {
     case monatlich

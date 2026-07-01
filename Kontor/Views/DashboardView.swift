@@ -124,7 +124,7 @@ struct DashboardView: View {
     }
 
     private var inhalt: some View {
-        let einP = einnahmen.map(\.posten), ausP = ausgaben.map(\.posten)
+        let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         let akt = werteFuer(jahr: jahr, monat: monat, einP: einP, ausP: ausP)
         let vormonat = monat > 1 ? werteFuer(jahr: jahr, monat: monat - 1, einP: einP, ausP: ausP) : nil
         let ustVA = Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: ustvaPeriode).zahllast
