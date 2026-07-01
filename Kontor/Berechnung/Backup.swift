@@ -76,6 +76,12 @@ enum Backup {
         var status: InvoiceStatus
         var rechnungsnummer: String?
         var belegPfad: String? = nil
+        // USt-Satz + Mischrechnungs-Bucket. Optional, damit ältere Backups (ohne diese Keys)
+        // weiterhin dekodieren; beim Import mit 19 % bzw. 0 gedeutet.
+        var satz: UStSatz? = nil
+        var rnNetto2: Decimal? = nil
+        var ust2: Decimal? = nil
+        var satz2: UStSatz? = nil
     }
     struct AufgabeDTO: Codable {
         var titel: String
@@ -131,7 +137,8 @@ enum Backup {
                 EinnahmeDTO(kunde: $0.kunde, rnNetto: $0.rnNetto, ust: $0.ust,
                     rechnungsdatum: $0.rechnungsdatum, zahlungsdatum: $0.zahlungsdatum,
                     ausfalldatum: $0.ausfalldatum, status: $0.status, rechnungsnummer: $0.rechnungsnummer,
-                    belegPfad: $0.belegPfad) },
+                    belegPfad: $0.belegPfad,
+                    satz: $0.satz, rnNetto2: $0.rnNetto2, ust2: $0.ust2, satz2: $0.satz2) },
             aufgaben: try context.fetch(FetchDescriptor<MonthlyTask>()).map {
                 AufgabeDTO(titel: $0.titel, monat: $0.monat, erledigt: $0.erledigt,
                     intervall: $0.intervall, faelligTag: $0.faelligTag, quartalsMonate: $0.quartalsMonate) },
@@ -294,7 +301,8 @@ enum Backup {
             einKeys.insert(k)
             context.insert(Income(kunde: d.kunde, rnNetto: d.rnNetto, ust: d.ust, rechnungsdatum: d.rechnungsdatum,
                 zahlungsdatum: d.zahlungsdatum, status: d.status, ausfalldatum: d.ausfalldatum,
-                rechnungsnummer: d.rechnungsnummer, belegPfad: d.belegPfad)); neu += 1
+                rechnungsnummer: d.rechnungsnummer, belegPfad: d.belegPfad,
+                satz: d.satz, rnNetto2: d.rnNetto2 ?? 0, ust2: d.ust2 ?? 0, satz2: d.satz2)); neu += 1
         }
 
         var taskKeys = Set(try context.fetch(FetchDescriptor<MonthlyTask>()).map { $0.titel.lowercased() + "|" + String(Int($0.monat.timeIntervalSince1970)) })
