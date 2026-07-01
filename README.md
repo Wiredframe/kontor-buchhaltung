@@ -97,9 +97,10 @@ bewusst beachtet werden:
   (USt-Zahllast, Vorsteuer, KSK, ESt) inkl. §17- und ESt-Ausfall-Korrektur; **KSK-Beträge
   und ESt-Satz pro Monat** in der Sidebar „Werte" pflegbar (erben vom Vormonat);
   „Monat abschließen" friert den Stand als Snapshot ein.
-- **UStVA:** formular-getreu nach ELSTER-Kennzahlen – KZ 81 (Netto-Bemessung) → USt 19 %,
-  KZ 66 (Vorsteuer Inland), KZ 84/85 (§13b), KZ 67, §17-Korrektur, Zahllast KZ 83.
-  Quartal oder Monat, gruppiert wie das Formular mit KZ-Badge und Erklärung je Zeile.
+- **UStVA:** formular-getreu nach ELSTER-Kennzahlen – KZ 81 (Netto-Bemessung) → USt 19 % **und
+  KZ 86 → USt 7 %** (inkl. Mischrechnungen), KZ 66 (Vorsteuer Inland), KZ 84/85 (§13b), KZ 67,
+  §17-Korrektur, Zahllast KZ 83. Quartal oder Monat, gruppiert wie das Formular mit KZ-Badge und
+  Erklärung je Zeile.
 - **Jahresabschluss (EÜR):** Einnahmen (Zufluss), Ausgaben nach Kategorie, Gewinn,
   Vorsteuer; Steuerlast ESt+USt, KSK-Jahr, ESt-Abgleich, read-only Zahlungsblock;
   **Beleg-Export als ZIP** pro Jahr.
@@ -213,9 +214,14 @@ Die Engine trifft **fest verdrahtete Annahmen**:
 - **Soll-Versteuerung** (USt nach Rechnungsdatum) – **keine** Ist-Versteuerung.
 - **EÜR** (Einnahmen-Überschuss-Rechnung) – keine Bilanzierung.
 - **KSK-versichert** – KV/RV/PV als monatliche Beiträge; ESt-Rücklage als grobe Pauschale.
-- **Ausgangsseitig ausschließlich 19 % USt** – kein 7 %, **kein** Kleinunternehmer (§19),
-  keine steuerfreien Ausgangsumsätze (außer USt = 0).
+- **Ausgangsseitig 19 % und 7 % USt** (inkl. Mischrechnungen mit beiden Sätzen auf einer Rechnung) –
+  **kein** Kleinunternehmer (§19), keine steuerfreien Ausgangsumsätze (außer USt = 0).
 - **Quartals- oder Monats-UStVA**, optional mit Dauerfristverlängerung.
+
+**Bekannte Einschränkung (Eingangsseite):** Ausgaben kennen nur **19 %**, Reverse-Charge (§13b) oder
+steuerfrei – **keinen** 7-%-Vorsteuersatz. Eine seltene 7-%-Eingangsrechnung (z. B. ein Buch) als
+„Inland 19 %" erfassen und die **Vorsteuer im Betrag manuell** anpassen; einen automatischen
+7-%-Vorsteuerabzug gibt es bewusst nicht.
 
 Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders kritisch prüfen.
 

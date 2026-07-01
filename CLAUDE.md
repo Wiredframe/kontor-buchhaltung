@@ -74,7 +74,10 @@ einmalig ein Signing-Team wählen (oder „Sign to Run Locally").
   einmaligen Migrationen `MonatskostenMigration`/`AusgabenReklassifizierung` (Obsidian-/SubTotal-
   Umzug abgeschlossen) sind ebenfalls weg.
 - **VSt je Ausgabe:** `reverseCharge`/`steuerfrei` → 0; `inland19` → `brutto − brutto/1.19`.
-  `netto = brutto − vst`.
+  `netto = brutto − vst`. **Known Issue (Eingangsseite):** die Ausgabenseite kennt bewusst **nur 19 %**
+  (`Steuerart.inland19`), Reverse-Charge oder steuerfrei – **keinen** 7-%-Vorsteuersatz. Eine seltene
+  7-%-Eingangsrechnung als `inland19` erfassen und die **VSt manuell** korrigieren (kein automatischer
+  7-%-Vorsteuerabzug). Mehrere Sätze gibt es nur **ausgangsseitig** (`Income.satz`/`UStSatz`).
 - **Reverse-Charge (§13b, Auslands-Tools):** USt 19 % in **KZ 84 (netto) / KZ 85 (USt)**,
   zugleich als Vorsteuer abziehbar → USt-Saldo 0. **Aber:** der Netto-Betrag bleibt eine
   abziehbare Betriebsausgabe in der EÜR (z. B. Figma 35 € = echte Ausgabe).
@@ -170,13 +173,18 @@ Prüfgrößen (synthetisch, exemplarisch):
   EÜR-Gewinn, Steuerlast ESt+USt, KSK-Jahr KV/RV/PV, ESt-Abgleich, Zahlungen/Termine). „Steuer & Rücklagen"
   und „Steuern & Abgaben" gibt es nicht mehr.
 - **UStVA formular-getreu (zum Ausfüllen):** `UStVAErgebnis` ist nach den ELSTER-Kennzahlen benannt –
-  **KZ 81 = Netto-Bemessungsgrundlage** (nicht die Steuer!), `ust81` = die daraus errechnete USt 19 %
-  (im Formular automatisch), **KZ 66** Vorsteuer Inland, **KZ 84/85** §13b Netto/USt, **KZ 67** = KZ 85
-  als abziehbare Vorsteuer (§13b cash-neutral). `zahllast` (KZ 83) = `ust81 + kz85 − kz66 − kz67 + §17`
-  (numerisch unverändert). View gruppiert wie das Formular (Umsätze → Vorsteuer → Zahllast) mit KZ-Badge,
-  Klartext-Label, Erklärung je Zeile + „Hinweise zum Ausfüllen" (Soll/Reverse-Charge/Steuerfrei).
-  `Steuer.umsatzNetto19` liefert KZ 81 (Σ rnNetto mit USt≠0, Soll). Steuerfreie Umsätze (USt=0) bleiben
-  aus KZ 81; ausgangsseitig gelten aktuell alle Honorare als 19 %.
+  **KZ 81 = Netto-Bemessungsgrundlage 19 %** (nicht die Steuer!), `ust81` = die daraus errechnete USt 19 %,
+  **KZ 86 = Netto-Bemessung 7 %** (ermäßigt), `ust86` = USt 7 % (beide im Formular automatisch), **KZ 66**
+  Vorsteuer Inland, **KZ 84/85** §13b Netto/USt (immer 19 %), **KZ 67** = KZ 85 als abziehbare Vorsteuer
+  (§13b cash-neutral). `zahllast` (KZ 83) = `ust81 + ust86 + kz85 − kz66 − kz67 + §17`. View gruppiert wie
+  das Formular (Umsätze → Vorsteuer → Zahllast) mit KZ-Badge, Klartext-Label, Erklärung je Zeile +
+  „Hinweise zum Ausfüllen" (Soll/Reverse-Charge/Steuersätze).
+  `Steuer.umsatzNetto(_:satz:in:)` liefert je Satz die Netto-Bemessung (Σ rnNetto mit USt≠0, Soll); die
+  USt je Satz wird **ELSTER-konform** als `Netto-Summe × Satz` einmal gerundet (nicht je Beleg vorgerundet).
+  **Ausgangsseitig 19 % und 7 % (inkl. Mischrechnungen)** – `Income.satz`/`satz2` (`UStSatz`, optional →
+  Migrations-sicher, nil = 19 %) + zweiter Bucket `rnNetto2/ust2`; `Income.postenListe` liefert ein bis zwei
+  `EinnahmePosten` je Satz-Bucket, sodass die Engine je Satz getrennt rechnet (KZ 81/86, §17) ohne Sonderfall.
+  Steuerfreie Umsätze (USt=0) bleiben aus KZ 81/86; kein 0 %/steuerfreier Ausgang, kein Kleinunternehmer.
 - **Aufgaben (eine View, Reminders-Logik):** `MonthlyTask` trägt die Wiederkehrung selbst
   (`intervall` einmalig/monatlich/quartalsweise/**jährlich**, `faelligTag`, `quartalsMonate`; jährlich
   nutzt `quartalsMonate` = ein Monat) – kein separates Vorlagen-Entity/-View mehr. Beim Abhaken erzeugt
