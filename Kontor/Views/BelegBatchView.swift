@@ -59,6 +59,7 @@ final class BelegEntwurf: Identifiable {
     var kunde = ""
     var rnNetto: Decimal = 0
     var ust: Decimal = 0
+    var satz: UStSatz = .satz19   // OCR erkennt den Satz nicht → Default Regelsatz, im Editor änderbar
 
     // Ausgabe
     var bezeichnung = ""
@@ -115,7 +116,7 @@ final class BelegEntwurf: Identifiable {
         case .einnahme:
             let inc = income ?? Income(kunde: "", rnNetto: 0, ust: 0, rechnungsdatum: datum, status: .offen)
             inc.kunde = kunde.isEmpty ? titelFallback : kunde
-            inc.rnNetto = rnNetto; inc.ust = ust; inc.rechnungsdatum = datum
+            inc.rnNetto = rnNetto; inc.ust = ust; inc.satz = satz; inc.rechnungsdatum = datum
             inc.rechnungsnummer = rnOpt; inc.belegPfad = belegPfad
             if income == nil { context.insert(inc); income = inc }
         case .ausgabe:
@@ -427,10 +428,13 @@ private struct BelegFormular: View {
     @ViewBuilder private var einnahmeFelder: some View {
         Section {
             TextField("Kunde", text: $entwurf.kunde).focused($fokus)
+            Picker("USt-Satz", selection: $entwurf.satz) {
+                ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+            }
             TextField("RN (netto)", value: $entwurf.rnNetto, format: .currency(code: "EUR"))
             HStack {
                 TextField("USt", value: $entwurf.ust, format: .currency(code: "EUR"))
-                Button("aus Netto") { entwurf.ust = Steuer.ust(ausNetto: entwurf.rnNetto) }
+                Button("aus Netto") { entwurf.ust = Steuer.ust(ausNetto: entwurf.rnNetto, satz: entwurf.satz) }
             }
             LabeledContent("Brutto", value: entwurf.bruttoEinnahme.euro)
                 .foregroundStyle(betragFehlt ? .red : .primary)
