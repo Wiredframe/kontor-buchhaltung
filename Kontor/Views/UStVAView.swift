@@ -85,6 +85,14 @@ struct UStVAView: View {
                                        erklaerung: "Berechnet ELSTER automatisch aus KZ 81 – hier zur Kontrolle.",
                                        wert: e.ust81, unterzeile: true)
                             Divider()
+                            UStVAZeile(kz: "86", label: "Steuerpflichtige Umsätze 7 % (netto)",
+                                       erklaerung: "Netto-Honorare mit ermäßigten 7 % USt (z. B. Einräumung von Nutzungsrechten) – nach Rechnungsdatum (Soll).",
+                                       wert: e.kz86)
+                            Divider()
+                            UStVAZeile(kz: nil, label: "darauf USt 7 %",
+                                       erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
+                                       wert: e.ust86, unterzeile: true)
+                            Divider()
                             UStVAZeile(kz: "84", label: "§13b Reverse-Charge (netto)",
                                        erklaerung: "Netto aus Auslands-Leistungen (z. B. Figma, Adobe), für die du die USt selbst schuldest.",
                                        wert: e.kz84)
@@ -124,7 +132,8 @@ struct UStVAView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             hinweis("Soll-Versteuerung", "Maßgeblich ist das Rechnungsdatum, nicht der Zahlungseingang.")
                             hinweis("Reverse-Charge (§13b)", "Bei Auslands-Tools schuldest du die USt selbst (KZ 84/85) und ziehst sie zugleich als Vorsteuer ab (KZ 67) – Saldo 0. Der Netto-Betrag bleibt trotzdem Betriebsausgabe in der EÜR.")
-                            hinweis("Steuerfrei", "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf. Ausgangsseitig gelten aktuell alle Honorare als 19 % steuerpflichtig.")
+                            hinweis("Steuersätze", "Ausgangsseitig 19 % (Regelsatz) oder 7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten) – kein steuerfreier Ausgang (außer USt = 0). Mischrechnungen mit beiden Sätzen sind möglich (zweiter Satz je Rechnung).")
+                            hinweis("Vorsteuer", "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf.")
                         }
                     }
                 }

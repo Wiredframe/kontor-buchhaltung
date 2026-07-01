@@ -244,7 +244,7 @@ struct MonatsabschlussView: View {
         Panel(titel: "Gewinn-Rechnung") {
             VStack(spacing: 2) {
                 Kartenzeile(label: "RN brutto", wert: z.rn + z.ust, icon: "tray.and.arrow.down")
-                Kartenzeile(label: "USt (19 %)", wert: z.ust, icon: "building.columns")
+                Kartenzeile(label: "USt", wert: z.ust, icon: "building.columns")
                 Kartenzeile(label: "Umsatz (RN netto)", wert: z.rn, icon: "eurosign.circle")
                 Kartenzeile(label: "Vorsteuer", wert: z.vst, icon: "arrow.down.left.circle")
                 Divider().padding(.vertical, 4)

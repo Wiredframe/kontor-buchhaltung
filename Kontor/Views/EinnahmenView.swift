@@ -26,8 +26,8 @@ struct EinnahmenView: View {
     private var anzeige: [Income] { gefiltert.sorted(using: sortOrder) }
     private var ausgewaehlt: Income? { selection.count == 1 ? alle.first { $0.id == selection.first } : nil }
 
-    private var summeRN: Decimal { gefiltert.reduce(0) { $0 + $1.rnNetto } }
-    private var summeUSt: Decimal { gefiltert.reduce(0) { $0 + $1.ust } }
+    private var summeRN: Decimal { gefiltert.reduce(0) { $0 + $1.nettoGesamt } }
+    private var summeUSt: Decimal { gefiltert.reduce(0) { $0 + $1.ustGesamt } }
     private var summeOffen: Decimal { gefiltert.filter { $0.status == .offen }.reduce(0) { $0 + $1.brutto } }
 
     var body: some View {
@@ -44,9 +44,14 @@ struct EinnahmenView: View {
                 .width(min: 110, ideal: 150)
                 TableColumn("Kunde", value: \.kunde) { Text($0.kunde).lineLimit(1) }
                     .width(min: 140, ideal: 200)
-                TableColumn("RN (netto)", value: \.rnNetto) { Text($0.rnNetto.euro).monospacedDigit().lineLimit(1) }
-                    .width(min: 90, ideal: 100)
-                TableColumn("USt", value: \.ust) { Text($0.ust.euro).monospacedDigit().lineLimit(1) }
+                TableColumn("RN (netto)", value: \.nettoGesamt) { e in
+                    HStack(spacing: 4) {
+                        Text(e.nettoGesamt.euro).monospacedDigit().lineLimit(1)
+                        if e.hatZweitenSatz { Text("7/19").font(.caption2).foregroundStyle(.secondary) }
+                    }
+                }
+                    .width(min: 90, ideal: 110)
+                TableColumn("USt", value: \.ustGesamt) { Text($0.ustGesamt.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
                 TableColumn("Brutto", value: \.brutto) { Text($0.brutto.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
@@ -162,7 +167,8 @@ struct EinnahmenView: View {
     private func duplizieren(_ ids: Set<Income.ID>) {
         for e in alle where ids.contains(e.id) {
             context.insert(Income(kunde: e.kunde, rnNetto: e.rnNetto, ust: e.ust,
-                rechnungsdatum: Date(), status: .offen))
+                rechnungsdatum: Date(), status: .offen,
+                satz: e.satz, rnNetto2: e.rnNetto2, ust2: e.ust2, satz2: e.satz2))
         }
     }
     private func loesche(_ ids: Set<Income.ID>) {
@@ -191,16 +197,48 @@ struct EinnahmeInspektor: View {
     private var rechnungsnummer: Binding<String> {
         Binding { eintrag.rechnungsnummer ?? "" } set: { eintrag.rechnungsnummer = $0.isEmpty ? nil : $0 }
     }
+    private var satz: Binding<UStSatz> {
+        Binding { eintrag.satzEffektiv } set: { eintrag.satz = $0 }
+    }
+    private var satz2: Binding<UStSatz> {
+        Binding { eintrag.satz2 ?? .satz7 } set: { eintrag.satz2 = $0 }
+    }
 
     var body: some View {
         Form {
             TextField("Kunde", text: $eintrag.kunde).focused($fokus)
+            Picker("USt-Satz", selection: satz) {
+                ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+            }
             TextField("RN (netto)", value: $eintrag.rnNetto, format: .currency(code: "EUR"))
             HStack {
                 TextField("USt", value: $eintrag.ust, format: .currency(code: "EUR"))
-                Button("aus Netto") { eintrag.ust = Steuer.ust(ausNetto: eintrag.rnNetto) }
+                Button("aus Netto") { eintrag.ust = Steuer.ust(ausNetto: eintrag.rnNetto, satz: eintrag.satzEffektiv) }
             }
-            LabeledContent("Brutto", value: eintrag.brutto.euro)
+            if eintrag.hatZweitenSatz {
+                Picker("2. USt-Satz", selection: satz2) {
+                    ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+                }
+                TextField("2. Netto", value: $eintrag.rnNetto2, format: .currency(code: "EUR"))
+                HStack {
+                    TextField("2. USt", value: $eintrag.ust2, format: .currency(code: "EUR"))
+                    Button("aus Netto") { eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7) }
+                }
+                HStack {
+                    LabeledContent("Brutto gesamt", value: eintrag.brutto.euro)
+                    Spacer()
+                    Button("entfernen", role: .destructive) {
+                        eintrag.satz2 = nil; eintrag.rnNetto2 = 0; eintrag.ust2 = 0
+                    }
+                    .buttonStyle(.borderless).font(.caption)
+                }
+            } else {
+                LabeledContent("Brutto", value: eintrag.brutto.euro)
+                Button {
+                    eintrag.satz2 = (eintrag.satzEffektiv == .satz19 ? .satz7 : .satz19)
+                } label: { Label("Zweiten Steuersatz hinzufügen", systemImage: "plus.circle") }
+                .buttonStyle(.borderless).font(.caption)
+            }
             DatePicker("Rechnungsdatum", selection: $eintrag.rechnungsdatum, displayedComponents: .date)
             Picker("Status", selection: $eintrag.status) {
                 ForEach(InvoiceStatus.allCases) { Text($0.bezeichnung).tag($0) }
