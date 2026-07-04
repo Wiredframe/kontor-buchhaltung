@@ -234,7 +234,7 @@ Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders 
 Du darfst Kontor **forken, anpassen und für jeden Zweck nutzen – auch geschäftlich** (z. B. dir
 mit Claude Code einen maßgeschneiderten Fork bauen). Du darfst es nur **nicht verkaufen** oder
 als konkurrierendes Ersatzprodukt an andere weitergeben (auch nicht kostenlos). Der kommerzielle
-Verkauf von Kontor liegt beim Urheber (Wiredframe). Freiwillige
+Verkauf von Kontor liegt beim Urheber (Ulf Schuster). Freiwillige
 **[💛 Spenden](https://wiredframe.github.io/kontor-landingpage/#spenden)** (ohne Gegenleistung)
 sind jederzeit willkommen.
 
