@@ -64,11 +64,11 @@ struct MonatsabschlussView: View {
         let p = Periode.monat(jahr, monat)
         return tasks.filter { p.enthaelt($0.monat) }
     }
-    /// Aufgaben mit Fälligkeit im gewählten Monat – für die Abschluss-Sidebar: monatliche
-    /// **und** einmalige (die haben ein konkretes Fälligkeitsdatum). Jährliche stehen im
-    /// Jahresabschluss, quartalsweise dort, wo ihre Instanz fällt.
+    /// Aufgaben mit Fälligkeit im gewählten Monat – für die Abschluss-Sidebar: monatliche,
+    /// einmalige **und** quartalsweise (letztere im jeweiligen Fälligkeitsmonat ihrer Instanz).
+    /// Jährliche stehen im Jahresabschluss.
     private var monatsSidebarAufgaben: [MonthlyTask] {
-        monatsTasks.filter { $0.intervall == .monatlich || $0.intervall == .einmalig }
+        monatsTasks.filter { TaskVorlagen.inMonatsSidebar($0.intervall) }
             .sorted { $0.monat < $1.monat }
     }
     struct Zahlen {
