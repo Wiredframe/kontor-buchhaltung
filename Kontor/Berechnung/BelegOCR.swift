@@ -358,25 +358,44 @@ enum BelegOCR {
         zeilen.flatMap { betraege(in: $0) }.max()
     }
 
-    /// Alle geldartigen Beträge einer Zeile (mit 2 Nachkommastellen).
+    /// Alle geldartigen Beträge einer Zeile. Erkennt deutsche wie englische Schreibweise inkl.
+    /// Tausender-Gruppen (Punkt/Komma/Leerzeichen + genau 3 Ziffern) – auch **ohne** Nachkomma
+    /// („1.500" = 1500) und bei OCR-Verwechslung des Dezimaltrenners („1.234.56"). Das `(?!\d)`
+    /// hinter jeder Dreiergruppe verhindert, dass eine vierstellige Zahl (etwa das Jahr „2026"
+    /// in einem Datum) fälschlich als gruppierter Tausenderbetrag zerfällt.
     static func betraege(in zeile: String) -> [Decimal] {
-        let pat = #"\d{1,3}(?:[.,  ]\d{3})*[.,]\d{2}|\d+[.,]\d{2}"#
+        // Exotische Tausender-Trenner (NBSP, schmale Leerzeichen aus PDF-Layouts) auf ASCII-Space.
+        let z = zeile
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .replacingOccurrences(of: "\u{2009}", with: " ")
+        let pat = #"\d{1,3}(?:[., ]\d{3}(?!\d))+(?:[.,]\d{2})?|\d+[.,]\d{2}"#
         guard let re = try? NSRegularExpression(pattern: pat) else { return [] }
-        let ns = zeile as NSString
-        return re.matches(in: zeile, range: NSRange(location: 0, length: ns.length)).compactMap {
+        let ns = z as NSString
+        return re.matches(in: z, range: NSRange(location: 0, length: ns.length)).compactMap {
             normalisiere(ns.substring(with: $0.range))
         }
     }
 
+    /// Wandelt einen erkannten Betrags-Token in `Decimal`. Der Dezimaltrenner ist das **letzte**
+    /// „,"/„.", **sofern** ihm 1–2 Ziffern folgen; folgen genau 3 (oder mehr), ist es ein
+    /// Tausender-Trenner und der Betrag ganzzahlig. Alle übrigen „,"/„." sind Gruppierung und
+    /// werden entfernt – deckt de/en sowie OCR-Verwechslungen („1.234.56", „1,234,56") ab.
     static func normalisiere(_ token: String) -> Decimal? {
-        var t = token.replacingOccurrences(of: "\u{00A0}", with: "").replacingOccurrences(of: " ", with: "")
-        if let komma = t.lastIndex(of: ","), let punkt = t.lastIndex(of: ".") {
-            let dezIstKomma = komma > punkt
-            t = t.replacingOccurrences(of: dezIstKomma ? "." : ",", with: "")
-            t = t.replacingOccurrences(of: dezIstKomma ? "," : ".", with: ".")
-        } else if t.contains(",") {
-            t = t.replacingOccurrences(of: ",", with: ".")
+        var t = token
+        for weg in ["\u{00A0}", "\u{202F}", "\u{2009}", " ", "€", "\u{00A3}", "$"] {
+            t = t.replacingOccurrences(of: weg, with: "")
         }
-        return Decimal(string: t, locale: Locale(identifier: "en_US_POSIX"))
+        guard let letzter = t.lastIndex(where: { $0 == "," || $0 == "." }) else {
+            return Decimal(string: t, locale: Locale(identifier: "en_US_POSIX"))
+        }
+        let nachkomma = t.distance(from: t.index(after: letzter), to: t.endIndex)
+        if nachkomma == 1 || nachkomma == 2 {
+            let vor = String(t[..<letzter]).replacingOccurrences(of: ",", with: "").replacingOccurrences(of: ".", with: "")
+            let dez = String(t[t.index(after: letzter)...])
+            return Decimal(string: vor + "." + dez, locale: Locale(identifier: "en_US_POSIX"))
+        }
+        let ganz = t.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: ".", with: "")
+        return Decimal(string: ganz, locale: Locale(identifier: "en_US_POSIX"))
     }
 }

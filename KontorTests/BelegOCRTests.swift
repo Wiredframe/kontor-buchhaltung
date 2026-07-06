@@ -31,6 +31,43 @@ struct BelegOCRTests {
         #expect(BelegOCR.normalisiere("12.99") == dez("12.99"))
     }
 
+    /// Deutscher Tausenderpunkt ohne Cent-Angabe: „1.500" ist 1500, nicht 1,50 – der
+    /// Betrag wird sowohl beim Parsen als auch bei der Extraktion aus der Zeile korrekt.
+    @Test func tausenderOhneNachkomma() {
+        #expect(BelegOCR.normalisiere("1.500") == dez("1500"))
+        #expect(BelegOCR.normalisiere("3.000") == dez("3000"))
+        #expect(BelegOCR.normalisiere("1.234.567") == dez("1234567"))
+        #expect(BelegOCR.betraege(in: "Gesamtbetrag 1.500 €") == [dez("1500")])
+        #expect(BelegOCR.betraege(in: "Pauschale 3.000") == [dez("3000")])
+        // Anschaffung > 1000 € mit Cent bleibt ebenfalls korrekt.
+        #expect(BelegOCR.betraege(in: "Summe 1.499,00 €") == [dez("1499.00")])
+    }
+
+    /// OCR verwechselt Dezimaltrenner: „1.234,56" wird mal als „1.234.56" oder „1,234,56"
+    /// gelesen. Der letzte Trenner mit zwei Folgeziffern ist der Dezimaltrenner.
+    @Test func ocrDezimaltrennerVerwechslung() {
+        #expect(BelegOCR.normalisiere("1.234.56") == dez("1234.56"))
+        #expect(BelegOCR.normalisiere("1,234,56") == dez("1234.56"))
+        #expect(BelegOCR.betraege(in: "Rechnungsbetrag 1.234.56") == [dez("1234.56")])
+    }
+
+    /// Tausender-Erkennung darf NICHT in vierstelligen Zahlen (Jahr im Datum, IBAN-Vierergruppen)
+    /// falsch anschlagen – das `(?!\d)` hinter der Dreiergruppe verhindert das.
+    @Test func tausenderKeinFalschtreffer() {
+        let vomDatum = BelegOCR.betraege(in: "Rechnungsdatum: 14.06.2026")
+        #expect(!vomDatum.contains(dez("6202")))
+        #expect(!vomDatum.contains(dez("6.202")))
+        #expect(BelegOCR.betraege(in: "IBAN DE00 0000 0000 0000 0000 00").isEmpty)
+        // Der echte Betrag daneben gewinnt trotzdem als größter Betrag.
+        #expect(BelegOCR.groessterBetrag(in: ["Rechnungsdatum: 14.06.2026", "Gesamt 1.234,56 €"]) == dez("1234.56"))
+    }
+
+    /// Schmale/geschützte Leerzeichen als Tausender-Trenner (aus PDF-Layouts) werden erkannt.
+    @Test func schmalesLeerzeichenAlsTausender() {
+        #expect(BelegOCR.normalisiere("1\u{202F}234,56") == dez("1234.56"))
+        #expect(BelegOCR.betraege(in: "Betrag 1\u{00A0}234,56 €") == [dez("1234.56")])
+    }
+
     /// Realistisches Zwei-Spalten-Layout einer eigenen Ausgangsrechnung (Empfänger links,
     /// Absender-Kontakt rechts, Positionszeile mit Stundenzahl neben dem Betrag, USt-IdNr.):
     /// Empfänger muss aus der linken Spalte kommen, die USt aus Brutto − Netto – nicht aus der
