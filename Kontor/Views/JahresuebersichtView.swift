@@ -265,7 +265,8 @@ struct JahresuebersichtView: View {
 // MARK: - Steuer-Zahlung (read-only Lesezeile)
 
 /// Eine Zeile der read-only Jahres-Zahlungsübersicht: Status, Datum, optional Notiz, Betrag.
-/// Negative Beträge (Erstattungen) rot. Erfasst/bearbeitet wird im Modul „Ausgaben“ (Vorsorge/Steuern).
+/// Negative Beträge (Erstattungen) bleiben neutral – kein Rot; das Minuszeichen zeigt die
+/// Erstattung. Erfasst/bearbeitet wird im Modul „Ausgaben“ (Vorsorge/Steuern).
 private struct ZahlungLeseZeile: View {
     let eintrag: TaxPayment
 
@@ -279,7 +280,7 @@ private struct ZahlungLeseZeile: View {
             }
             Spacer()
             Text(eintrag.betrag.euro).monospacedDigit()
-                .foregroundStyle(eintrag.betrag < 0 ? .red : .primary)
+                .foregroundStyle(.primary)
         }
         .padding(.vertical, 6)
     }

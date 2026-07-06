@@ -220,7 +220,9 @@ struct AusgabenView: View {
                         .width(min: 50, ideal: 92)
                 }
                 TableColumn("Betrag", value: \.betrag) { z in
-                    Text(z.betrag.euro).monospacedDigit().foregroundStyle(z.betrag < 0 ? .red : .primary).lineLimit(1)
+                    // Negative Beträge (Erstattungen/Gutschriften) neutral – kein Rot: eine
+                    // Erstattung ist Geld zurück, kein Fehler/Kostenalarm. Das Minuszeichen genügt.
+                    Text(z.betrag.euro).monospacedDigit().foregroundStyle(.primary).lineLimit(1)
                 }
                 .width(min: 60, ideal: 88)
                 // VSt/Netto nur bei Ausgaben – Vorsorge/Steuern haben keine Vorsteuer.
