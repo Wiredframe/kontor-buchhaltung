@@ -5,6 +5,13 @@ import SwiftData
 /// wiederkehrenden Aufgabe wird automatisch die nächste fällige erzeugt.
 enum TaskVorlagen {
 
+    /// Gehört das Intervall in die **Monatsabschluss**-Sidebar? Monatliche, einmalige und
+    /// quartalsweise Aufgaben werden dort im Fälligkeitsmonat ihrer Instanz gezeigt; jährliche
+    /// gehören ausschließlich in den Jahresabschluss.
+    static func inMonatsSidebar(_ intervall: TaskIntervall) -> Bool {
+        intervall != .jaehrlich
+    }
+
     /// Nächste Fälligkeit ≥ `ab`: monatlich = jeder Monat, quartalsweise = nur die
     /// angegebenen Monate, jeweils am `faelligTag` (auf gültige Tage geklemmt).
     static func naechsteFaelligkeit(intervall: TaskIntervall, faelligTag: Int, monate: [Int], ab ref: Date) -> Date {

@@ -19,6 +19,15 @@ struct TaskVorlagenTests {
         #expect(ymd(d) == [2026, 7, 10])
     }
 
+    /// Quartalsweise Aufgaben erscheinen in der Monatsabschluss-Sidebar (im Fälligkeitsmonat),
+    /// jährliche nicht (die gehören in den Jahresabschluss).
+    @Test func monatsSidebarIntervalle() {
+        #expect(TaskVorlagen.inMonatsSidebar(.monatlich))
+        #expect(TaskVorlagen.inMonatsSidebar(.einmalig))
+        #expect(TaskVorlagen.inMonatsSidebar(.quartalsweise))
+        #expect(!TaskVorlagen.inMonatsSidebar(.jaehrlich))
+    }
+
     private func kontext() throws -> ModelContext {
         let c = try ModelContainer(for: MonthlyTask.self,
                                    configurations: ModelConfiguration(isStoredInMemoryOnly: true))
