@@ -163,7 +163,8 @@ Prüfgrößen (synthetisch, exemplarisch):
   Steuerjahr/Fälligkeit, **KSK Soll/Ist**, Import-Matching, Jahresabschluss-Gruppierung **unverändert**);
   Vorsorge/Steuern werden nur **mit angezeigt/bearbeitet** (kein eigenes „Zahlungen"-Modul mehr, `ZahlungInspektor`
   lebt in `AusgabenView`). **Keine „bezahlt"-Spalte** im Ledger (Aufbereitung im Jahresabschluss); negativer
-  `betrag` = Erstattung (rot). **Steuern & Vorsorge gehen NICHT in die EÜR.** Gespeist primär aus dem
+  `betrag` = Erstattung (Betrag **neutral**, nicht rot – Geld zurück ist kein Kostenalarm; das Minuszeichen
+  genügt, ebenso in der Jahres-Zahlungsübersicht „Tatsächlich gezahlt"). **Steuern & Vorsorge gehen NICHT in die EÜR.** Gespeist primär aus dem
   Kontoauszug-Import; manuell korrigierbar. KSK: Monats-KSK-Wert = **Soll** (Rücklage), `TaxPayment`(`.ksk`)
   = **Ist**. Der **Zahlungen-Block im Jahresabschluss bleibt read-only** (nach Art gruppiert); Termine
   liegen in **Aufgaben**.
@@ -257,7 +258,9 @@ Prüfgrößen (synthetisch, exemplarisch):
 - **UI-Stil (bewusst zurückhaltend):** `Stil.swift` (`.karte()`-Elevation, `Panel`),
   `Kennzahl` (große Werte). **Icons neutral grau** (`Kennzahl`, `Kartenzeile`); **Card-Titel ohne Icons**
   (`Panel` rendert nur den Titel – nimmt bewusst kein Symbol/Akzent mehr). Semantische Farbe nur in **Summen-/
-  Ergebniszeilen** (`Summenzeile`) und bei roten Negativwerten. Geteilte Card-Zeilen `Kartenzeile`/
+  Ergebniszeilen** (`Summenzeile`; Erstattungs-Summen grün) sowie bei negativen **Ergebnissen** (roter Hero
+  `Stil.heroNegativ`, Budget-Überschreitung rot). **Einzelne** negative Beträge in Tabellen/Zeilen bleiben
+  neutral (Erstattung = Minuszeichen, kein Rot). Geteilte Card-Zeilen `Kartenzeile`/
   `Summenzeile` (klick-kopierbar) + `AufgabenInspektorListe` in `Komponenten.swift`. Dashboard ohne Hero/
   Schnellzugriff. Plakativer Zwei-Werte-Hero `AbschlussHero` (geteilt, klick-kopierbar) in
   **Monatsabschluss** (`Stil.markenVerlauf` Blau→Violett: Betrieblicher Gewinn / Frei verfügbar) **und**
