@@ -43,8 +43,16 @@ PATTERNS=(
 # Zu einer Alternation zusammensetzen.
 JOINED=$(IFS='|'; echo "${PATTERNS[*]}")
 
-# In allen getrackten Dateien suchen, dieses Skript ausnehmen.
-if git grep -nIiE "$JOINED" -- ':!scripts/pii-check.sh' > /tmp/pii-hits.$$ 2>/dev/null; then
+# Sanktionierte Ausnahme: die bewusste Urheber-/Copyright-Nennung im README ist
+# öffentliche Attribution (vom Betreiber selbst gesetzt, „Update author name"),
+# KEIN versehentliches Leak – und landet nicht im App-Bundle. Nur GENAU diese
+# Zeile wird durchgelassen; alle übrigen Marker (Adresse, IBANs, Gläubiger-IDs,
+# Mandanten, E-Mail) schlagen weiterhin hart an.
+ALLOWLIST='Urheber \(Ulf Schuster\)'
+
+# In allen getrackten Dateien suchen, dieses Skript ausnehmen; sanktionierte Zeile filtern.
+git grep -nIiE "$JOINED" -- ':!scripts/pii-check.sh' 2>/dev/null | grep -vE "$ALLOWLIST" > /tmp/pii-hits.$$ || true
+if [ -s /tmp/pii-hits.$$ ]; then
   echo "✗ PII-Check: mögliche Personendaten gefunden:"
   echo
   cat /tmp/pii-hits.$$
@@ -54,4 +62,4 @@ if git grep -nIiE "$JOINED" -- ':!scripts/pii-check.sh' > /tmp/pii-hits.$$ 2>/de
   exit 1
 fi
 rm -f /tmp/pii-hits.$$
-echo "✓ PII-Check: keine bekannten Personendaten-Marker in getrackten Dateien."
+echo "✓ PII-Check: keine bekannten Personendaten-Marker (außer sanktionierter Urheber-Nennung)."
