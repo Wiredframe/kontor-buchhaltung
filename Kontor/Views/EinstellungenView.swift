@@ -43,6 +43,9 @@ struct EinstellungenView: View {
 private struct EinstellungenForm: View {
     @Environment(\.modelContext) private var context
     @Environment(MCPServer.self) private var mcp
+    #if APPSTORE
+    @Environment(SpendenStore.self) private var spende: SpendenStore?
+    #endif
     @Bindable var settings: YearSettings
     @State private var status: String?
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
@@ -120,6 +123,18 @@ private struct EinstellungenForm: View {
                 Text("Erlaubt einem externen KI-Client (z. B. Claude Code) Zugriff auf deine Daten – nur lokal (127.0.0.1), Token-geschützt. Lesen (Engine-Zahlen/CSV) **und** sparsames Schreiben (Ausgabe anlegen, Rechnung bezahlt); vor dem ersten Schreibzugriff je Sitzung wird automatisch ein Backup im Ordner „KI-Backups“ abgelegt.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+
+            #if APPSTORE
+            Section("Unterstützung") {
+                Button {
+                    spende?.zeigeScreen = true
+                } label: {
+                    Label("Kontor unterstützen …", systemImage: "heart")
+                }
+                Text("Kontor ist kostenlos. Über ein freiwilliges Trinkgeld per App Store freue ich mich sehr – es schaltet nichts frei.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            #endif
 
             Section("Datenbank") {
                 Text("Deine Einträge bleiben dauerhaft gespeichert – die App setzt beim Bauen oder Starten nichts zurück. Sicherung und Wiederherstellung laufen über die Backup-/Import-Funktionen oben.")

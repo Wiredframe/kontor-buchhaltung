@@ -90,9 +90,15 @@ struct ContentView: View {
     @State private var zeit = Zeitkontext()
     @State private var zeigeWiederherstellung = UserDefaults.standard.bool(forKey: "storeWiederhergestellt")
     @State private var zeigeOnboarding = false
+    #if APPSTORE
+    @State private var spendenStore = SpendenStore()
+    #endif
 
     var body: some View {
         @Bindable var nav = nav
+        #if APPSTORE
+        @Bindable var spende = spendenStore
+        #endif
         NavigationSplitView {
             List(selection: $nav.modul) {
                 ForEach(ModulGruppe.allCases) { gruppe in
@@ -103,6 +109,9 @@ struct ContentView: View {
                         }
                     }
                 }
+                #if APPSTORE
+                spendenMenue
+                #endif
             }
             .navigationTitle("Kontor")
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
@@ -148,7 +157,56 @@ struct ContentView: View {
             }
         }
         .onChange(of: nav.modul) { _, _ in aktualisiereJahre(zeit, context) }
+        #if APPSTORE
+        .environment(spendenStore)
+        .task { await spendenStore.starten() }
+        .sheet(isPresented: $spende.zeigeScreen) {
+            SpendenView(store: spendenStore)
+        }
+        #endif
     }
+
+    #if APPSTORE
+    /// Letzter Menüpunkt (nur App-Store-Variante): Spenden-Aufruf bzw. „Vielen Dank“.
+    /// Drei Zustände: (1) noch nicht gespendet → Button; (2) gespendet → Dank-Zeile mit ✕
+    /// zum dauerhaften Ausblenden (bleibt anklickbar für weitere Trinkgelder); (3) gespendet
+    /// und ausgeblendet → kein Eintrag (Wiedereinstieg über Einstellungen).
+    @ViewBuilder private var spendenMenue: some View {
+        if !spendenStore.hatGespendet {
+            Section {
+                Button {
+                    spendenStore.zeigeScreen = true
+                } label: {
+                    Label("Kontor unterstützen", systemImage: "heart")
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        } else if !spendenStore.dankeAusgeblendet {
+            Section {
+                HStack(spacing: 6) {
+                    Button {
+                        spendenStore.zeigeScreen = true
+                    } label: {
+                        Label("Vielen Dank für deine Unterstützung", systemImage: "heart.fill")
+                            .foregroundStyle(Stil.privat)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                    Button {
+                        spendenStore.dankeAusgeblendet = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Diesen Hinweis dauerhaft ausblenden")
+                }
+            }
+        }
+    }
+    #endif
 
     /// Routet auf die Ansicht des gewählten Moduls.
     @ViewBuilder
