@@ -134,7 +134,32 @@ private struct EinstellungenForm: View {
                 Text("Kontor ist kostenlos. Über ein freiwilliges Trinkgeld per App Store freue ich mich sehr – es schaltet nichts frei.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            #else
+            Section("Unterstützung") {
+                Button {
+                    if let url = URL(string: "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    Label("Kontor unterstützen …", systemImage: "heart")
+                }
+                Text("Kontor ist kostenlos. Über eine freiwillige Spende freue ich mich sehr – der Link öffnet die Spendenseite im Browser.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             #endif
+
+            Section("Rechtliches") {
+                Button {
+                    if let url = URL(string: "https://www.wiredframe.de/impressum.html") { NSWorkspace.shared.open(url) }
+                } label: {
+                    Label("Impressum", systemImage: "info.circle")
+                }
+                Button {
+                    if let url = URL(string: "https://www.wiredframe.de/privacy.html") { NSWorkspace.shared.open(url) }
+                } label: {
+                    Label("Datenschutz", systemImage: "hand.raised")
+                }
+            }
 
             Section("Datenbank") {
                 Text("Deine Einträge bleiben dauerhaft gespeichert – die App setzt beim Bauen oder Starten nichts zurück. Sicherung und Wiederherstellung laufen über die Backup-/Import-Funktionen oben.")

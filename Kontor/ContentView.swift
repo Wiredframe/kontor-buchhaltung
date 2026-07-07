@@ -86,12 +86,16 @@ enum ModulGruppe: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.openURL) private var openURL
     @State private var nav = Navigation()
     @State private var zeit = Zeitkontext()
     @State private var zeigeWiederherstellung = UserDefaults.standard.bool(forKey: "storeWiederhergestellt")
     @State private var zeigeOnboarding = false
     #if APPSTORE
     @State private var spendenStore = SpendenStore()
+    #else
+    /// Spendenseite (Stripe) – nur in der freien Variante; im App-Store-Build physisch nicht vorhanden.
+    private static let stripeSpendenURL = "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00"
     #endif
 
     var body: some View {
@@ -109,9 +113,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                #if APPSTORE
                 spendenMenue
-                #endif
             }
             .navigationTitle("Kontor")
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
@@ -166,12 +168,12 @@ struct ContentView: View {
         #endif
     }
 
-    #if APPSTORE
-    /// Letzter Menüpunkt (nur App-Store-Variante): Spenden-Aufruf bzw. „Vielen Dank“.
-    /// Drei Zustände: (1) noch nicht gespendet → Button; (2) gespendet → Dank-Zeile mit ✕
-    /// zum dauerhaften Ausblenden (bleibt anklickbar für weitere Trinkgelder); (3) gespendet
-    /// und ausgeblendet → kein Eintrag (Wiedereinstieg über Einstellungen).
+    /// Letzter Menüpunkt zum Unterstützen der Entwicklung.
+    /// - App-Store-Variante (APPSTORE): freiwilliges Trinkgeld per In-App-Kauf, drei Zustände
+    ///   (Button, dann Dank-Zeile mit ✕ zum dauerhaften Ausblenden, danach Wiedereinstieg via Einstellungen).
+    /// - Freie Variante: einfacher Link auf die Stripe-Spendenseite (im App-Store-Build NICHT enthalten).
     @ViewBuilder private var spendenMenue: some View {
+        #if APPSTORE
         if !spendenStore.hatGespendet {
             Section {
                 Button {
@@ -205,8 +207,18 @@ struct ContentView: View {
                 }
             }
         }
+        #else
+        Section {
+            Button {
+                if let url = URL(string: Self.stripeSpendenURL) { openURL(url) }
+            } label: {
+                Label("Kontor unterstützen", systemImage: "heart")
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        #endif
     }
-    #endif
 
     /// Routet auf die Ansicht des gewählten Moduls.
     @ViewBuilder
