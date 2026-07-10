@@ -123,16 +123,35 @@ struct ImportTests {
         #expect(e.zahlungsdatum == tag(2026, 6, 20))          // Zahltag festgehalten
     }
 
-    @Test func ausgabeMatchBreiteresFenster() throws {
+    @Test func ausgabeMatchEngesFenster() throws {
         let c = try container()
         c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Hosting", anbieter: "Hosting",
                                           brutto: dez("50"), vst: 0, steuerart: .reverseCharge))
         try c.mainContext.save()
         let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
-        // 19 Tage Abstand → innerhalb des großzügigen Fensters (30 Tage)
-        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", am: 20), z, c.mainContext) != nil)
-        // > 30 Tage Abstand und keine RN → kein Treffer
-        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", monat: 8, am: 5), z, c.mainContext) == nil)
+        // 4 Tage Abstand → innerhalb des engen Fensters (5 Tage)
+        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", am: 5), z, c.mainContext) != nil)
+        // 19 Tage Abstand und keine RN → kein Treffer (früher matchte das 30-Tage-Fenster fälschlich)
+        #expect(ImportAnwendung.ziel(buchung("-50,00", name: "HOSTING", am: 20), z, c.mainContext) == nil)
+    }
+
+    /// Regression: die monatlich gleiche Miete darf im Folgemonat NICHT den Vormonatseintrag
+    /// als „Ziel" finden – sonst würde „Überschreiben" die Vormonats-Ausgabe in den neuen Monat
+    /// verschieben und der Vormonat verlöre sie.
+    @Test func wiederkehrendeMieteUeberschreibtVormonatNicht() throws {
+        let c = try container()
+        let z = Zuordnung(kategorie: .fixkosten, betrieblich: false)
+        let juni = buchung("-1200,00", name: "Hausverwaltung Meier", monat: 6, am: 1)
+        #expect(ImportAnwendung.ziel(juni, z, c.mainContext) == nil)          // noch nichts vorhanden
+        _ = try ImportAnwendung.anwenden(juni, z, aktion: .neu, c.mainContext)
+        // Juli-Miete: gleicher Betrag, ~30 Tage später → darf den Juni-Eintrag NICHT treffen
+        let juli = buchung("-1200,00", name: "Hausverwaltung Meier", monat: 7, am: 1)
+        #expect(ImportAnwendung.ziel(juli, z, c.mainContext) == nil)          // Kern-Regression
+        _ = try ImportAnwendung.anwenden(juli, z, aktion: .neu, c.mainContext)
+        let ausgaben = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+        #expect(ausgaben.count == 2)                                          // beide Monate bleiben getrennt
+        #expect(ausgaben.contains { $0.datum == tag(2026, 6, 1) })
+        #expect(ausgaben.contains { $0.datum == tag(2026, 7, 1) })
     }
 
     @Test func ueberspringenLegtNichtsAn() throws {

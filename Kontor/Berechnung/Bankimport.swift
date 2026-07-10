@@ -26,12 +26,16 @@ struct Bankbuchung: Hashable, Identifiable {
         return Bankimport.normalCase(roh)
     }
 
-    /// Stabiler Schlüssel für „schon importiert?": End-to-End-Referenz falls vorhanden,
-    /// sonst ein Hash aus Datum + Betrag + Gegenpartei + Zweck.
+    /// Stabiler Schlüssel für „schon importiert?". Datum+Betrag gehen **immer** ein: eine
+    /// End-to-End-/Kundenreferenz ist bei Lastschriften oft eine feste Mandats-/Vertragsref
+    /// (oder „NOTPROVIDED") und wiederholt sich monatlich – allein darauf zu schlüsseln würde
+    /// Folgebuchungen fälschlich als „schon importiert" ausblenden. Die Referenz dient nur als
+    /// zusätzliche Unterscheidung, falls die Bank eine echte eindeutige liefert.
     var dedupSchluessel: String {
-        if !kundenreferenz.isEmpty { return "k:" + kundenreferenz }
+        let basis = "\(Int(buchungstag.timeIntervalSince1970))|\(betrag)"
+        if !kundenreferenz.isEmpty { return "k:\(kundenreferenz)|\(basis)" }
         let z = verwendungszweck.prefix(40).lowercased()
-        return "h:\(Int(buchungstag.timeIntervalSince1970))|\(betrag)|\(gegenpartei.lowercased())|\(z)"
+        return "h:\(basis)|\(gegenpartei.lowercased())|\(z)"
     }
 
     /// Schlüssel für lernende Zuordnungs-Vorschläge: Gläubiger-ID (sehr stabil bei

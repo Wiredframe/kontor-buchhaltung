@@ -28,7 +28,8 @@ struct BankimportTests {
         #expect(a.gegenpartei.hasPrefix("ANTHROPIC. CLAUDE SUB"))
         #expect(a.istEingang == false)
         #expect(a.buchungstag == tag(2026, 6, 25))
-        #expect(a.dedupSchluessel == "k:ANTHRO20260624TESTREF0001")   // End-to-End-Ref
+        // End-to-End-Ref führt den Schlüssel an, Datum+Betrag folgen (gegen wiederkehrende Fixref)
+        #expect(a.dedupSchluessel.hasPrefix("k:ANTHRO20260624TESTREF0001|"))
     }
 
     @Test func eingangMitTausenderUndZweck() throws {
@@ -66,7 +67,7 @@ struct BankimportTests {
         #expect(b.first { $0.istEingang }?.anzeigename == "Kranzler Digital Gmbh")
         // Matching-Schlüssel bleibt unberührt (case-insensitiv, aus dem Rohfeld)
         #expect(b.first { $0.gegenpartei.contains("BIOMARKT") }?.haendlerSchluessel == "biomarkt nord")
-        #expect(b.first?.dedupSchluessel == "k:ANTHRO20260624TESTREF0001")
+        #expect(b.first?.dedupSchluessel.hasPrefix("k:ANTHRO20260624TESTREF0001|") == true)
     }
 
     @Test func normalCaseLaesstGemischtesInRuhe() {

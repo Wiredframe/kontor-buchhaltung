@@ -82,8 +82,12 @@ enum ImportAnwendung {
                 guard let nr = e.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
                 return zweckZiffern.contains(nr)
             }) { return m.persistentModelID }
-            // Sonst über Betrag + großzügiges Datumsfenster (PDF-Erfassung liegt oft Wochen vor der Zahlung).
-            return nahestes(ausgaben, betrag, b.buchungstag, toleranzTage: 30,
+            // Sonst über Betrag + **enges** Datumsfenster (Default 5 Tage). Bewusst eng: wiederkehrende
+            // Kosten (Miete/Subscriptions) haben monatlich denselben Betrag ~30 Tage auseinander – ein
+            // weites Fenster matcht den Folgemonat auf den Vormonatseintrag und verschiebt ihn beim
+            // Überschreiben in den neuen Monat (der Vormonat verlöre die Ausgabe). Vorab per PDF erfasste
+            // Rechnungen werden statt über das Datum über die Rechnungsnummer (oben) erkannt.
+            return nahestes(ausgaben, betrag, b.buchungstag,
                             betragVon: { $0.brutto }, datumVon: { $0.datum })
         case .steuer:
             // Offener, geplanter Termin gleicher Art im selben Jahr (Betrag passt oder Termin noch ohne
@@ -256,12 +260,19 @@ enum ImportAnwendung {
         return ctx.model(for: pid) as? T
     }
 
+    /// Bestehender Datensatz mit gleichem Betrag und **geringstem** Datumsabstand innerhalb der
+    /// Toleranz. Bewusst eng (Default 5 Tage): ein falsches „Überschreiben" zerstört eine echte
+    /// Buchung aus einer anderen Periode, ein falsches „kein Treffer" legt nur eine löschbare
+    /// Dublette an – die Asymmetrie spricht für konservatives Matching (vgl. Miete/Subscriptions,
+    /// die sich monatlich mit gleichem Betrag ~30 Tage auseinander wiederholen).
     private static func nahestes<T: PersistentModel>(
         _ liste: [T], _ betrag: Decimal, _ datum: Date, toleranzTage: Int = 5,
         betragVon: (T) -> Decimal, datumVon: (T) -> Date) -> PersistentIdentifier? {
-        liste.first {
-            betragVon($0) == betrag && abs(datumVon($0).timeIntervalSince(datum)) <= Double(toleranzTage) * 86_400
-        }?.persistentModelID
+        liste
+            .filter { betragVon($0) == betrag
+                && abs(datumVon($0).timeIntervalSince(datum)) <= Double(toleranzTage) * 86_400 }
+            .min { abs(datumVon($0).timeIntervalSince(datum)) < abs(datumVon($1).timeIntervalSince(datum)) }?
+            .persistentModelID
     }
 }
 
