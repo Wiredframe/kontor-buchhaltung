@@ -8,6 +8,15 @@ struct Zuordnung: Hashable {
     var steuerart: Steuerart = .inland19
     /// Nur für `.steuer` relevant: Art der Steuerzahlung (USt-VZ/ESt-VZ/…).
     var steuerKind: SteuerKind = .ustVz
+
+    /// Erzwingt die Invariante „keine private Betriebsausgabe/Einnahme": bei diesen Kategorien ist
+    /// `betrieblich` immer true – egal, was Vorschlag, gelernte Regel oder ein stehengebliebener
+    /// UI-Zustand gesetzt haben. (Beim Kategoriewechsel in der Triage bleibt `betrieblich` sonst auf
+    /// dem alten Default `false` und die Ausgabe landet fälschlich privat, ohne VSt, ohne EÜR.)
+    var normalisiert: Zuordnung {
+        guard kategorie.immerBetrieblich, !betrieblich else { return self }
+        var z = self; z.betrieblich = true; return z
+    }
 }
 
 /// Schlägt aus gelernten Regeln + einfachen Heuristiken eine Zuordnung vor (rein/testbar).
@@ -25,7 +34,7 @@ enum ImportVorschlag {
                 kat = r.kategorie
             }
             return Zuordnung(kategorie: kat, betrieblich: r.betrieblich,
-                             steuerart: r.steuerart, steuerKind: r.steuerKind ?? .ustVz)
+                             steuerart: r.steuerart, steuerKind: r.steuerKind ?? .ustVz).normalisiert
         }
         if istEigenerUebertrag(b) { return Zuordnung(kategorie: .ignorieren, betrieblich: false) }
         if b.istEingang          { return Zuordnung(kategorie: .einnahme, betrieblich: true) }
@@ -118,7 +127,11 @@ enum ImportAnwendung {
     /// Führt die Zuordnung aus. Liefert eine kurze Ergebnis-Nachricht.
     @MainActor
     @discardableResult
-    static func anwenden(_ b: Bankbuchung, _ z: Zuordnung, aktion: Aktion, _ ctx: ModelContext) throws -> String {
+    static func anwenden(_ b: Bankbuchung, _ zRoh: Zuordnung, aktion: Aktion, _ ctx: ModelContext) throws -> String {
+        // Invariante erzwingen, bevor irgendetwas geschrieben oder gelernt wird: eine als
+        // Betriebsausgabe/Einnahme klassifizierte Buchung ist immer betrieblich (sonst landet sie
+        // privat, mit vst:0 und ohne EÜR-Wirkung – der klassische „private Betriebsausgabe"-Bug).
+        let z = zRoh.normalisiert
         protokolliere(b, z, ctx)
         // „Überspringen" heißt „später / nicht jetzt" – das ist keine Klassifizierung,
         // also daraus keine Regel lernen (nur aktives Buchen/Überschreiben lehrt).

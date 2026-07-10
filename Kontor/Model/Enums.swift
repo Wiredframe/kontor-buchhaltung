@@ -207,4 +207,11 @@ enum ImportKategorie: String, Codable, CaseIterable, Identifiable {
         case .ignorieren:                                              false
         }
     }
+
+    /// Kategorien, die **per Definition betrieblich** sind – es gibt keine private Betriebsausgabe
+    /// und keine private Einnahme. Fixkosten/Subscriptions/Anschaffungen können privat sein, diese
+    /// nicht. Steuert die Normalisierung von `Zuordnung` (verhindert privat gebuchte Betriebsausgaben).
+    var immerBetrieblich: Bool {
+        self == .betriebsausgabe || self == .einnahme
+    }
 }

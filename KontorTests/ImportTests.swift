@@ -56,6 +56,32 @@ struct ImportTests {
         #expect(ImportAnwendung.schonVerarbeitet(b, c.mainContext))   // protokolliert
     }
 
+    /// Regression: „private Betriebsausgabe" darf nicht entstehen. Selbst wenn die Zuordnung
+    /// (z. B. durch einen stehengebliebenen UI-Zustand) betrieblich:false trägt, muss die
+    /// gebuchte Betriebsausgabe betrieblich sein – inkl. korrekter VSt und gelernter Regel.
+    @Test func betriebsausgabeNieAlsPrivatGebucht() throws {
+        let c = try container()
+        let b = buchung("-119,00", name: "FIGMA/San Francisco/US", glaeubiger: "DE00ZZZFIGMA")
+        _ = try ImportAnwendung.anwenden(b, Zuordnung(kategorie: .betriebsausgabe, betrieblich: false, steuerart: .inland19),
+                                         aktion: .neu, c.mainContext)
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.betrieblich == true)                       // korrigiert: keine private Betriebsausgabe
+        #expect(e.vst == dez("19"))                          // betrieblich → VSt wird gezogen (nicht 0)
+        // die gelernte Regel darf den Fehler nicht verewigen
+        let regel = try #require(try c.mainContext.fetch(FetchDescriptor<ZuordnungsRegel>()).first { $0.kategorie == .betriebsausgabe })
+        #expect(regel.betrieblich == true)
+    }
+
+    @Test func vorschlagNormalisiertFehlerhafteRegel() throws {
+        let c = try container()
+        // Eine (aus der alten Buggy-Version) fehlerhaft gelernte Regel: Betriebsausgabe + privat.
+        c.mainContext.insert(ZuordnungsRegel(schluessel: "gl:DE00ZZZFIGMA", kategorie: .betriebsausgabe, betrieblich: false))
+        try c.mainContext.save()
+        let regeln = try c.mainContext.fetch(FetchDescriptor<ZuordnungsRegel>())
+        let z = ImportVorschlag.fuer(buchung("-119,00", name: "FIGMA/San Francisco/US", glaeubiger: "DE00ZZZFIGMA"), regeln: regeln)
+        #expect(z.kategorie == .betriebsausgabe && z.betrieblich == true)   // Vorschlag ist normalisiert
+    }
+
     @Test func privateFixkostenAlsBuchung() throws {
         let c = try container()
         let b = buchung("-725,00", name: "Hausverwaltung Spree")

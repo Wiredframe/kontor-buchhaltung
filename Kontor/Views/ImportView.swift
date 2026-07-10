@@ -200,7 +200,10 @@ private struct ImportZeileRow: View {
             ForEach(ImportKategorie.allCases) { Text($0.bezeichnung).tag($0) }
         }
         .labelsHidden().frame(width: 150)
-        .onChange(of: zeile.zuordnung.kategorie) { _, _ in zielNeuBerechnen() }
+        .onChange(of: zeile.zuordnung.kategorie) { _, _ in
+            zeile.zuordnung = zeile.zuordnung.normalisiert   // z. B. Wechsel auf Betriebsausgabe → betrieblich
+            zielNeuBerechnen()
+        }
 
         if zeile.zuordnung.kategorie == .fixkosten || zeile.zuordnung.kategorie == .subscription {
             Picker("", selection: $zeile.zuordnung.betrieblich) {
