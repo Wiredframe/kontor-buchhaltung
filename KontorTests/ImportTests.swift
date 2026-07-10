@@ -82,6 +82,27 @@ struct ImportTests {
         #expect(z.kategorie == .betriebsausgabe && z.betrieblich == true)   // Vorschlag ist normalisiert
     }
 
+    @Test func nachtragRepariertPrivateBetriebsausgabe() throws {
+        let c = try container()
+        // Alt-Bug-Datensatz: Betriebsausgabe privat gebucht, VSt 0.
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Adobe", anbieter: "Adobe",
+                                          brutto: dez("119"), vst: 0, steuerart: .inland19,
+                                          betrieblich: false, art: .betriebsausgabe))
+        // Gegenprobe: legitime private Fixkosten bleiben unangetastet.
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 2), bezeichnung: "Miete", anbieter: "Hausverwaltung",
+                                          brutto: dez("800"), vst: 0, steuerart: .steuerfrei,
+                                          betrieblich: false, art: .fixkosten))
+        try c.mainContext.save()
+        PrivatBetriebsausgabeNachtrag.nachtragen(c.mainContext)
+        let alle = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+        let ba = try #require(alle.first { $0.artEffektiv == .betriebsausgabe })
+        #expect(ba.betrieblich == true && ba.vst == dez("19"))     // korrigiert + VSt aus Betrag/Steuerart
+        let fix = try #require(alle.first { $0.artEffektiv == .fixkosten })
+        #expect(fix.betrieblich == false)                          // private Fixkosten unberührt
+        PrivatBetriebsausgabeNachtrag.nachtragen(c.mainContext)    // idempotent
+        #expect(try c.mainContext.fetchCount(FetchDescriptor<ExpenseEntry>()) == 2)
+    }
+
     @Test func privateFixkostenAlsBuchung() throws {
         let c = try container()
         let b = buchung("-725,00", name: "Hausverwaltung Spree")
