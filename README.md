@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/appicon.png" alt="Kontor App-Icon" width="116">
+</p>
+
 # Kontor
 
 Lokale, offline-first Buchhaltungs-App für macOS – zugeschnitten auf einen
