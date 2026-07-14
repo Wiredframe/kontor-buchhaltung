@@ -43,9 +43,6 @@ struct EinstellungenView: View {
 private struct EinstellungenForm: View {
     @Environment(\.modelContext) private var context
     @Environment(MCPServer.self) private var mcp
-    #if APPSTORE
-    @Environment(SpendenStore.self) private var spende: SpendenStore?
-    #endif
     @Bindable var settings: YearSettings
     @State private var status: String?
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
@@ -124,17 +121,6 @@ private struct EinstellungenForm: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            #if APPSTORE
-            Section("Unterstützung") {
-                Button {
-                    spende?.zeigeScreen = true
-                } label: {
-                    Label("Kontor unterstützen …", systemImage: "heart")
-                }
-                Text("Kontor ist kostenlos. Über ein freiwilliges Trinkgeld per App Store freue ich mich sehr – es schaltet nichts frei.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            #else
             Section("Unterstützung") {
                 Button {
                     if let url = URL(string: "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00") {
@@ -146,7 +132,6 @@ private struct EinstellungenForm: View {
                 Text("Kontor ist kostenlos. Über eine freiwillige Spende freue ich mich sehr – der Link öffnet die Spendenseite im Browser.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            #endif
 
             Section("Rechtliches") {
                 Button {

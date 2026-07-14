@@ -91,18 +91,11 @@ struct ContentView: View {
     @State private var zeit = Zeitkontext()
     @State private var zeigeWiederherstellung = UserDefaults.standard.bool(forKey: "storeWiederhergestellt")
     @State private var zeigeOnboarding = false
-    #if APPSTORE
-    @State private var spendenStore = SpendenStore()
-    #else
-    /// Spendenseite (Stripe) – nur in der freien Variante; im App-Store-Build physisch nicht vorhanden.
+    /// Spendenseite (Stripe) – freiwillige Unterstützung, öffnet im Browser.
     private static let stripeSpendenURL = "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00"
-    #endif
 
     var body: some View {
         @Bindable var nav = nav
-        #if APPSTORE
-        @Bindable var spende = spendenStore
-        #endif
         NavigationSplitView {
             List(selection: $nav.modul) {
                 ForEach(ModulGruppe.allCases) { gruppe in
@@ -159,55 +152,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: nav.modul) { _, _ in aktualisiereJahre(zeit, context) }
-        #if APPSTORE
-        .environment(spendenStore)
-        .task { await spendenStore.starten() }
-        .sheet(isPresented: $spende.zeigeScreen) {
-            SpendenView(store: spendenStore)
-        }
-        #endif
     }
 
-    /// Letzter Menüpunkt zum Unterstützen der Entwicklung.
-    /// - App-Store-Variante (APPSTORE): freiwilliges Trinkgeld per In-App-Kauf, drei Zustände
-    ///   (Button, dann Dank-Zeile mit ✕ zum dauerhaften Ausblenden, danach Wiedereinstieg via Einstellungen).
-    /// - Freie Variante: einfacher Link auf die Stripe-Spendenseite (im App-Store-Build NICHT enthalten).
+    /// Letzter Menüpunkt zum Unterstützen der Entwicklung: Link auf die Stripe-Spendenseite.
     @ViewBuilder private var spendenMenue: some View {
-        #if APPSTORE
-        if !spendenStore.hatGespendet {
-            Section {
-                Button {
-                    spendenStore.zeigeScreen = true
-                } label: {
-                    Label("Kontor unterstützen", systemImage: "heart")
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        } else if !spendenStore.dankeAusgeblendet {
-            Section {
-                HStack(spacing: 6) {
-                    Button {
-                        spendenStore.zeigeScreen = true
-                    } label: {
-                        Label("Vielen Dank für deine Unterstützung", systemImage: "heart.fill")
-                            .foregroundStyle(Stil.privat)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    Spacer(minLength: 0)
-                    Button {
-                        spendenStore.dankeAusgeblendet = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Diesen Hinweis dauerhaft ausblenden")
-                }
-            }
-        }
-        #else
         Section {
             Button {
                 if let url = URL(string: Self.stripeSpendenURL) { openURL(url) }
@@ -217,7 +165,6 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
         }
-        #endif
     }
 
     /// Routet auf die Ansicht des gewählten Moduls.
