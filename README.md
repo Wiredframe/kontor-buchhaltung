@@ -10,7 +10,10 @@ vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät
 
 **[Website & Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)**
 
----
+<p align="center">
+  <img src="docs/screenshot.png" alt="Kontor – Übersicht auf macOS" width="720">
+</p>
+
 
 ## Installation
 
@@ -45,7 +48,6 @@ brew install --cask --no-quarantine kontor
 `--no-quarantine` überspringt den Gatekeeper-Block, weil Kontor nicht notariell signiert ist – sonst
 müsstest du die App beim ersten Start manuell freigeben (siehe oben).
 
----
 
 ## Leitprinzipien (Rechen-/Steuerlogik)
 
@@ -61,7 +63,6 @@ bewusst beachtet werden:
 - **privat ≠ betrieblich** – getrennt erfasst und ausgewertet.
 - **Local-first**, App-Sandbox aktiv.
 
----
 
 ## Funktionen
 
@@ -132,7 +133,6 @@ bewusst beachtet werden:
   automatisch ein Backup angelegt. Den Kontoabgleich übernimmt **nicht** das MCP, sondern
   der In-App-CSV-Import.
 
----
 
 ## Architektur
 
@@ -155,7 +155,6 @@ Die Engine rechnet auf einfachen Werttypen (z. B. `AusgabePosten`), nicht auf
 > im Projektordner werden automatisch in den Build aufgenommen** – kein manuelles
 > Eintragen in die `project.pbxproj` nötig.
 
----
 
 ## Build & Entwicklung
 
@@ -184,7 +183,6 @@ Stores wird die App mit *Developer ID* signiert (Hardened Runtime ist aktiv), pe
 migriert SwiftData automatisch beim Start. Schlägt das Öffnen fehl, legt die App den
 defekten Store beiseite und startet leer (Wiederherstellung über JSON-Backup).
 
----
 
 ## Datenablage
 
@@ -197,7 +195,6 @@ Alles im sandboxed App-Container:
 └── Backups/                 # tägliche Auto-Backups (JSON)
 ```
 
----
 
 ## Datenschutz & Sicherheit
 
@@ -205,6 +202,7 @@ Kontor ist **local-first**: alle Daten bleiben im sandboxed App-Container, es gi
 Telemetrie** und keinen Netzwerkverkehr außer dem **optionalen** MCP-Server, der ausschließlich
 auf `127.0.0.1` (Loopback) lauscht und Token-geschützt ist. Details und Meldewege siehe
 [SECURITY.md](SECURITY.md).
+
 
 ## Geltungsbereich & Haftungsausschluss
 
@@ -226,7 +224,6 @@ Wer anders besteuert wird, kann Kontor nutzen, sollte die Zahlen aber besonders 
 > für die Richtigkeit der Zahlen wird **keine Gewähr** übernommen. Prüfe alle Werte
 > eigenständig, bevor du sie gegenüber dem Finanzamt verwendest.
 
----
 
 ## Lizenz
 
@@ -235,7 +232,7 @@ Du darfst Kontor **forken, anpassen und für jeden Zweck nutzen – auch geschä
 mit Claude Code einen maßgeschneiderten Fork bauen). Du darfst es nur **nicht verkaufen** oder
 als konkurrierendes Ersatzprodukt an andere weitergeben (auch nicht kostenlos). Der kommerzielle
 Verkauf von Kontor liegt beim Urheber (Ulf Schuster). Freiwillige
-**[💛 Spenden](https://wiredframe.github.io/kontor-landingpage/#spenden)** (ohne Gegenleistung)
+**[Spenden](https://wiredframe.github.io/kontor-landingpage/#spenden)** (ohne Gegenleistung)
 sind jederzeit willkommen.
 
 ---
