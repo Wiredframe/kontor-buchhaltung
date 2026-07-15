@@ -117,9 +117,13 @@ struct AufgabenInspektor: View {
             set: { setzeQuartal($0, jahr: appKalender.component(.year, from: task.monat)) }
     }
     /// Setzt die Fälligkeit dieser Instanz auf Monat/Jahr (Tag = faelligTag); jährlich pflegt den Stichtagsmonat.
+    ///
+    /// Klemmt über `TaskVorlagen.datumImMonat` – **dieselbe** Regel, die auch die Fortschreibung
+    /// nutzt. Vorher klemmte diese View hart auf 28, die Fortschreibung auf die echte Monatslänge:
+    /// Bei `faelligTag = 31` setzte die View den 28. Januar, das Abhaken rechnete ab dem 29. weiter,
+    /// fand den 31. Januar – und legte eine zweite Instanz im selben Monat an.
     private func setzeFaellig(monat: Int, jahr: Int) {
-        let tagN = min(max(task.faelligTag, 1), 28)
-        task.monat = appKalender.date(from: DateComponents(year: jahr, month: monat, day: tagN)) ?? task.monat
+        task.monat = TaskVorlagen.datumImMonat(jahr: jahr, monat: monat, tag: task.faelligTag) ?? task.monat
         if task.intervall == .jaehrlich { task.quartalsMonate = [monat] }
     }
     /// Setzt die Fälligkeit auf das Quartal – Stichtagsmonat aus dem Schema, sonst Quartalsanfang.
@@ -180,12 +184,24 @@ struct AufgabenInspektor: View {
         .onChange(of: task.id, initial: true) { _, _ in fokus = task.titel.isEmpty }
         .onChange(of: task.erledigt) { _, _ in TaskVorlagen.nachAbschluss(task, in: context) }
         .onChange(of: task.intervall) { _, neu in
-            // Sinnvolle Defaults; die explizit gewählte Fälligkeit (task.monat) bleibt erhalten.
-            if neu == .jaehrlich, task.quartalsMonate.isEmpty {
-                task.quartalsMonate = [appKalender.component(.month, from: task.monat)]
-            }
-            if neu == .quartalsweise, task.quartalsMonate.isEmpty {
-                task.quartalsMonate = [1, 4, 7, 10]
+            // Das Schema muss zum Intervall **passen**, nicht nur vorhanden sein: Die frühere
+            // Bedingung `.isEmpty` griff beim Umschalten quartalsweise → jährlich nicht, weil
+            // [1,4,7,10] ja dastand. Die „jährliche" Aufgabe wiederholte sich dann weiter
+            // vierteljährlich – naechsteFaelligkeit liest dieselbe Monatsliste.
+            // Die explizit gewählte Fälligkeit (task.monat) bleibt in beiden Fällen erhalten.
+            let m = appKalender.component(.month, from: task.monat)
+            switch neu {
+            case .jaehrlich:
+                if task.quartalsMonate != [m] { task.quartalsMonate = [m] }
+            case .quartalsweise:
+                // Kein plausibles Quartals-Schema (vier Monate im 3er-Abstand)? Vom gewählten
+                // Monat aus neu aufspannen, damit die Fälligkeit erhalten bleibt.
+                if task.quartalsMonate.sorted() != TaskVorlagen.quartalsSchema(ab: m),
+                   task.quartalsMonate.count != 4 {
+                    task.quartalsMonate = TaskVorlagen.quartalsSchema(ab: m)
+                }
+            case .monatlich, .einmalig:
+                break   // Schema wird nicht gelesen; stehenlassen kostet nichts
             }
         }
         .onChange(of: task.faelligTag) { _, _ in
