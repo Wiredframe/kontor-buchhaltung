@@ -1,7 +1,11 @@
 import Foundation
 import Vision
 import PDFKit
-import AppKit
+import CoreGraphics
+import ImageIO
+// Bewusst **kein** AppKit: Diese Datei läuft nonisoliert auf dem globalen Executor (und im
+// Beleg-Batch mehrfach parallel). NSImage/NSGraphicsContext sind Main-Thread-only – siehe
+// `rendere`. Alles hier ist CoreGraphics/ImageIO und damit threadsicher.
 
 struct BelegDaten {
     var anbieter: String?
@@ -37,36 +41,49 @@ enum BelegOCR {
 
     // MARK: - Bilder laden (bis zu `maxSeiten` PDF-Seiten oder eine Bilddatei)
 
-    private static func bilder(von url: URL) -> [CGImage] {
+    /// Intern (nicht `private`), damit die Tests den Render-Pfad direkt und **nebenläufig**
+    /// fahren können – genau dort saß der Main-Thread-Verstoß.
+    static func bilder(von url: URL) -> [CGImage] {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
         if url.pathExtension.lowercased() == "pdf", let doc = PDFDocument(url: url) {
             return (0..<min(doc.pageCount, maxSeiten)).compactMap { doc.page(at: $0).flatMap(rendere) }
         }
-        if let img = NSImage(contentsOf: url) {
-            var r = NSRect(origin: .zero, size: img.size)
-            if let cg = img.cgImage(forProposedRect: &r, context: nil, hints: nil) { return [cg] }
+        // ImageIO statt `NSImage(contentsOf:)` – threadsicher und ohne AppKit-Umweg.
+        if let quelle = CGImageSourceCreateWithURL(url as CFURL, nil),
+           CGImageSourceGetCount(quelle) > 0,
+           let cg = CGImageSourceCreateImageAtIndex(quelle, 0, nil) {
+            return [cg]
         }
         return []
     }
 
     /// Rendert eine PDF-Seite als CGImage (2,5× für bessere Texterkennung).
+    ///
+    /// Bewusst reines CoreGraphics. Vorher lief das über `NSImage.lockFocus()` /
+    /// `NSGraphicsContext.current` / `unlockFocus()` – AppKit-Zeichnen, das den **geteilten**
+    /// Grafik-Kontext-Stack des Prozesses manipuliert und deshalb nur auf dem Main Thread
+    /// zulässig ist. `analysiere` ist aber nonisoliert `async`, läuft also auf dem globalen
+    /// Executor, und der Beleg-Batch fährt mehrere Belege parallel: zwei gleichzeitige
+    /// `lockFocus`-Aufrufe treten sich auf demselben Stack gegenseitig auf die Füße.
+    /// Ein eigener `CGContext` je Aufruf teilt dagegen nichts.
     private static func rendere(_ page: PDFPage) -> CGImage? {
         let rect = page.bounds(for: .mediaBox)
         let scale: CGFloat = 2.5
-        let groesse = NSSize(width: rect.width * scale, height: rect.height * scale)
-        guard groesse.width > 0, groesse.height > 0 else { return nil }
-        let img = NSImage(size: groesse)
-        img.lockFocus()
-        NSColor.white.setFill(); NSRect(origin: .zero, size: groesse).fill()
-        if let ctx = NSGraphicsContext.current?.cgContext {
-            ctx.scaleBy(x: scale, y: scale)
-            page.draw(with: .mediaBox, to: ctx)
-        }
-        img.unlockFocus()
-        var r = NSRect(origin: .zero, size: groesse)
-        return img.cgImage(forProposedRect: &r, context: nil, hints: nil)
+        let breite = Int((rect.width * scale).rounded()), hoehe = Int((rect.height * scale).rounded())
+        guard breite > 0, hoehe > 0 else { return nil }
+        guard let ctx = CGContext(data: nil, width: breite, height: hoehe,
+                                  bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        // Weißer Grund: PDF-Seiten sind transparent, Vision liest auf Schwarz sonst nichts.
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: breite, height: hoehe))
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: -rect.origin.x, y: -rect.origin.y)   // mediaBox muss nicht bei 0 beginnen
+        page.draw(with: .mediaBox, to: ctx)
+        return ctx.makeImage()
     }
 
     /// Fragmente über mehrere Seiten – Folgeseiten werden in y nach unten verschoben, damit die
