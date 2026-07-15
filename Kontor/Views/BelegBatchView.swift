@@ -86,23 +86,43 @@ final class BelegEntwurf: Identifiable {
     var netto: Decimal { brutto - vst }
     var dateiName: String { url.lastPathComponent }
 
-    init(url: URL) { self.url = url }
+    /// Der Wert, mit dem `datum` angelegt wurde – daran erkennt `fuelle`, ob der Nutzer es
+    /// inzwischen selbst gesetzt hat.
+    private let datumDefault: Date
+
+    init(url: URL) {
+        self.url = url
+        let jetzt = Date()
+        self.datum = jetzt
+        self.datumDefault = jetzt
+    }
+
+    // MARK: - OCR-Ergebnis übernehmen
+    //
+    // **Nur leere Felder füllen.** Die OCR läuft asynchron, das Formular ist ab dem ersten
+    // Moment editierbar (`ladeAlle()` setzt `aktiv` vor dem `await`), und der Batch verarbeitet
+    // mehrere Belege parallel – zwischen Anzeige und Ergebnis liegen Sekunden, in denen getippt
+    // wird. Vorher überschrieb das eintreffende Ergebnis kommentarlos alles: Am schlimmsten
+    // `brutto = d.brutto ?? 0`, das den vom Nutzer eingetippten Betrag selbst dann auf **0**
+    // setzte, wenn die OCR gar nichts erkannt hatte. Wer die schlechte Erkennung gerade von Hand
+    // ausglich, verlor genau diese Arbeit.
 
     func fuelle(_ d: EinnahmeDaten) {
-        if let x = d.datum { datum = x }
-        kunde = d.kunde ?? url.deletingPathExtension().lastPathComponent
-        rnNetto = d.rnNetto ?? 0
-        ust = d.ust ?? 0
-        rechnungsnummer = d.rechnungsnummer ?? ""
+        if let x = d.datum, datum == datumDefault { datum = x }
+        if kunde.isEmpty { kunde = d.kunde ?? url.deletingPathExtension().lastPathComponent }
+        if rnNetto == 0 { rnNetto = d.rnNetto ?? 0 }
+        if ust == 0 { ust = d.ust ?? 0 }
+        if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
     }
     func fuelle(_ d: BelegDaten) {
-        if let x = d.datum { datum = x }
-        bezeichnung = d.anbieter ?? url.deletingPathExtension().lastPathComponent
-        anbieter = d.anbieter ?? ""
-        brutto = d.brutto ?? 0
-        steuerart = d.steuerart ?? .inland19
-        vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0)
-        rechnungsnummer = d.rechnungsnummer ?? ""
+        if let x = d.datum, datum == datumDefault { datum = x }
+        if bezeichnung.isEmpty { bezeichnung = d.anbieter ?? url.deletingPathExtension().lastPathComponent }
+        if anbieter.isEmpty { anbieter = d.anbieter ?? "" }
+        if brutto == 0 { brutto = d.brutto ?? 0 }
+        // Steuerart nur, wenn die OCR wirklich eine erkannt hat (sonst bliebe der Default ohnehin).
+        if let s = d.steuerart, vst == 0 { steuerart = s }
+        if vst == 0 { vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0) }
+        if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
     }
 
     private var rnOpt: String? { rechnungsnummer.isEmpty ? nil : rechnungsnummer }

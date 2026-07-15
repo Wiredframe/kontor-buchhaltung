@@ -247,9 +247,21 @@ struct JahresuebersichtView: View {
 
     // MARK: Belege-Export
 
+    /// Alle Belege des Jahres: **Ausgangsrechnungen** (Einnahmen, nach Rechnungsdatum – so werden
+    /// sie auch abgelegt) **und** Eingangsbelege (Ausgaben, nach Abflussdatum).
+    ///
+    /// Die Einnahmen fehlten hier komplett – dabei sind die Ausgangsrechnungen bei einer
+    /// Betriebsprüfung das zentrale Dokument. Wer nur Einnahmen-PDFs erfasst hatte, bekam einen
+    /// leeren Export samt ausgegrautem Button („Keine Belege in 2026") und keinen Hinweis darauf,
+    /// dass seine Rechnungen einfach nicht mitgesammelt werden.
+    /// (`PurchaseEntry` bleibt bewusst draußen: private Einkäufe gehen das Finanzamt nichts an.)
     private var belegPfade: [String] {
         let p = Periode.jahr(jahr)
-        return ausgaben.filter { p.enthaelt($0.datum) }.compactMap { $0.belegPfad }.filter { Belege.existiert($0) }
+        let ausEinnahmen = einnahmen.filter { p.enthaelt($0.rechnungsdatum) }.compactMap { $0.belegPfad }
+        let ausAusgaben = ausgaben.filter { p.enthaelt($0.datum) }.compactMap { $0.belegPfad }
+        // Ein Beleg kann an mehreren Einträgen hängen – im ZIP soll er einmal landen.
+        var gesehen = Set<String>()
+        return (ausEinnahmen + ausAusgaben).filter { gesehen.insert($0).inserted && Belege.existiert($0) }
     }
     private var belegAnzahl: Int { belegPfade.count }
     private func belegeExportieren() {

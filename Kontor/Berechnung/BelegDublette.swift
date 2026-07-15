@@ -45,7 +45,14 @@ enum BelegDublette {
     static func perBetragDatum<T>(_ betrag: Decimal, _ datum: Date, in liste: [T],
                                   toleranzTage: Int,
                                   betragVon: (T) -> Decimal, datumVon: (T) -> Date) -> T? {
-        liste.first {
+        // **0 ist kein Indiz.** Der Betrag ist hier das einzige Identitätsmerkmal – und 0 entsteht
+        // gleich auf zwei Wegen ohne jede Aussage: bei fehlgeschlagener OCR (Betrag nicht erkannt)
+        // und bei jeder frisch per „+" angelegten Leerzeile. Ohne diesen Guard matchte ein
+        // 0-Euro-Entwurf den erstbesten anderen 0-Euro-Eintrag im Fenster, und „Zusammenführen"
+        // verschmolz zwei völlig unabhängige Belege. Ein NaN-Betrag ist aus demselben Grund raus
+        // (NaN == NaN ist ohnehin false, der Guard macht die Absicht explizit).
+        guard betrag != 0, !betrag.isNaN else { return nil }
+        return liste.first {
             betragVon($0) == betrag
                 && abs(datumVon($0).timeIntervalSince(datum)) <= Double(toleranzTage) * 86_400
         }
