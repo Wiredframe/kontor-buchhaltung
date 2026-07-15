@@ -45,12 +45,13 @@ struct DashboardView: View {
         let p = Periode.monat(jahr, m)
         let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
         let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
+        let einmalig = ausgaben.privatEinmaligBrutto(jahr: jahr, monat: m)
         let a = Steuer.monatsauswertung(
             monat: m, jahr: jahr,
             einnahmen: einP, ausgaben: ausP,
             kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
             fixkostenPrivat: fixkostenPrivat(jahr: jahr, m),
-            privatVariabel: lm + an,
+            privatVariabel: lm + an + einmalig,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
         return Mon(rn: a.rn, gewinn: a.betrieblicherGewinn, steuerRuecklage: a.steuerRuecklage,
                    frei: a.verfuegbar)

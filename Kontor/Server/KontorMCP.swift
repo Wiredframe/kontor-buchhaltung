@@ -228,12 +228,13 @@ enum KontorMCP {
         let p = Periode.monat(jahr, monat)
         let lm = alle(GroceryEntry.self, ctx).filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
         let an = alle(PurchaseEntry.self, ctx).filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
+        let einmalig = alle(ExpenseEntry.self, ctx).privatEinmaligBrutto(jahr: jahr, monat: monat)
         let a = Steuer.monatsauswertung(
             monat: monat, jahr: jahr,
             einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx),
             kskFuer: { j, m in settings.ksk(jahr: j, monat: m) },
             fixkostenPrivat: fixPrivat,
-            privatVariabel: lm + an,
+            privatVariabel: lm + an + einmalig,
             pauschalSatz: { j, m in settings.estSatz(jahr: j, monat: m) })
         return """
         Monat \(jahr)-\(String(format: "%02d", monat))

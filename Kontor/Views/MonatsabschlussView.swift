@@ -119,11 +119,12 @@ struct MonatsabschlussView: View {
         let p = Periode.monat(jahr, m)
         let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
         let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
+        let einmalig = ausgaben.privatEinmaligBrutto(jahr: jahr, monat: m)
         let a = Steuer.monatsauswertung(
             monat: m, jahr: jahr,
             einnahmen: einP, ausgaben: ausP,
             kskFuer: { jahre.ksk(jahr: $0, monat: $1) }, fixkostenPrivat: fixkostenPrivat(m),
-            privatVariabel: lm + an,
+            privatVariabel: lm + an + einmalig,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
         let umlage = ausgaben.filter { $0.betrieblich && $0.umlagefaehig && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
         return Zahlen(a: a, umlagefaehig: umlage)

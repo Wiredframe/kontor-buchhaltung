@@ -2,6 +2,60 @@ import Testing
 import Foundation
 @testable import Kontor
 
+/// Private Ausgaben speisen ausschließlich die Liquidität – aber sie dürfen dabei nicht
+/// zwischen den Aggregaten hindurchfallen.
+struct PrivateAusgabenAggregateTests {
+
+    /// Regression: Eine private **einmalige** Ausgabe zählte in KEINER Auswertung.
+    /// Aus der EÜR zu Recht (privat), aus `wiederkehrendBrutto` mangels Fixkosten-Art, und
+    /// aus `privatVariabel`, weil dort nur Lebensmittel/Anschaffungen zählen. Genau das
+    /// erzeugt „In Ausgaben verschieben" in den Anschaffungen: Das Geld war weg, „Frei
+    /// verfügbar" blieb unverändert hoch.
+    @Test func privateEinmaligeAusgabeFaelltNichtDurchsRaster() {
+        let sneaker = ExpenseEntry(datum: tag(2026, 6, 12), bezeichnung: "Sneaker", anbieter: "",
+                                   brutto: dez("180"), vst: 0, steuerart: .steuerfrei,
+                                   betrieblich: false, art: .betriebsausgabe)
+        let liste = [sneaker]
+        #expect(liste.privatEinmaligBrutto(jahr: 2026, monat: 6) == dez("180"))
+        // …und bleibt weiterhin aus EÜR und Vorsteuer draußen.
+        #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: [sneaker.posten], jahr: 2026) == 0)
+        #expect(Steuer.vorsteuer([sneaker.posten], in: Periode.monat(2026, 6)) == 0)
+    }
+
+    /// Abgrenzung: Wiederkehrendes gehört zu den Fixkosten, nicht zu den einmaligen –
+    /// sonst zählte es doppelt.
+    @Test func wiederkehrendesZaehltNichtAlsEinmalig() {
+        let liste = [
+            ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Miete", anbieter: "",
+                         brutto: dez("725"), vst: 0, steuerart: .steuerfrei,
+                         betrieblich: false, art: .fixkosten),
+            ExpenseEntry(datum: tag(2026, 6, 3), bezeichnung: "Netflix", anbieter: "",
+                         brutto: dez("13"), vst: 0, steuerart: .steuerfrei,
+                         betrieblich: false, art: .subscription),
+        ]
+        #expect(liste.privatEinmaligBrutto(jahr: 2026, monat: 6) == 0)
+        #expect(liste.wiederkehrendBrutto(jahr: 2026, monat: 6, betrieblich: false) == dez("738"))
+    }
+
+    /// Betriebliches gehört in die EÜR, nicht in die privaten Kosten.
+    @Test func betrieblicheEinmaligeAusgabeZaehltNichtAlsPrivat() {
+        let liste = [ExpenseEntry(datum: tag(2026, 6, 12), bezeichnung: "Monitor", anbieter: "",
+                                  brutto: dez("357"), vst: dez("57"), steuerart: .inland19,
+                                  betrieblich: true, art: .betriebsausgabe)]
+        #expect(liste.privatEinmaligBrutto(jahr: 2026, monat: 6) == 0)
+    }
+
+    /// Der Monat grenzt sauber ab.
+    @Test func einmaligeAusgabeZaehltNurImEigenenMonat() {
+        let liste = [ExpenseEntry(datum: tag(2026, 6, 12), bezeichnung: "Sneaker", anbieter: "",
+                                  brutto: dez("180"), vst: 0, steuerart: .steuerfrei,
+                                  betrieblich: false, art: .betriebsausgabe)]
+        #expect(liste.privatEinmaligBrutto(jahr: 2026, monat: 5) == 0)
+        #expect(liste.privatEinmaligBrutto(jahr: 2026, monat: 7) == 0)
+        #expect(liste.privatEinmaligBrutto(jahr: 2025, monat: 6) == 0)
+    }
+}
+
 /// Reine Datenmodell-Logik (ohne Datenbank): Status-/Zahlungsdatum-Konsistenz,
 /// ESt-Satz-Overrides und Monatsabschluss-Status auf `YearSettings`/`Income`.
 struct ModellTests {

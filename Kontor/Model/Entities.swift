@@ -264,6 +264,21 @@ extension Array where Element == ExpenseEntry {
                 && p.enthaelt($0.datum)
         }.reduce(Decimal(0)) { $0 + $1.brutto }
     }
+
+    /// Brutto-Summe der **privaten einmaligen** Ausgaben eines Monats (alles, was nicht
+    /// wiederkehrend ist) – die variable Hälfte der privaten Kosten.
+    ///
+    /// Ohne diese Summe fiele eine private Ausgabe mit `art == .betriebsausgabe` aus **jeder**
+    /// Auswertung: aus der EÜR zu Recht (sie ist privat), aus `wiederkehrendBrutto` mangels
+    /// Fixkosten-/Subscription-Art, und aus `privatVariabel`, weil dort nur Lebensmittel und
+    /// Anschaffungen zählen. Das Geld wäre ausgegeben, „Frei verfügbar" aber unverändert hoch.
+    /// Genau diesen Zustand erzeugt „In Ausgaben verschieben" in den Anschaffungen.
+    func privatEinmaligBrutto(jahr: Int, monat: Int) -> Decimal {
+        let p = Periode.monat(jahr, monat)
+        return filter {
+            !$0.betrieblich && $0.artEffektiv == .betriebsausgabe && p.enthaelt($0.datum)
+        }.reduce(Decimal(0)) { $0 + $1.brutto }
+    }
 }
 
 // MARK: - Einnahme / Ausgangsrechnung
