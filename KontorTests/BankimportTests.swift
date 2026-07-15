@@ -20,6 +20,101 @@ struct BankimportTests {
         #expect(b.count == 4)   // Header wird nicht als Buchung gezählt
     }
 
+    // MARK: - Malformed Input (nichts still verschlucken, nichts still verfälschen)
+
+    /// Regression: Ein englisch formatierter Betrag wurde stillschweigend **hundertfach**
+    /// zu groß gebucht – die Punkte galten bedingungslos als Tausendertrenner, aus
+    /// „1332.80" wurde 133.280,00 €. Jetzt wird die Zeile abgewiesen statt falsch gebucht.
+    @Test func englischFormatierterBetragWirdAbgewiesenStattVerhundertfacht() {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "25.06.26";"1332.80";"EUR"
+        """)
+        #expect(e.buchungen.isEmpty)
+        #expect(e.verworfen == 1)
+        #expect(e.kopfErkannt)
+    }
+
+    /// Regression: `Decimal(string:)` parst Präfixe – „12abc" ergab 12.
+    @Test func betragsMuellWirdAbgewiesenStattTeilweiseGeparst() {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "25.06.26";"12abc";"EUR"
+        "25.06.26";"1.33,80";"EUR"
+        "25.06.26";"1,234";"EUR"
+        """)
+        #expect(e.buchungen.isEmpty)
+        #expect(e.verworfen == 3)
+    }
+
+    /// Gegenprobe: Alle gültigen deutschen Schreibweisen müssen weiter durchgehen.
+    @Test(arguments: [("-1.332,80", "-1332.80"), ("1.332,80", "1332.80"), ("133280", "133280"),
+                      ("1332,8", "1332.80"), ("12.345.678,90", "12345678.90"),
+                      ("0,00", "0"), ("-0,01", "-0.01"), ("5", "5")])
+    func gueltigeDeutscheBetraege(_ eingabe: String, _ erwartet: String) throws {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "25.06.26";"\(eingabe)";"EUR"
+        """)
+        #expect(e.verworfen == 0)
+        #expect(try #require(e.buchungen.first).betrag == dez(erwartet))
+    }
+
+    /// Regression: `Calendar.date(from:)` ist lenient und rollt Unsinn still weiter –
+    /// „32.13.26" wurde zum 01.02.2027, „01.00.26" sogar ins **Vorjahr**. Eine so verrutschte
+    /// Buchung landete im falschen Monat und damit in der falschen UStVA-Periode.
+    @Test(arguments: ["32.13.26", "31.02.26", "01.00.26", "29.02.25", "00.06.26", "25.13.26"])
+    func unmoeglichesDatumWirdAbgewiesenStattGerollt(_ datum: String) {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "\(datum)";"-10,00";"EUR"
+        """)
+        #expect(e.buchungen.isEmpty)
+        #expect(e.verworfen == 1)
+    }
+
+    /// Gegenprobe: Der echte Schalttag muss durchgehen.
+    @Test func schalttagBleibtGueltig() throws {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "29.02.24";"-10,00";"EUR"
+        """)
+        #expect(try #require(e.buchungen.first).buchungstag == tag(2024, 2, 29))
+    }
+
+    /// Regression: Eine Datei mit fremdem/fehlendem Kopf lieferte ein leeres Array – für den
+    /// Nutzer nicht von „keine neuen Buchungen" zu unterscheiden. Jetzt sagt `kopfErkannt`,
+    /// dass die Datei gar nicht verstanden wurde.
+    @Test func fremderKopfWirdAlsSolcherErkannt() {
+        let e = Bankimport.lies(text: """
+        "Datum";"Umsatz";"Text"
+        "25.06.26";"-10,00";"Irgendwas"
+        """)
+        #expect(e.kopfErkannt == false)
+        #expect(e.buchungen.isEmpty)
+    }
+
+    @Test func leereDateiIstKeinErkannterKopf() {
+        let e = Bankimport.lies(text: "")
+        #expect(e.kopfErkannt == false)
+        #expect(e.buchungen.isEmpty && e.verworfen == 0)
+    }
+
+    /// Teilkorrupte CSV: die guten Zeilen kommen durch, die kaputten werden **gezählt**.
+    @Test func teilkorrupteCSVMeldetDieVerworfenenZeilen() {
+        let e = Bankimport.lies(text: """
+        "Buchungstag";"Betrag";"Waehrung"
+        "25.06.26";"-10,00";"EUR"
+        "99.99.99";"-20,00";"EUR"
+        "26.06.26";"kaputt";"EUR"
+        "27.06.26";"-30,00";"EUR"
+
+        """)
+        #expect(e.buchungen.count == 2)
+        #expect(e.verworfen == 2)     // Leerzeile am Ende zählt nicht als Fehler
+        #expect(e.kopfErkannt)
+    }
+
     @Test func ersteZeileKomplett() throws {
         let b = Bankimport.parse(text: csv)
         let a = try #require(b.first)

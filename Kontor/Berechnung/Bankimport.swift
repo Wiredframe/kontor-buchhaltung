@@ -50,16 +50,30 @@ struct Bankbuchung: Hashable, Identifiable {
 /// damit kleine Layout-Varianten der Bank nicht stören.
 enum Bankimport {
 
-    static func parse(_ data: Data) -> [Bankbuchung] {
-        // Sparkasse-CSV ist Latin-1; UTF-8 als Fallback (falls die Bank das mal ändert).
-        let text = String(data: data, encoding: .isoLatin1) ?? String(data: data, encoding: .utf8) ?? ""
-        return parse(text: text)
+    /// Ergebnis eines CSV-Laufs – **inklusive dem, was nicht geklappt hat**.
+    ///
+    /// Vorher lieferte der Parser nur `[Bankbuchung]`. Damit sahen drei sehr verschiedene Lagen
+    /// identisch aus: „keine neuen Buchungen", „ein paar Zeilen waren kaputt" und „die Datei
+    /// wurde überhaupt nicht verstanden". Eine teilkorrupte CSV importierte still nur teilweise.
+    struct Ergebnis {
+        var buchungen: [Bankbuchung]
+        /// Datenzeilen mit unlesbarem Betrag/Datum. Werden übersprungen – aber nicht lautlos.
+        var verworfen: Int
+        /// Wurden die tragenden Spalten (Betrag, Buchungstag) im Kopf gefunden?
+        /// `false` heißt: falsche Datei oder fremdes Format, nicht „nichts drin".
+        var kopfErkannt: Bool
     }
 
-    static func parse(text: String) -> [Bankbuchung] {
+    static func lies(_ data: Data) -> Ergebnis {
+        // Sparkasse-CSV ist Latin-1; UTF-8 als Fallback (falls die Bank das mal ändert).
+        let text = String(data: data, encoding: .isoLatin1) ?? String(data: data, encoding: .utf8) ?? ""
+        return lies(text: text)
+    }
+
+    static func lies(text: String) -> Ergebnis {
         // Annahme: keine eingebetteten Zeilenumbrüche in Feldern (gilt für CSV-CAMT).
         let zeilen = text.split(whereSeparator: \.isNewline).map(String.init)
-        guard let kopf = zeilen.first else { return [] }
+        guard let kopf = zeilen.first else { return Ergebnis(buchungen: [], verworfen: 0, kopfErkannt: false) }
         var index: [String: Int] = [:]
         for (i, name) in felder(kopf).enumerated() { index[schluessel(name)] = i }
 
@@ -68,11 +82,16 @@ enum Bankimport {
             return row[i].trimmingCharacters(in: .whitespaces)
         }
 
+        let kopfErkannt = index[schluessel("Betrag")] != nil && index[schluessel("Buchungstag")] != nil
+
         var ergebnis: [Bankbuchung] = []
+        var verworfen = 0
         for zeile in zeilen.dropFirst() {
             let row = felder(zeile)
+            // Komplett leere Zeile (Trailing-Newline o. Ä.) ist kein Fehler, nur nichts.
+            if row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) { continue }
             guard let betrag = dezimal(feld(row, "Betrag")),
-                  let datum = datum(feld(row, "Buchungstag")) else { continue }
+                  let datum = datum(feld(row, "Buchungstag")) else { verworfen += 1; continue }
             ergebnis.append(Bankbuchung(
                 buchungstag: datum,
                 betrag: betrag,
@@ -85,8 +104,11 @@ enum Bankimport {
                 kundenreferenz: feld(row, "Kundenreferenz (End-to-End)"),
                 waehrung: feld(row, "Waehrung")))
         }
-        return ergebnis
+        return Ergebnis(buchungen: ergebnis, verworfen: verworfen, kopfErkannt: kopfErkannt)
     }
+
+    static func parse(_ data: Data) -> [Bankbuchung] { lies(data).buchungen }
+    static func parse(text: String) -> [Bankbuchung] { lies(text: text).buchungen }
 
     /// Zerlegt eine CSV-Zeile an `;` – respektiert `"…"`-Quotes und `""`-Escapes.
     static func felder(_ zeile: String) -> [String] {
@@ -134,18 +156,36 @@ enum Bankimport {
         s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
     }
 
+    /// Deutsches Betragsformat: optionales Vorzeichen, Tausender-Punkte in exakten 3er-Gruppen,
+    /// Komma als Dezimaltrenner mit 1–2 Stellen. Bewusst **streng** verankert (`^…$`).
+    private static let betragsMuster = "^[+-]?([0-9]{1,3}(\\.[0-9]{3})*|[0-9]+)(,[0-9]{1,2})?$"
+
     /// Deutscher Betrag „-1.332,80" → Decimal (Punkt = Tausender, Komma = Dezimal).
+    ///
+    /// Prüft das Format, statt es anzunehmen. Vorher wurden Punkte bedingungslos als
+    /// Tausendertrenner entfernt: Ein englisch formatiertes „1332.80" wurde damit still zu
+    /// **133.280,00 €** – hundertfach zu viel, ohne jeden Hinweis. Und `Decimal(string:)`
+    /// parst Präfixe, „12abc" ergab **12**. Beides ist jetzt ausgeschlossen; solche Zeilen
+    /// werden abgewiesen und als `verworfen` gemeldet, statt falsche Beträge zu buchen.
     private static func dezimal(_ s: String) -> Decimal? {
-        guard !s.isEmpty else { return nil }
+        guard s.range(of: betragsMuster, options: .regularExpression) != nil else { return nil }
         let normalisiert = s.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: normalisiert)
+        return Decimal(string: normalisiert, locale: Locale(identifier: "en_US_POSIX"))
     }
 
     /// „25.06.26" (dd.MM.yy) → lokale Mitternacht via appKalender.
+    ///
+    /// `Calendar.date(from:)` ist **lenient** und rollt Unsinn stillschweigend weiter:
+    /// „32.13.26" ergäbe den 01.02.2027, „31.02.26" den 03.03.2026, „01.00.26" sogar den
+    /// 01.12.2025 – also das **Vorjahr**. Eine so verrutschte Buchung landete im falschen
+    /// Monat und damit in der falschen UStVA-Periode. `isValidDate(in:)` weist das ab, lässt
+    /// echte Schaltjahrtage (29.02.2024) aber durch.
     private static func datum(_ s: String) -> Date? {
         let teile = s.split(separator: ".")
         guard teile.count == 3, let d = Int(teile[0]), let m = Int(teile[1]), var y = Int(teile[2]) else { return nil }
         if y < 100 { y += 2000 }
-        return appKalender.date(from: DateComponents(year: y, month: m, day: d))
+        let komponenten = DateComponents(year: y, month: m, day: d)
+        guard komponenten.isValidDate(in: appKalender) else { return nil }
+        return appKalender.date(from: komponenten)
     }
 }

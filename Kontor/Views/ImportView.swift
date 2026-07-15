@@ -105,10 +105,22 @@ struct ImportView: View {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url) else { status = "Datei nicht lesbar."; NSSound.beep(); return }
-        lade(Bankimport.parse(data), name: url.lastPathComponent)
+        let ergebnis = Bankimport.lies(data)
+        // Ein nicht verstandener Kopf sah bisher aus wie „keine Buchungen drin" – der Nutzer
+        // konnte die falsche Datei nicht von einem leeren Auszug unterscheiden.
+        guard ergebnis.kopfErkannt else {
+            status = "Diese Datei sieht nicht nach einem Sparkasse-Export im Format CSV-CAMT V8 aus – "
+                + "die Spalten „Betrag“ und „Buchungstag“ fehlen. Es wurde nichts geladen."
+            NSSound.beep(); return
+        }
+        lade(ergebnis, name: url.lastPathComponent)
     }
 
-    private func lade(_ buchungen: [Bankbuchung], name: String) {
+    private func lade(_ ergebnis: Bankimport.Ergebnis, name: String) {
+        lade(ergebnis.buchungen, name: name, verworfen: ergebnis.verworfen)
+    }
+
+    private func lade(_ buchungen: [Bankbuchung], name: String, verworfen: Int = 0) {
         let regeln = (try? context.fetch(FetchDescriptor<ZuordnungsRegel>())) ?? []
         zeilen = buchungen
             .sorted { $0.buchungstag > $1.buchungstag }
@@ -120,13 +132,19 @@ struct ImportView: View {
             }
         dateiName = name
         let neu = zeilen.filter { !$0.bereitsImportiert }.count
+        // Verworfene Zeilen (unlesbarer Betrag/Datum) gehören sichtbar gemacht: stillschweigend
+        // übersprungen sähe eine teilkorrupte CSV aus wie eine vollständig importierte.
+        let hinweis = verworfen > 0
+            ? " · \(verworfen) Zeile\(verworfen == 1 ? "" : "n") übersprungen (Betrag/Datum unlesbar)"
+            : ""
         if neu == 0 && !zeilen.isEmpty {
             zeigeErledigte = true   // komplett importierter Auszug → Zeilen direkt sichtbar machen
-            status = "\(buchungen.count) Buchungen – alle schon importiert. „Alle erneut zuordnen“ (oder „Neu zuordnen“ je Zeile), um sie noch einmal durchzugehen."
+            status = "\(buchungen.count) Buchungen – alle schon importiert.\(hinweis) „Alle erneut zuordnen“ (oder „Neu zuordnen“ je Zeile), um sie noch einmal durchzugehen."
         } else {
             zeigeErledigte = false
-            status = "\(buchungen.count) Buchungen geladen · \(neu) neu · \(buchungen.count - neu) schon importiert."
+            status = "\(buchungen.count) Buchungen geladen · \(neu) neu · \(buchungen.count - neu) schon importiert\(hinweis)."
         }
+        if verworfen > 0 { NSSound.beep() }
     }
 
     /// Öffnet alle erledigten/„schon importierten“ Buchungen wieder zur Zuordnung, um einen
