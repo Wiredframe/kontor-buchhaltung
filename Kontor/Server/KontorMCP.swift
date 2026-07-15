@@ -599,8 +599,13 @@ enum KontorMCP {
 
     // MARK: - Formatierung & Parsing
 
-    private static let heuteJahr = appKalender.component(.year, from: Date())
-    private static let heuteMonat = appKalender.component(.month, from: Date())
+    // `var`, nicht `let`: Ein `static let` wird einmal beim ersten Zugriff ausgewertet und
+    // bleibt dann für die **gesamte Prozesslaufzeit** eingefroren. Kontor läuft als
+    // Desktop-App wochenlang durch – über den Jahreswechsel hätte der MCP still weiter die
+    // Zahlen des Vorjahres geliefert (Default-Jahr von kontor_uebersicht, Quartals-Default
+    // von kontor_ustva, Monats-Default der KSK-Liste).
+    private static var heuteJahr: Int { appKalender.component(.year, from: Date()) }
+    private static var heuteMonat: Int { appKalender.component(.month, from: Date()) }
 
     private static let mcpTag: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"

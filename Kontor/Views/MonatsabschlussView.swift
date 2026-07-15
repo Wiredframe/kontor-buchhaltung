@@ -447,7 +447,15 @@ struct MonatsabschlussView: View {
         .environment(\.defaultMinListRowHeight, 30)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 6) {
-                Text("Summe \(String(jahr)) (ohne Zukunftsmonate) – Klick kopiert").font(.caption).foregroundStyle(.secondary)
+                // Das Label muss den Split benennen, statt eine Regel für alles zu behaupten:
+                // RN/USt/VSt sind **Soll**-Tatsachen – eine auf Dezember datierte Rechnung ist
+                // heute schon gestellt und ihre USt für Dezember geschuldet, sie gehört also in
+                // die Jahressumme. Gewinn/Frei/KSK/ESt eines Monats, der noch nicht war, wären
+                // dagegen Projektionen; die Tabelle zeigt dort bewusst „—".
+                Text("Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
+                     + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
                     summe("RN", zeilen.reduce(Decimal(0)) { $0 + $1.z.rn })
                     summe("USt", zeilen.reduce(Decimal(0)) { $0 + $1.z.ust })
