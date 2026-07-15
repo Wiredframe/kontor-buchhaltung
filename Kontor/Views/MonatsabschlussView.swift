@@ -71,19 +71,39 @@ struct MonatsabschlussView: View {
         monatsTasks.filter { TaskVorlagen.inMonatsSidebar($0.intervall) }
             .sorted { $0.monat < $1.monat }
     }
+    /// Anzeigewerte des Monats = `MonatsAuswertung` (die einzige Quelle des Gewinn-Waterfalls)
+    /// plus `umlagefaehig`, das nur diese View braucht.
+    ///
+    /// Die Waterfall-Formeln standen früher hier – und noch einmal im Dashboard und ein drittes
+    /// Mal (anders!) in der Engine. Jetzt rechnet die Engine, die View zeigt nur.
     struct Zahlen {
-        var rn, ust, vst, ustKorrektur, ksk, est, estKorrektur, betriebsausgabenNetto, umlagefaehig, privatFix, privatVariabel: Decimal
-        var ustZahllast: Decimal { ust - vst + ustKorrektur }
-        var betrieblicherGewinn: Decimal { rn - betriebsausgabenNetto }
-        var nachSteuer: Decimal { betrieblicherGewinn - ksk - est - estKorrektur }
-        var privatGesamt: Decimal { privatFix + privatVariabel }
-        var frei: Decimal { nachSteuer - privatGesamt }
+        var a: MonatsAuswertung
+        var umlagefaehig: Decimal
+
+        var rn: Decimal { a.rn }
+        var ust: Decimal { a.ust }
+        var vst: Decimal { a.vst }
+        var ustKorrektur: Decimal { a.ustKorrektur }
+        var ksk: Decimal { a.ksk }
+        var est: Decimal { a.est }
+        var estKorrektur: Decimal { a.estKorrektur }
+        var betriebsausgabenNetto: Decimal { a.betriebsausgabenNetto }
+        var privatFix: Decimal { a.fixkostenPrivat }
+        var privatVariabel: Decimal { a.privatVariabel }
+
+        var ustZahllast: Decimal { a.ustZahllast }
+        var betrieblicherGewinn: Decimal { a.betrieblicherGewinn }
+        var nachSteuer: Decimal { a.nachSteuer }
+        var privatGesamt: Decimal { a.privatGesamt }
+        var frei: Decimal { a.verfuegbar }
     }
 
     private func zahlenAus(_ s: MonatsSnapshot) -> Zahlen {
-        Zahlen(rn: s.rn, ust: s.ust, vst: s.vst, ustKorrektur: s.ustKorrektur, ksk: s.ksk,
-               est: s.est, estKorrektur: s.estKorrektur, betriebsausgabenNetto: s.betriebsausgabenNetto,
-               umlagefaehig: s.umlagefaehig, privatFix: s.privatFix, privatVariabel: s.privatVariabel)
+        Zahlen(a: MonatsAuswertung(rn: s.rn, ust: s.ust, vst: s.vst, ustKorrektur: s.ustKorrektur,
+                                   ksk: s.ksk, est: s.est, estKorrektur: s.estKorrektur,
+                                   betriebsausgabenNetto: s.betriebsausgabenNetto,
+                                   fixkostenPrivat: s.privatFix, privatVariabel: s.privatVariabel),
+               umlagefaehig: s.umlagefaehig)
     }
     private func snapshotAus(_ z: Zahlen) -> MonatsSnapshot {
         MonatsSnapshot(rn: z.rn, ust: z.ust, vst: z.vst, ustKorrektur: z.ustKorrektur, ksk: z.ksk,
@@ -97,19 +117,16 @@ struct MonatsabschlussView: View {
     private func zahlen(_ m: Int, einP: [EinnahmePosten], ausP: [AusgabePosten]) -> Zahlen {
         if let snap = settings?.snapshot(monat: m) { return zahlenAus(snap) }
         let p = Periode.monat(jahr, m)
+        let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
+        let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
         let a = Steuer.monatsauswertung(
             monat: m, jahr: jahr,
             einnahmen: einP, ausgaben: ausP,
             kskFuer: { jahre.ksk(jahr: $0, monat: $1) }, fixkostenPrivat: fixkostenPrivat(m),
+            privatVariabel: lm + an,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
-        let baNetto = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
         let umlage = ausgaben.filter { $0.betrieblich && $0.umlagefaehig && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
-        let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
-        let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
-        return Zahlen(rn: a.rn, ust: a.ust, vst: a.vst, ustKorrektur: a.ustKorrektur, ksk: a.ksk,
-                      est: a.est, estKorrektur: a.estKorrektur,
-                      betriebsausgabenNetto: baNetto, umlagefaehig: umlage,
-                      privatFix: fixkostenPrivat(m), privatVariabel: lm + an)
+        return Zahlen(a: a, umlagefaehig: umlage)
     }
 
     var body: some View {

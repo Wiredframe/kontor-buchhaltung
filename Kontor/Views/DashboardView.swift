@@ -31,23 +31,29 @@ struct DashboardView: View {
     private var rhythmus: UStVARhythmus { (jahre.first { $0.jahr == jahr })?.ustvaRhythmus ?? .vierteljaehrlich }
     private var ustvaPeriode: Periode { rhythmus == .monatlich ? Periode.monat(jahr, monat) : Periode.quartal(jahr, quartal) }
     private var ustvaLabel: String { rhythmus == .monatlich ? monatsName(monat) : "Q\(quartal)" }
-    private func fixkostenPrivat(_ m: Int) -> Decimal { ausgaben.wiederkehrendBrutto(jahr: jahr, monat: m, betrieblich: false) }
+    /// Das Jahr ist **Parameter**, nicht das laufende: Der Trend-Chart zeigt wahlweise ein
+    /// früheres Jahr, und die privaten Fixkosten sind datierte Buchungen – ohne das Jahr zöge
+    /// jeder Chart-Balken die Fixkosten des laufenden Jahres heran.
+    private func fixkostenPrivat(jahr: Int, _ m: Int) -> Decimal {
+        ausgaben.wiederkehrendBrutto(jahr: jahr, monat: m, betrieblich: false)
+    }
 
     private struct Mon { var rn, gewinn, steuerRuecklage, frei: Decimal }
     /// Monatswerte aus **einmal** gemappten Posten-Arrays (der Aufrufer mappt je Render einmal).
+    /// Rechnet nichts selbst – der Gewinn-Waterfall liegt in `MonatsAuswertung`.
     private func werteFuer(jahr: Int, monat m: Int, einP: [EinnahmePosten], ausP: [AusgabePosten]) -> Mon {
         let p = Periode.monat(jahr, m)
+        let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
+        let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
         let a = Steuer.monatsauswertung(
             monat: m, jahr: jahr,
             einnahmen: einP, ausgaben: ausP,
-            kskFuer: { jahre.ksk(jahr: $0, monat: $1) }, fixkostenPrivat: fixkostenPrivat(m),
+            kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
+            fixkostenPrivat: fixkostenPrivat(jahr: jahr, m),
+            privatVariabel: lm + an,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
-        let baNetto = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
-        let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
-        let an = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
-        let gewinn = a.rn - baNetto
-        return Mon(rn: a.rn, gewinn: gewinn, steuerRuecklage: a.steuerRuecklage,
-                   frei: gewinn - a.ksk - (a.est + a.estKorrektur) - fixkostenPrivat(m) - lm - an)
+        return Mon(rn: a.rn, gewinn: a.betrieblicherGewinn, steuerRuecklage: a.steuerRuecklage,
+                   frei: a.verfuegbar)
     }
 
     private var offene: [Income] { einnahmen.filter { $0.status == .offen } }

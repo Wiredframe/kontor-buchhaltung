@@ -237,13 +237,16 @@ enum Steuer {
 
     /// Steuerrücklage eines Monats: `(USt − VSt + §17-Korrektur) + KSK + ESt-Anteil`. (ohne Fixkosten)
     /// Die §17-Korrektur ist negativ (Forderungsausfall) und mindert die Rücklage im Ausfallmonat.
+    ///
+    /// Für einen konkreten Monat liefert `MonatsAuswertung.steuerRuecklage` dasselbe aus den
+    /// Aggregaten; diese Funktion bleibt für die reine Formel-Arithmetik.
     static func steuerRuecklage(ust: Decimal, vorsteuer: Decimal, ustKorrektur: Decimal,
                                 ksk: Decimal, estAnteil: Decimal) -> Decimal {
         (ust - vorsteuer + ustKorrektur) + ksk + estAnteil
     }
 
-    /// Verfügbar = Brutto − Steuerrücklage − Fixkosten.
-    static func verfuegbar(brutto: Decimal, steuerRuecklage: Decimal, fixkosten: Decimal) -> Decimal {
-        brutto - steuerRuecklage - fixkosten
-    }
+    // `verfuegbar` gibt es nicht mehr als freie Funktion: Der Gewinn-Waterfall lebt jetzt
+    // ausschließlich in `MonatsAuswertung` (brutto/ustZahllast/betrieblicherGewinn/nachSteuer/
+    // privatGesamt/verfuegbar). Die alte Formel `brutto − Rücklage − Fixkosten` ließ die
+    // Betriebsausgaben aus und widersprach damit sowohl der Spec als auch beiden Views.
 }

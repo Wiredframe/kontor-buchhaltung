@@ -282,8 +282,63 @@ struct RuecklageTests {
             let steuer = Steuer.steuerRuecklage(ust: m.ust, vorsteuer: m.vst, ustKorrektur: 0, ksk: m.ksk, estAnteil: m.est)
             let gesamt = steuer + m.fix
             #expect(gesamt == m.ruecklage)
-            #expect(Steuer.verfuegbar(brutto: m.brutto, steuerRuecklage: steuer, fixkosten: m.fix) == m.verfuegbar)
         }
+    }
+
+    /// Regression: „Frei verfügbar" ist der Gewinn-Waterfall aus CLAUDE.md – Gewinn nach
+    /// betrieblichen **und** privaten Ausgaben. Die frühere Engine-Formel
+    /// (`brutto − Rücklage − Fixkosten`) ließ die Betriebsausgaben komplett aus und addierte
+    /// die Vorsteuer sogar wieder hinzu; nur der MCP nutzte sie und meldete deshalb unter
+    /// demselben Label eine andere Zahl als der Monatsabschluss.
+    @Test func verfuegbarIstGewinnNachBetrieblichenUndPrivatenAusgaben() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("4000"), ust: dez("760"),
+                                        rechnungsdatum: tag(2026, 6, 5), zahlungsdatum: nil,
+                                        status: .offen, ausfalldatum: nil)]
+        let ausgaben = [AusgabePosten(brutto: dez("1190"), vst: dez("190"), steuerart: .inland19,
+                                      betrieblich: true, datum: tag(2026, 6, 10))]   // netto 1000
+        let a = Steuer.monatsauswertung(
+            monat: 6, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: { _, _ in dez("420") }, fixkostenPrivat: dez("1150"), privatVariabel: 0,
+            pauschalSatz: { _, _ in dez("0.15") })
+
+        #expect(a.betriebsausgabenNetto == dez("1000"))
+        #expect(a.betrieblicherGewinn == dez("3000"))            // 4000 − 1000
+        #expect(a.est == dez("387"))                             // (3000 − 420) × 15 %
+        #expect(a.nachSteuer == dez("2193"))                     // 3000 − 420 − 387
+        #expect(a.verfuegbar == dez("1043"))                     // 2193 − 1150
+        // Die alte Formel hätte 4760 − 1377 − 1150 = 2233 geliefert – 1190 € zu viel
+        // (exakt das Brutto der Betriebsausgabe).
+        #expect(a.brutto - a.steuerRuecklage - a.fixkostenPrivat == dez("2233"))
+        #expect(a.verfuegbar != a.brutto - a.steuerRuecklage - a.fixkostenPrivat)
+    }
+
+    /// Private variable Kosten (Lebensmittel + Anschaffungen) mindern „Frei verfügbar" ebenfalls.
+    @Test func verfuegbarZiehtPrivatVariabelAb() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("4000"), ust: dez("760"),
+                                        rechnungsdatum: tag(2026, 6, 5), zahlungsdatum: nil,
+                                        status: .offen, ausfalldatum: nil)]
+        let a = Steuer.monatsauswertung(
+            monat: 6, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 }, fixkostenPrivat: dez("1000"), privatVariabel: dez("380"),
+            pauschalSatz: { _, _ in 0 })
+        #expect(a.privatGesamt == dez("1380"))
+        #expect(a.verfuegbar == dez("2620"))       // 4000 − 1000 − 380
+    }
+
+    /// Die USt ist ein durchlaufender Posten und darf „Frei verfügbar" nicht beeinflussen –
+    /// sie wird vom Kunden kassiert und ans Finanzamt weitergereicht.
+    @Test func verfuegbarIstUnabhaengigVonDerUSt() {
+        func frei(ust: String) -> Decimal {
+            Steuer.monatsauswertung(
+                monat: 6, jahr: 2026,
+                einnahmen: [EinnahmePosten(rnNetto: dez("4000"), ust: dez(ust),
+                                           rechnungsdatum: tag(2026, 6, 5), zahlungsdatum: nil,
+                                           status: .offen, ausfalldatum: nil)],
+                ausgaben: [], kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, privatVariabel: 0,
+                pauschalSatz: { _, _ in 0 }).verfuegbar
+        }
+        #expect(frei(ust: "760") == frei(ust: "0"))
+        #expect(frei(ust: "760") == dez("4000"))
     }
 
     /// §17-Forderungsausfall mindert die Monatsrücklage im Monat des Ausfalldatums

@@ -224,11 +224,16 @@ enum KontorMCP {
     static func monatText(jahr: Int, monat: Int, _ ctx: ModelContext) -> String {
         let settings = alle(YearSettings.self, ctx)
         let fixPrivat = alle(ExpenseEntry.self, ctx).wiederkehrendBrutto(jahr: jahr, monat: monat, betrieblich: false)
+        // Privat variabel gehört in den Waterfall – sonst meldete „Frei verfügbar" zu viel.
+        let p = Periode.monat(jahr, monat)
+        let lm = alle(GroceryEntry.self, ctx).filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
+        let an = alle(PurchaseEntry.self, ctx).filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
         let a = Steuer.monatsauswertung(
             monat: monat, jahr: jahr,
             einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx),
             kskFuer: { j, m in settings.ksk(jahr: j, monat: m) },
             fixkostenPrivat: fixPrivat,
+            privatVariabel: lm + an,
             pauschalSatz: { j, m in settings.estSatz(jahr: j, monat: m) })
         return """
         Monat \(jahr)-\(String(format: "%02d", monat))
@@ -236,10 +241,13 @@ enum KontorMCP {
         USt:                         \(g(a.ust)) €
         Brutto:                      \(g(a.brutto)) €
         Vorsteuer:                   \(g(a.vst)) €
+        Betriebsausgaben (netto):    \(g(a.betriebsausgabenNetto)) €
+        Betrieblicher Gewinn:        \(g(a.betrieblicherGewinn)) €
         KSK:                         \(g(a.ksk)) €
         ESt-Rücklage:                \(g(a.est + a.estKorrektur)) €
         Steuerrücklage gesamt:       \(g(a.steuerRuecklage)) €
         Fixkosten privat:            \(g(a.fixkostenPrivat)) €
+        Privat variabel:             \(g(a.privatVariabel)) €
         Frei verfügbar:              \(g(a.verfuegbar)) €
         """
     }
