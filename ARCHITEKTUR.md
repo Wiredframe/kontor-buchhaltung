@@ -245,12 +245,22 @@ getestet (`SteuerrechnerTests`, `KontorTests`, …):
 | `ustva(...)` | `UStVAErgebnis` (KZ 81 Netto, ust81, KZ 66/84/85, Zahllast KZ 83) |
 | `euerGewinn(...)` | Zufluss-Gewinn (bezahlte Netto-Einnahmen − betriebl. Netto-Ausgaben) |
 | `estPauschal(basis:ksk:satz:)` | ESt-Rücklage `(Gewinn − KSK) × Satz` |
+| `estGebildet(jahr:monat:...)` | **Einzige Quelle** der Monats-ESt: Bildung *und* Auflösung lesen hier |
 | `steuerRuecklage(...)` | `(USt − VSt) + KSK + ESt-Anteil` |
+| `rnSoll` / `betrieblichNetto` | Perioden-Aggregate (Soll-Umsatz · betriebliche Netto-Ausgaben) |
 | `reverseChargeNetto/USt` | §13b (KZ 84/85, cash-neutral) |
-| `ustKorrekturAusfall` / `ustVzZuordnung` | §17-Forderungsausfall · USt-VZ-Periodenzuordnung |
+| `ustKorrekturAusfall` / `ausfallNetto` | §17: Rücklagen-Freigabe · Minderung der Bemessung (KZ 81/86) |
+| `estAusfallKorrektur(...)` | §17: anteilige ESt-Auflösung (Anteil am Umsatz des Rechnungsmonats) |
+| `ustVzZuordnung` | USt-VZ-Periodenzuordnung |
 
 **`Auswertung`** (`Auswertung.swift`) – verdichtet zu `MonatsAuswertung` / `JahresAuswertung`
 für die Abschluss-Views (Gewinn-Waterfall, „Frei verfügbar", EÜR-Jahr, Steuerlast).
+
+`MonatsAuswertung` trägt nur Roh-Aggregate; der **Gewinn-Waterfall** (`brutto` · `ustZahllast` ·
+`steuerRuecklage` · `betrieblicherGewinn` · `nachSteuer` · `privatGesamt` · `verfuegbar`) sind
+berechnete Eigenschaften und damit die **einzige** Quelle für „Frei verfügbar" – Monatsabschluss,
+Dashboard und MCP lesen alle dieselbe. (Sie war zuvor dreimal unabhängig codiert und wich in der
+Engine-Variante, die der MCP nutzte, deutlich ab.)
 
 `MonatsSnapshot` friert einen abgeschlossenen Monat als JSON ein (`YearSettings.snapshotProMonat`):
 danach zeigt der Monat fixe Zahlen statt Live-Rechnung.
