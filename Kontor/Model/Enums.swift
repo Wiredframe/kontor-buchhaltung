@@ -81,6 +81,13 @@ enum AusgabeArt: String, Codable, CaseIterable, Identifiable {
         case .subscription:    "Subscription"
         }
     }
+
+    /// Robust gegen unbekannte Werte (z. B. Backup einer neueren App-Version): → Betriebsausgabe.
+    /// Entspricht dem Default von `ExpenseEntry.artEffektiv` und steuert nur die Ansicht.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AusgabeArt(rawValue: raw) ?? .betriebsausgabe
+    }
 }
 
 /// Status einer Ausgangsrechnung.
@@ -104,6 +111,13 @@ enum InvoiceStatus: String, Codable, CaseIterable, Identifiable {
         case .bezahlt:     1
         case .ausgefallen: 2
         }
+    }
+
+    /// Robust gegen unbekannte Werte: → offen. Bewusst der neutrale Status – er löst weder
+    /// eine §17-Korrektur aus (wie `ausgefallen`) noch behauptet er einen Zufluss (`bezahlt`).
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = InvoiceStatus(rawValue: raw) ?? .offen
     }
 }
 
@@ -161,6 +175,13 @@ enum SteuerKind: String, Codable, CaseIterable, Identifiable {
         case .sonstige:    "Sonstige"
         }
     }
+
+    /// Robust gegen unbekannte Werte: → sonstige (die Auffang-Kategorie). Steuerzahlungen
+    /// gehen ohnehin nicht in EÜR/USt ein, die Zuordnung bleibt also rechnerisch folgenlos.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SteuerKind(rawValue: raw) ?? .sonstige
+    }
 }
 
 // MARK: - Kontoauszug-Import: Triage-Kategorie
@@ -213,5 +234,13 @@ enum ImportKategorie: String, Codable, CaseIterable, Identifiable {
     /// nicht. Steuert die Normalisierung von `Zuordnung` (verhindert privat gebuchte Betriebsausgaben).
     var immerBetrieblich: Bool {
         self == .betriebsausgabe || self == .einnahme
+    }
+
+    /// Robust gegen unbekannte Werte: → ignorieren. Bewusst die einzige Kategorie, die
+    /// **nichts** bucht (`bucht(betrieblich:) == false`) – eine unbekannte Triage-Wahl darf
+    /// beim Restore keinen Datensatz erfinden.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ImportKategorie(rawValue: raw) ?? .ignorieren
     }
 }

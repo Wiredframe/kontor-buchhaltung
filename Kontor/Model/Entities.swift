@@ -415,6 +415,13 @@ enum TaskIntervall: String, Codable, CaseIterable, Identifiable {
         case .jaehrlich:     3
         }
     }
+
+    /// Robust gegen unbekannte Werte: → einmalig (entspricht dem Import-Default für
+    /// Backups aus der Zeit vor der Wiederhol-Mechanik; erzeugt keine Folgeaufgaben).
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = TaskIntervall(rawValue: raw) ?? .einmalig
+    }
 }
 
 /// Eine Aufgabe – einmalig oder wiederkehrend (Reminders-Logik: beim Abhaken einer

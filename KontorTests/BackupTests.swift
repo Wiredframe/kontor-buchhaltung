@@ -96,6 +96,45 @@ struct BackupTests {
         #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
     }
 
+    /// Regression: Ein einzelner unbekannter Enum-Wert darf nicht den **ganzen** Restore kippen.
+    /// Realistischer Fall: Backup einer neueren App-Version in eine ältere zurückspielen.
+    /// Unbekanntes wird auf den jeweils neutralen Wert gedeutet, statt zu werfen.
+    @Test func backupMitUnbekanntenEnumWertenBleibtImportierbar() throws {
+        let json = """
+        {
+          "exportiertAm": "2026-07-15T10:00:00Z",
+          "jahre": [],
+          "ausgaben": [{"datum": "2026-01-05T00:00:00Z", "bezeichnung": "Neuartig", "anbieter": "X",
+                        "brutto": 119, "vst": 19, "steuerart": "inland19", "betrieblich": true,
+                        "art": "gibtEsNochNicht"}],
+          "einnahmen": [{"kunde": "Kunde A", "rnNetto": 1000, "ust": 190,
+                         "rechnungsdatum": "2026-01-10T00:00:00Z", "status": "irgendwasNeues"}],
+          "aufgaben": [{"titel": "Neu", "monat": "2026-01-01T00:00:00Z", "erledigt": false,
+                        "intervall": "alleZweiWochen"}],
+          "lebensmittel": [], "anschaffungen": [],
+          "steuern": [{"kind": "gewerbesteuer", "jahr": 2026, "faellig": "2026-04-10T00:00:00Z",
+                       "betrag": 100, "bezahlt": false, "bemerkung": ""}],
+          "zuordnungsRegeln": [{"schluessel": "neuer haendler", "kategorie": "kryptowaehrung",
+                                "betrieblich": false, "steuerart": "inland19",
+                                "aktualisiert": "2026-01-01T00:00:00Z"}]
+        }
+        """.data(using: .utf8)!
+
+        let ctx = try kontext()
+        let r = try Backup.importData(json, in: ctx)     // darf nicht werfen
+        #expect(r.neu == 5)
+
+        // Jeder unbekannte Wert landet auf dem neutralen Default – kein Datensatz geht verloren.
+        #expect(try #require(ctx.fetch(FetchDescriptor<ExpenseEntry>()).first).artEffektiv == .betriebsausgabe)
+        #expect(try #require(ctx.fetch(FetchDescriptor<Income>()).first).status == .offen)
+        #expect(try #require(ctx.fetch(FetchDescriptor<MonthlyTask>()).first).intervall == .einmalig)
+        #expect(try #require(ctx.fetch(FetchDescriptor<TaxPayment>()).first).kind == .sonstige)
+        // Unbekannte Triage-Kategorie → ignorieren: die Regel bucht nichts, statt etwas zu erfinden.
+        let regel = try #require(ctx.fetch(FetchDescriptor<ZuordnungsRegel>()).first)
+        #expect(regel.kategorie == .ignorieren)
+        #expect(regel.kategorie.bucht(betrieblich: false) == false)
+    }
+
     /// Regression: Das Import-Gedächtnis (`ImportBuchung`) muss mitgesichert werden.
     /// Fehlt es im Backup, ist nach einem Restore nicht mehr bekannt, welche Bankbewegungen
     /// schon verarbeitet wurden – derselbe Kontoauszug schlägt dann alles erneut als „neu"
