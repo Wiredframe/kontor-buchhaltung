@@ -99,11 +99,28 @@ enum ImportAnwendung {
             return nahestes(ausgaben, betrag, b.buchungstag,
                             betragVon: { $0.brutto }, datumVon: { $0.datum })
         case .steuer:
-            // Offener, geplanter Termin gleicher Art im selben Jahr (Betrag passt oder Termin noch ohne
-            // Betrag) – bei mehreren der fälligkeitsnächste (z. B. das passende ESt-VZ-Quartal).
-            let jahrB = appKalender.component(.year, from: b.buchungstag)
+            // Geplanter Termin gleicher Art (Betrag passt oder Termin noch ohne Betrag) – bei
+            // mehreren der fälligkeitsnächste (z. B. das passende ESt-VZ-Quartal).
+            //
+            // Zwei Filter waren hier falsch und erzeugten beim erneuten Zuordnen Dubletten:
+            //
+            // 1. `!bezahlt` schloss den **selbst gebuchten** Datensatz aus – der Import setzt
+            //    `bezahlt = true`. Beim „Neu zuordnen"/„Alle erneut zuordnen" derselben Bankzeile
+            //    fand `ziel()` ihn deshalb nie wieder, die UI bot „Buchen" statt „Überschreiben",
+            //    und es entstand eine zweite Zahlung: der Jahresabschluss zeigte unter
+            //    „Tatsächlich gezahlt" den doppelten Betrag. (Der `.ksk`-Zweig unten hat diesen
+            //    Filter nicht – dort trat der Fehler folgerichtig nie auf.)
+            //
+            // 2. Das **Zahlungsjahr** als Filter passte nicht zu dem, was `anwenden()` schreibt:
+            //    Eine USt-VZ im Januar gehört per `Steuer.ustVzZuordnung` ins **Vorjahr**, der
+            //    geplante Termin trägt also `jahr = Vorjahr`. Gesucht wurde aber im Zahlungsjahr –
+            //    der Termin blieb offen stehen und daneben entstand eine neue Zahlung.
+            //    Deshalb: dasselbe Steuerjahr bestimmen wie beim Buchen.
+            let zMonat = appKalender.component(.month, from: b.buchungstag)
+            let zJahr = appKalender.component(.year, from: b.buchungstag)
+            let steuerjahr = steuerjahrFuer(kind: z.steuerKind, zahlMonat: zMonat, zahlJahr: zJahr, ctx)
             let kandidaten = ((try? ctx.fetch(FetchDescriptor<TaxPayment>())) ?? []).filter {
-                $0.kind == z.steuerKind && $0.jahr == jahrB && !$0.bezahlt
+                $0.kind == z.steuerKind && $0.jahr == steuerjahr
                     && ($0.betrag == betrag || $0.betrag == 0)
             }
             return kandidaten.min {
@@ -122,6 +139,29 @@ enum ImportAnwendung {
         case .ignorieren:
             return nil
         }
+    }
+
+    /// Steuerjahr + Notiz einer Zahlung – **die** gemeinsame Quelle für `ziel()` (Suchen) und
+    /// `anwenden()` (Schreiben).
+    ///
+    /// USt-VZ im Jan/Feb gilt fürs Vorjahr (Q4 bzw. Dez) – abhängig von Rhythmus &
+    /// Dauerfristverlängerung **des Vorjahres** (beides pro Jahr in den `YearSettings`).
+    /// Stand die Logik nur im Schreibpfad, suchte `ziel()` im Zahlungsjahr, während `anwenden()`
+    /// ins Vorjahr schrieb: Der geplante Vorjahres-Termin wurde nie getroffen, blieb offen, und
+    /// daneben entstand eine zweite Zahlung.
+    @MainActor
+    static func steuerzuordnung(kind: SteuerKind, zahlMonat: Int, zahlJahr: Int,
+                                _ ctx: ModelContext) -> (jahr: Int, notiz: String) {
+        guard kind == .ustVz else { return (jahr: zahlJahr, notiz: "") }
+        let vorjahr = ((try? ctx.fetch(FetchDescriptor<YearSettings>())) ?? []).first { $0.jahr == zahlJahr - 1 }
+        return Steuer.ustVzZuordnung(zahlMonat: zahlMonat, zahlJahr: zahlJahr,
+                                     rhythmus: vorjahr?.ustvaRhythmus ?? .vierteljaehrlich,
+                                     dauerfrist: vorjahr?.dauerfristverlaengerung ?? false)
+    }
+
+    @MainActor
+    static func steuerjahrFuer(kind: SteuerKind, zahlMonat: Int, zahlJahr: Int, _ ctx: ModelContext) -> Int {
+        steuerzuordnung(kind: kind, zahlMonat: zahlMonat, zahlJahr: zahlJahr, ctx).jahr
     }
 
     /// Führt die Zuordnung aus. Liefert eine kurze Ergebnis-Nachricht.
@@ -169,20 +209,32 @@ enum ImportAnwendung {
                 // Art aus der Triage; privat zieht keine Vorsteuer (zählt nur in die Liquidität).
                 let art: AusgabeArt = z.kategorie == .fixkosten ? .fixkosten
                                     : z.kategorie == .subscription ? .subscription : .betriebsausgabe
-                let vst = z.betrieblich ? Steuer.vorsteuerVorschlag(brutto: betrag, steuerart: z.steuerart) : 0
+                // **Vorzeichen aus der Bankrichtung.** Ein *Eingang* auf einer Ausgaben-Kategorie ist
+                // eine Erstattung des Händlers (Storno, Gutschrift, Abo gekündigt) und muss die
+                // Ausgabe **mindern**. Vorher machte `abs()` daraus eine zusätzliche Ausgabe: Die
+                // Belastung und ihre Erstattung addierten sich, statt sich aufzuheben – der EÜR-Gewinn
+                // sank um den doppelten Netto-Betrag, und KZ 66 zog die Vorsteuer zweimal statt gar
+                // nicht. Das trifft genau die gelernten Regeln (auch die ausgelieferten Start-Regeln),
+                // denn die ordnen den Händler ja der Ausgaben-Kategorie zu.
+                let ausgabeBrutto = b.istEingang ? -betrag : betrag
+                // `vorsteuerVorschlag` folgt dem Vorzeichen von selbst (−119 → −19), die Erstattung
+                // mindert damit auch die Vorsteuer korrekt.
+                let vst = z.betrieblich ? Steuer.vorsteuerVorschlag(brutto: ausgabeBrutto, steuerart: z.steuerart) : 0
+                let titel = b.istEingang ? "Erstattung: \(name)" : name
                 if let e: ExpenseEntry = hole(ziel, ctx) {
                     // `datum` bleibt das EÜR-maßgebliche (Abfluss-)Datum = Buchungstag (wie bisher),
                     // `zahlungsdatum` hält den Zahltag zusätzlich fest; eine bereits erfasste
                     // Rechnungsnummer (OCR) wird nicht überschrieben.
                     e.datum = b.buchungstag; e.zahlungsdatum = b.buchungstag
-                    e.brutto = betrag; e.vst = vst; e.steuerart = z.steuerart
-                    e.bezeichnung = name; e.anbieter = name; e.betrieblich = z.betrieblich; e.art = art
+                    e.brutto = ausgabeBrutto; e.vst = vst; e.steuerart = z.steuerart
+                    e.bezeichnung = titel; e.anbieter = name; e.betrieblich = z.betrieblich; e.art = art
                     nachricht = "Ausgabe aktualisiert"
                 } else {
-                    ctx.insert(ExpenseEntry(datum: b.buchungstag, bezeichnung: name, anbieter: name, brutto: betrag,
+                    ctx.insert(ExpenseEntry(datum: b.buchungstag, bezeichnung: titel, anbieter: name,
+                                            brutto: ausgabeBrutto,
                                             vst: vst, steuerart: z.steuerart,
                                             betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
-                    nachricht = "Ausgabe angelegt"
+                    nachricht = b.istEingang ? "Erstattung angelegt" : "Ausgabe angelegt"
                 }
             case .einnahme:
                 if let inc: Income = hole(ziel, ctx) {
@@ -193,14 +245,9 @@ enum ImportAnwendung {
             case .steuer:
                 let zMonat = appKalender.component(.month, from: b.buchungstag)
                 let zJahr = appKalender.component(.year, from: b.buchungstag)
-                // USt-VZ im Jan/Feb gilt fürs Vorjahr (Q4 bzw. Dez) – abhängig von Rhythmus &
-                // Dauerfristverlängerung des Vorjahres (beides pro Jahr in den YearSettings).
-                let vorjahr = ((try? ctx.fetch(FetchDescriptor<YearSettings>())) ?? []).first { $0.jahr == zJahr - 1 }
-                let zo = z.steuerKind == .ustVz
-                    ? Steuer.ustVzZuordnung(zahlMonat: zMonat, zahlJahr: zJahr,
-                                            rhythmus: vorjahr?.ustvaRhythmus ?? .vierteljaehrlich,
-                                            dauerfrist: vorjahr?.dauerfristverlaengerung ?? false)
-                    : (jahr: zJahr, notiz: "")
+                // Dieselbe Zuordnung, die `ziel()` zum Suchen nutzt – sonst schreibt der Import in
+                // ein anderes Jahr, als er vorher gesucht hat, und der geplante Termin bleibt offen.
+                let zo = steuerzuordnung(kind: z.steuerKind, zahlMonat: zMonat, zahlJahr: zJahr, ctx)
                 if let t: TaxPayment = hole(ziel, ctx) {
                     t.kind = z.steuerKind; t.betrag = betrag; t.bezahlt = true; t.bezahltAm = b.buchungstag; t.jahr = zo.jahr
                     if !zo.notiz.isEmpty, t.bemerkung.isEmpty { t.bemerkung = zo.notiz }

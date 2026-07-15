@@ -111,6 +111,94 @@ struct ImportTests {
         #expect(Steuer.vorsteuer(p, in: Periode.quartal(2026, 2)) == 0)
     }
 
+    // MARK: - Vorzeichen & Re-Triage
+
+    /// Regression: Eine Händler-Erstattung (Eingang) mit gelernter Betriebsausgaben-Regel wurde
+    /// per `abs()` zu einer **zusätzlichen** Ausgabe. Belastung und Erstattung addierten sich,
+    /// statt sich aufzuheben: der EÜR-Gewinn sank um den doppelten Netto-Betrag, und KZ 66 zog
+    /// die Vorsteuer zweimal statt gar nicht.
+    @Test func haendlerErstattungMindertDieAusgabeStattSieZuErhoehen() throws {
+        let c = try container()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        // Abo belastet …
+        _ = try ImportAnwendung.anwenden(buchung("-119,00", name: "ADOBE/Dublin/IE", monat: 6, am: 1),
+                                         z, aktion: .neu, c.mainContext)
+        // … und einen Monat später storniert/erstattet.
+        _ = try ImportAnwendung.anwenden(buchung("119,00", text: "KARTENZAHLUNG GUTSCHRIFT",
+                                                 name: "ADOBE/Dublin/IE", monat: 7, am: 1),
+                                         z, aktion: .neu, c.mainContext)
+
+        let alle = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+        #expect(alle.count == 2)
+        let posten = alle.map(\.posten)
+        // Unterm Strich neutral – nicht 238 brutto / 38 VSt / 200 netto.
+        #expect(alle.reduce(Decimal(0)) { $0 + $1.brutto } == 0)
+        #expect(alle.reduce(Decimal(0)) { $0 + $1.vst } == 0)
+        #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: posten, jahr: 2026) == 0)
+        #expect(Steuer.vorsteuer(posten, in: Periode.jahr(2026)) == 0)
+
+        let erstattung = try #require(alle.first { $0.brutto < 0 })
+        #expect(erstattung.brutto == dez("-119"))
+        #expect(erstattung.vst == dez("-19"))          // mindert KZ 66, statt sie zu erhöhen
+        #expect(erstattung.bezeichnung.hasPrefix("Erstattung:"))
+        #expect(erstattung.anbieter == "Adobe")   // Händler bleibt erkennbar (normalCase, nicht "Erstattung: …")
+    }
+
+    /// Gegenprobe: Eine normale Belastung bleibt eine positive Ausgabe.
+    @Test func normaleBelastungBleibtPositiveAusgabe() throws {
+        let c = try container()
+        _ = try ImportAnwendung.anwenden(buchung("-119,00", name: "ADOBE/Dublin/IE"),
+                                         Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19),
+                                         aktion: .neu, c.mainContext)
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.brutto == dez("119") && e.vst == dez("19"))
+        #expect(e.bezeichnung.hasPrefix("Erstattung:") == false)
+    }
+
+    /// Regression: `ziel()` filterte Steuerzahlungen auf `!bezahlt` – der Import setzt aber
+    /// `bezahlt = true`. Beim erneuten Zuordnen derselben Bankzeile fand er den eigenen
+    /// Datensatz nie wieder und legte eine zweite Zahlung an: „Tatsächlich gezahlt" im
+    /// Jahresabschluss zeigte den doppelten Betrag.
+    @Test func reTriageEinerSteuerzahlungErzeugtKeineDublette() throws {
+        let c = try container()
+        let b = buchung("-980,00", name: "Finanzamt Berlin")
+        let z = Zuordnung(kategorie: .steuer, betrieblich: false, steuerKind: .ustVz)
+
+        #expect(ImportAnwendung.ziel(b, z, c.mainContext) == nil)      // noch nichts da
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .neu, c.mainContext)
+        #expect(try c.mainContext.fetchCount(FetchDescriptor<TaxPayment>()) == 1)
+
+        // „Alle erneut zuordnen": jetzt MUSS der eigene Datensatz gefunden werden.
+        let ziel = ImportAnwendung.ziel(b, z, c.mainContext)
+        #expect(ziel != nil)
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .ueberschreiben(try #require(ziel)), c.mainContext)
+        let alle = try c.mainContext.fetch(FetchDescriptor<TaxPayment>())
+        #expect(alle.count == 1)                                        // nicht 2
+        #expect(alle.reduce(Decimal(0)) { $0 + $1.betrag } == dez("980"))   // nicht 1960
+    }
+
+    /// Regression: Eine USt-VZ im Januar gehört ins **Vorjahr** – `anwenden()` schrieb das auch
+    /// so, `ziel()` suchte den geplanten Termin aber im Zahlungsjahr. Der Vorjahres-Termin blieb
+    /// offen stehen, daneben entstand eine zweite Zahlung (Januar-Summe doppelt).
+    @Test func ustVzImJanuarTrifftDenGeplantenVorjahresTermin() throws {
+        let c = try container()
+        c.mainContext.insert(YearSettings(jahr: 2025, estPauschalSatz: dez("0.15")))
+        c.mainContext.insert(TaxPayment(kind: .ustVz, jahr: 2025, faellig: tag(2026, 1, 10),
+                                        betrag: dez("980"), bezahlt: false, bemerkung: "USt-VA Q4 2025 (geplant)"))
+        try c.mainContext.save()
+
+        let b = buchung("-980,00", name: "Finanzamt Berlin", monat: 1, am: 8)
+        let z = Zuordnung(kategorie: .steuer, betrieblich: false, steuerKind: .ustVz)
+        let ziel = ImportAnwendung.ziel(b, z, c.mainContext)
+        #expect(ziel != nil)                                            // findet den Vorjahres-Termin
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .ueberschreiben(try #require(ziel)), c.mainContext)
+
+        let alle = try c.mainContext.fetch(FetchDescriptor<TaxPayment>())
+        #expect(alle.count == 1)                                        // der Termin wurde gefüllt, nicht gedoppelt
+        let t = try #require(alle.first)
+        #expect(t.jahr == 2025 && t.bezahlt && t.betrag == dez("980"))
+    }
+
     @Test func privateFixkostenAlsBuchung() throws {
         let c = try container()
         let b = buchung("-725,00", name: "Hausverwaltung Spree")
