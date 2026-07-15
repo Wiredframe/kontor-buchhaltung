@@ -71,11 +71,25 @@ enum Steuer {
 
     /// §17-Korrektur (negativ): USt uneinbringlicher Forderungen, deren
     /// **Ausfalldatum** in der Periode liegt.
+    ///
+    /// Speist die **Monats-Rücklage** (dort wurde beim Rechnungsdatum `ustSoll`, also die
+    /// gespeicherte USt, zurückgelegt – deshalb wird hier genau die wieder freigegeben).
+    /// Für die **UStVA** ist `ausfallNetto` maßgeblich: das Formular kennt keine
+    /// §17-Zeile, dort mindert der Ausfall die Bemessungsgrundlage KZ 81/86.
     static func ustKorrekturAusfall(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
         let summe = einnahmen
             .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
             .reduce(Decimal(0)) { $0 + $1.ust }
         return -summe
+    }
+
+    /// §17: Netto-Bemessung der uneinbringlichen Forderungen eines Satzes, deren **Ausfalldatum**
+    /// in der Periode liegt. Mindert dort KZ 81 bzw. KZ 86.
+    static func ausfallNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
+        einnahmen
+            .filter { $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
+                      && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto }
     }
 
     /// Jahr+Monat als hashbarer Schlüssel – zum Gruppieren der Ausfälle nach Rechnungsmonat.
@@ -141,10 +155,23 @@ enum Steuer {
     /// Vollständige UStVA-Kennzahlen einer Periode. Die USt je Satz wird **wie ELSTER** aus der
     /// Netto-Summe des jeweiligen Buckets berechnet (erst summieren, dann einmal `Summe × Satz` runden) –
     /// nicht die je Beleg vorgerundeten Beträge aufaddieren.
+    ///
+    /// **§17-Forderungsausfall mindert KZ 81/86**, statt separat zu stehen: Das ELSTER-Formular
+    /// hat kein §17-Feld. Es kennt nur die Bemessungsgrundlagen, aus denen es KZ 83 selbst
+    /// errechnet – eine daneben ausgewiesene Korrektur würde beim Übertragen schlicht
+    /// verschwinden, und die Erstattung wäre nie angemeldet. `korrektur17` bleibt als
+    /// **Erläuterung** erhalten (zeigt, warum die Bemessung gemindert ist), geht aber nicht
+    /// mehr zusätzlich in `zahllast` ein – sie steckt bereits in `ust81`/`ust86`.
+    ///
+    /// Nebeneffekt, der eine Rundungs-Asymmetrie heilt: Die Minderung läuft nun durch denselben
+    /// Pfad wie die ursprüngliche Schuld (Netto summieren → einmal × Satz runden) und hebt sie
+    /// deshalb exakt auf – vorher stand ihr die je Beleg gespeicherte USt gegenüber.
     static func ustva(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], periode: Periode) -> UStVAErgebnis {
         let rcUSt = reverseChargeUSt(ausgaben, in: periode)
         let netto19 = umsatzNetto(einnahmen, satz: .satz19, in: periode)
-        let netto7  = umsatzNetto(einnahmen, satz: .satz7,  in: periode)
+            - ausfallNetto(einnahmen, satz: .satz19, in: periode)
+        let netto7  = umsatzNetto(einnahmen, satz: .satz7, in: periode)
+            - ausfallNetto(einnahmen, satz: .satz7, in: periode)
         return UStVAErgebnis(
             kz81: netto19,
             ust81: (netto19 * satz19).gerundet(),

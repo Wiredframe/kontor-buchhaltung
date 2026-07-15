@@ -75,9 +75,17 @@ struct UStVAErgebnis: Hashable {
     var kz84: Decimal    // KZ 84: §13b Reverse-Charge – Netto-Bemessung der bezogenen Leistungen
     var kz85: Decimal    // KZ 85: §13b – darauf geschuldete USt (immer 19 %)
     var kz67: Decimal    // KZ 67: Vorsteuer aus §13b-Leistungen (= KZ 85, zugleich abziehbar)
-    var korrektur17: Decimal  // §17-Korrektur (negativ) aus Forderungsausfällen (je Satz)
 
-    /// USt-Vorauszahlung (KZ 83) = USt 19 % + USt 7 % + §13b-USt − Vorsteuer Inland − §13b-Vorsteuer (+ §17).
-    /// §13b ist cash-neutral (KZ 85 = KZ 67 heben sich auf).
-    var zahllast: Decimal { ust81 + ust86 + kz85 - kz66 - kz67 + korrektur17 }
+    /// §17-Korrektur (negativ) aus Forderungsausfällen – **nur zur Erläuterung**.
+    ///
+    /// Der Betrag ist **bereits in `kz81`/`kz86` und damit in `ust81`/`ust86` verrechnet**
+    /// (das ELSTER-Formular hat kein §17-Feld; der Ausfall mindert dort die Bemessungs-
+    /// grundlage). Er steht hier, damit die View erklären kann, warum die Bemessung gemindert
+    /// ist – **nicht**, um noch einmal in die Zahllast einzugehen.
+    var korrektur17: Decimal
+
+    /// USt-Vorauszahlung (KZ 83) = USt 19 % + USt 7 % + §13b-USt − Vorsteuer Inland − §13b-Vorsteuer.
+    /// §13b ist cash-neutral (KZ 85 = KZ 67 heben sich auf). Der §17-Ausfall steckt bereits in
+    /// `ust81`/`ust86` – genau wie ELSTER es aus den übertragenen Kennzahlen errechnen würde.
+    var zahllast: Decimal { ust81 + ust86 + kz85 - kz66 - kz67 }
 }

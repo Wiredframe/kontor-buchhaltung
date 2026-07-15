@@ -142,15 +142,76 @@ struct JahresAggregatTests {
 // MARK: - §17 Forderungsausfall
 
 struct AusfallTests {
+    private static let rechnung = EinnahmePosten(rnNetto: dez("5000"), ust: dez("950"),
+                                                 rechnungsdatum: tag(2025, 11, 10), zahlungsdatum: nil,
+                                                 status: .ausgefallen, ausfalldatum: tag(2026, 2, 15))
+
     @Test func korrekturImQuartalDesAusfalls() {
-        let r = EinnahmePosten(rnNetto: dez("5000"), ust: dez("950"),
-                               rechnungsdatum: tag(2025, 11, 10), zahlungsdatum: nil,
-                               status: .ausgefallen, ausfalldatum: tag(2026, 2, 15))
+        let r = Self.rechnung
         // USt war im Quartal der Rechnung (Q4 2025) geschuldet …
         #expect(Steuer.ustSoll([r], in: Periode.quartal(2025, 4)) == dez("950"))
         // … und wird im Quartal des Ausfalls (Q1 2026) per §17 korrigiert.
         #expect(Steuer.ustKorrekturAusfall([r], in: Periode.quartal(2026, 1)) == dez("-950"))
         #expect(Steuer.ustKorrekturAusfall([r], in: Periode.quartal(2025, 4)) == 0)
+    }
+
+    /// Regression: Der Ausfall muss die **Bemessungsgrundlage** KZ 81 mindern, nicht nur in
+    /// KZ 83 auftauchen. ELSTER hat kein §17-Feld und errechnet KZ 83 selbst aus KZ 81/86/66/84/67 –
+    /// wer nur die angezeigten Kennzahlen überträgt, meldete die Erstattung sonst nie an.
+    @Test func ausfallMindertBemessungsgrundlageKZ81() {
+        let e = Steuer.ustva(einnahmen: [Self.rechnung], ausgaben: [], periode: Periode.quartal(2026, 1))
+        #expect(e.kz81 == dez("-5000"))     // negative Bemessung im Ausfallzeitraum (vorher 0)
+        #expect(e.ust81 == dez("-950"))
+        #expect(e.zahllast == dez("-950"))  // = was ELSTER aus KZ 81 errechnet
+        #expect(e.korrektur17 == dez("-950"))   // bleibt als Erläuterung erhalten …
+    }
+
+    /// Die Zahllast muss exakt das sein, was ELSTER aus den übertragenen Kennzahlen errechnet.
+    /// Vorher wurde §17 zusätzlich addiert – hier hätte das die Erstattung verdoppelt.
+    @Test func zahllastEntsprichtDerElsterFormelAusDenKennzahlen() {
+        let e = Steuer.ustva(einnahmen: [Self.rechnung], ausgaben: [], periode: Periode.quartal(2026, 1))
+        let wieElster = e.ust81 + e.ust86 + e.kz85 - e.kz66 - e.kz67
+        #expect(e.zahllast == wieElster)
+        #expect(e.zahllast == dez("-950"))   // nicht -1900 (doppelt)
+    }
+
+    /// Im Rechnungsquartal bleibt die volle Bemessung stehen – korrigiert wird erst im Ausfallquartal.
+    @Test func rechnungsquartalBleibtUnveraendert() {
+        let e = Steuer.ustva(einnahmen: [Self.rechnung], ausgaben: [], periode: Periode.quartal(2025, 4))
+        #expect(e.kz81 == dez("5000"))
+        #expect(e.zahllast == dez("950"))
+    }
+
+    /// Eine ausgefallene 7-%-Rechnung mindert KZ 86, nicht KZ 81.
+    @Test func ausfallEinerErmaessigtenRechnungMindertKZ86() {
+        let r = EinnahmePosten(rnNetto: dez("1000"), ust: dez("70"), satz: .satz7,
+                               rechnungsdatum: tag(2025, 11, 10), zahlungsdatum: nil,
+                               status: .ausgefallen, ausfalldatum: tag(2026, 2, 15))
+        let e = Steuer.ustva(einnahmen: [r], ausgaben: [], periode: Periode.quartal(2026, 1))
+        #expect(e.kz86 == dez("-1000"))
+        #expect(e.ust86 == dez("-70"))
+        #expect(e.kz81 == 0)
+        #expect(e.zahllast == dez("-70"))
+    }
+
+    /// Ausfall und laufender Umsatz im selben Quartal saldieren sich in der Bemessung.
+    @Test func ausfallUndUmsatzImSelbenQuartalSaldieren() {
+        let laufend = EinnahmePosten(rnNetto: dez("8000"), ust: dez("1520"),
+                                     rechnungsdatum: tag(2026, 1, 20), zahlungsdatum: nil,
+                                     status: .offen, ausfalldatum: nil)
+        let e = Steuer.ustva(einnahmen: [laufend, Self.rechnung], ausgaben: [], periode: Periode.quartal(2026, 1))
+        #expect(e.kz81 == dez("3000"))       // 8000 − 5000
+        #expect(e.ust81 == dez("570"))
+        #expect(e.zahllast == dez("570"))
+    }
+
+    /// Über den ganzen Lauf hebt sich der Ausfall exakt auf: geschuldet im Rechnungsquartal,
+    /// zurück im Ausfallquartal. Vorher stand der aus Netto rekonstruierten Schuld die je Beleg
+    /// gespeicherte USt gegenüber – bei abweichender USt blieb ein Rest stehen.
+    @Test func ausfallHebtDieUrspruenglicheSchuldExaktAuf() {
+        let q4 = Steuer.ustva(einnahmen: [Self.rechnung], ausgaben: [], periode: Periode.quartal(2025, 4))
+        let q1 = Steuer.ustva(einnahmen: [Self.rechnung], ausgaben: [], periode: Periode.quartal(2026, 1))
+        #expect(q4.zahllast + q1.zahllast == 0)
     }
 }
 

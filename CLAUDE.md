@@ -177,9 +177,15 @@ Prüfgrößen (synthetisch, exemplarisch):
   **KZ 81 = Netto-Bemessungsgrundlage 19 %** (nicht die Steuer!), `ust81` = die daraus errechnete USt 19 %,
   **KZ 86 = Netto-Bemessung 7 %** (ermäßigt), `ust86` = USt 7 % (beide im Formular automatisch), **KZ 66**
   Vorsteuer Inland, **KZ 84/85** §13b Netto/USt (immer 19 %), **KZ 67** = KZ 85 als abziehbare Vorsteuer
-  (§13b cash-neutral). `zahllast` (KZ 83) = `ust81 + ust86 + kz85 − kz66 − kz67 + §17`. View gruppiert wie
+  (§13b cash-neutral). `zahllast` (KZ 83) = `ust81 + ust86 + kz85 − kz66 − kz67` – **exakt die Formel, die
+  ELSTER auf die übertragenen Kennzahlen anwendet**. View gruppiert wie
   das Formular (Umsätze → Vorsteuer → Zahllast) mit KZ-Badge, Klartext-Label, Erklärung je Zeile +
   „Hinweise zum Ausfüllen" (Soll/Reverse-Charge/Steuersätze).
+  **§17-Forderungsausfall mindert KZ 81/86** (satz-getrennt über `Steuer.ausfallNetto`), er ist **keine
+  eigene Zeile im Formular** – ELSTER kennt kein §17-Feld, sondern nur Bemessungsgrundlagen. `korrektur17`
+  bleibt als **Erläuterung** im Ergebnis (die View weist es als „davon" aus) und geht **nicht** zusätzlich in
+  `zahllast` ein, sonst zählte der Ausfall doppelt. Nebeneffekt: Die Minderung läuft durch denselben Pfad wie
+  die Schuld (Netto summieren → einmal × Satz runden) und hebt sie deshalb exakt auf.
   `Steuer.umsatzNetto(_:satz:in:)` liefert je Satz die Netto-Bemessung (Σ rnNetto mit USt≠0, Soll); die
   USt je Satz wird **ELSTER-konform** als `Netto-Summe × Satz` einmal gerundet (nicht je Beleg vorgerundet).
   **Ausgangsseitig 19 % und 7 % (inkl. Mischrechnungen)** – `Income.satz`/`satz2` (`UStSatz`, optional →

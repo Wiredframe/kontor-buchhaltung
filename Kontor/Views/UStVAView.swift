@@ -102,8 +102,10 @@ struct UStVAView: View {
                                        wert: e.kz85)
                             if e.korrektur17 != 0 {
                                 Divider()
-                                UStVAZeile(kz: nil, label: "§17-Korrektur (Forderungsausfall)",
-                                           erklaerung: "USt aus ausgefallenen Rechnungen dieses Zeitraums – mindert die Zahllast.",
+                                UStVAZeile(kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
+                                           erklaerung: "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
+                                                     + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
+                                                     + "Erstattung daraus selbst aus.",
                                            wert: e.korrektur17)
                             }
                         }
