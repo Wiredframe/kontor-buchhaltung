@@ -52,6 +52,23 @@ enum Steuer {
             .reduce(Decimal(0)) { $0 + $1.vst }
     }
 
+    /// Σ Netto-Umsatz (**Soll**) = alle Rechnungen mit Rechnungsdatum in der Periode.
+    /// Der Status bleibt unbeachtet: ein Ausfall zählt hier weiter mit, denn er ist die
+    /// Basis, gegen die die §17-/ESt-Korrektur im Ausfallmonat rechnet.
+    static func rnSoll(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
+        einnahmen
+            .filter { periode.enthaelt($0.rechnungsdatum) }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto }
+    }
+
+    /// Σ Netto der **betrieblichen** Ausgaben in der Periode – gemeinsame Basis von
+    /// EÜR-Gewinn und ESt-Rücklage. Privates bleibt draußen.
+    static func betrieblichNetto(_ ausgaben: [AusgabePosten], in periode: Periode) -> Decimal {
+        ausgaben
+            .filter { $0.betrieblich && periode.enthaelt($0.datum) }
+            .reduce(Decimal(0)) { $0 + $1.netto }
+    }
+
     /// §17-Korrektur (negativ): USt uneinbringlicher Forderungen, deren
     /// **Ausfalldatum** in der Periode liegt.
     static func ustKorrekturAusfall(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
@@ -132,10 +149,7 @@ enum Steuer {
         let einnahmenSumme = einnahmen
             .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
-        let ausgabenSumme = ausgaben
-            .filter { $0.betrieblich && p.enthaelt($0.datum) }
-            .reduce(Decimal(0)) { $0 + $1.netto }
-        return einnahmenSumme - ausgabenSumme
+        return einnahmenSumme - betrieblichNetto(ausgaben, in: p)
     }
 
     // MARK: - Einkommensteuer-Rücklage
@@ -144,6 +158,22 @@ enum Steuer {
     /// Gewinn (RN − Betriebsausgaben); KSK ist als Vorsorgeaufwand (Sonderausgabe) abziehbar.
     static func estPauschal(basis: Decimal, ksk: Decimal, satz: Decimal) -> Decimal {
         (max(0, basis - ksk) * satz).gerundet()
+    }
+
+    /// Die in (`jahr`, `monat`) **gebildete** ESt-Rücklage samt zugehöriger Soll-Basis `rn`.
+    ///
+    /// **Einzige Quelle** für beide Richtungen: die Bildung (`monatsauswertung`) und die
+    /// Auflösung bei Forderungsausfall (`estAusfallKorrektur`) lesen hier – vorher war die
+    /// Formel an zwei Stellen unabhängig codiert und driftete auseinander.
+    static func estGebildet(jahr: Int, monat: Int,
+                            einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten],
+                            kskFuer: (Int, Int) -> Decimal,
+                            satzFuer: (Int, Int) -> Decimal) -> (est: Decimal, rn: Decimal) {
+        let p = Periode.monat(jahr, monat)
+        let rn = rnSoll(einnahmen, in: p)
+        let est = estPauschal(basis: rn - betrieblichNetto(ausgaben, in: p),
+                              ksk: kskFuer(jahr, monat), satz: satzFuer(jahr, monat))
+        return (est, rn)
     }
 
     // MARK: - Monatsrücklage / Verfügbar

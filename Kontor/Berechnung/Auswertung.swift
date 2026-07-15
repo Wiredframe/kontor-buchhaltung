@@ -34,17 +34,17 @@ extension Steuer {
         pauschalSatz: (Int, Int) -> Decimal
     ) -> MonatsAuswertung {
         let p = Periode.monat(jahr, monat)
-        let rn = einnahmen.filter { p.enthaelt($0.rechnungsdatum) }.reduce(Decimal(0)) { $0 + $1.rnNetto }
         let ust = ustSoll(einnahmen, in: p)
         let vst = vorsteuer(ausgaben, in: p)
         let ustKorrektur = ustKorrekturAusfall(einnahmen, in: p)
-        let ausgabenNetto = ausgaben
-            .filter { $0.betrieblich && p.enthaelt($0.datum) }
-            .reduce(Decimal(0)) { $0 + $1.netto }
 
         // ESt-Rücklage pauschal: (betrieblicher Gewinn − KSK) × Satz; ein Forderungsausfall
         // löst sie im Ausfallmonat wieder auf (per Rechnung über den Umsatzanteil).
-        let est = estPauschal(basis: rn - ausgabenNetto, ksk: kskMonat, satz: pauschalSatz(jahr, monat))
+        // `estGebildet` ist die gemeinsame Quelle von Bildung und Auflösung.
+        let gebildet = estGebildet(jahr: jahr, monat: monat, einnahmen: einnahmen, ausgaben: ausgaben,
+                                   kskFuer: { _, _ in kskMonat }, satzFuer: pauschalSatz)
+        let rn = gebildet.rn
+        let est = gebildet.est
         let estKorrektur = estAusfallKorrektur(einnahmen, in: p, satzFuer: pauschalSatz)
 
         let ruecklage = steuerRuecklage(ust: ust, vorsteuer: vst, ustKorrektur: ustKorrektur,
