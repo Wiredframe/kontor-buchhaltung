@@ -201,11 +201,24 @@ enum Backup {
 
     // MARK: - Automatische Backups
 
+    /// Test-Seam: Backup-Ordner umbiegen – analog zu `Belege.basisUeberschreibung`.
+    ///
+    /// Ohne ihn schreiben Tests, die `KISicherung` auslösen (jeder MCP-Schreibpfad), echte
+    /// JSON-Backups nach `~/Library/Application Support/Backups/KI-Backups` – in den Ordner des
+    /// Nutzers, bei jedem Lauf eine Datei. Im Produktivbetrieb immer `nil`.
+    static var ordnerUeberschreibung: URL?
+
     /// Ordner für automatische Backups im App-Daten-Bereich (Application Support/Backups).
     static func backupOrdner() -> URL? {
-        guard let dir = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                                     appropriateFor: nil, create: true) else { return nil }
-        let ordner = dir.appendingPathComponent("Backups", isDirectory: true)
+        let basis: URL
+        if let u = ordnerUeberschreibung {
+            basis = u
+        } else {
+            guard let dir = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                                         appropriateFor: nil, create: true) else { return nil }
+            basis = dir
+        }
+        let ordner = basis.appendingPathComponent("Backups", isDirectory: true)
         try? FileManager.default.createDirectory(at: ordner, withIntermediateDirectories: true)
         return ordner
     }

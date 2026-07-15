@@ -8,6 +8,11 @@ import SwiftData
 @MainActor
 struct MCPServerTests {
 
+    /// Jeder MCP-Schreibzugriff löst `KISicherung` aus, die ein echtes JSON-Backup ablegt –
+    /// ohne Umleitung landen die im App-Support-Ordner des Nutzers (ein Testlauf hinterließ
+    /// dort dutzendweise Dateien). `init()` läuft vor jedem Test dieser Suite.
+    init() { TestAblage.aktiviere() }
+
     /// Geteilt: siehe Testhelfer.swift (das Schema stand hier 5x wortgleich).
     private func container() throws -> ModelContainer { try testContainer() }
 
