@@ -59,9 +59,19 @@ final class MCPServer {
     func starten() {
         guard listener == nil else { return }
         do {
+            guard let nwPort = NWEndpoint.Port(rawValue: port) else {
+                aktiv = false
+                letzterFehler = "Ungültiger Port \(port)."
+                return
+            }
             let params = NWParameters.tcp
-            params.allowLocalEndpointReuse = true            // Loopback wird je Verbindung erzwungen
-            let l = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
+            params.allowLocalEndpointReuse = true
+            // **Auf 127.0.0.1 binden**, nicht auf alle Interfaces. Ohne das nahm der Listener
+            // Verbindungen aus dem ganzen LAN an (und warf sie erst nach dem Handshake wieder
+            // weg): Port 8787 war scannbar, und macOS fragte nach der Firewall-Freigabe.
+            // Die Prüfung je Verbindung (`istLoopback`) bleibt als zweite Schicht.
+            params.requiredLocalEndpoint = NWEndpoint.hostPort(host: .ipv4(.loopback), port: nwPort)
+            let l = try NWListener(using: params, on: nwPort)
             l.newConnectionHandler = { [weak self] conn in self?.behandle(conn) }
             l.stateUpdateHandler = { [weak self] zustand in
                 Task { @MainActor in self?.zustandGeaendert(zustand) }
@@ -113,7 +123,9 @@ final class MCPServer {
     }
 
     /// Konstantzeitiger Vergleich (Defense-in-Depth gegen Timing-Seitenkanäle beim Token-Check).
-    private static func sicherGleich(_ a: String, _ b: String) -> Bool {
+    /// Intern (nicht `private`) für die Tests – der Token-Vergleich ist sicherheitsrelevant
+    /// und war bisher ungetestet.
+    static func sicherGleich(_ a: String, _ b: String) -> Bool {
         let x = Array(a.utf8), y = Array(b.utf8)
         guard x.count == y.count else { return false }
         var diff: UInt8 = 0
@@ -175,32 +187,48 @@ final class MCPServer {
 
     // MARK: - Minimaler HTTP-Parser
 
-    private struct Anfrage {
+    /// Intern (nicht `private`), damit die Tests den Parser direkt fahren können – er ist die
+    /// erste Stelle, die unauthentifizierte Bytes anfasst.
+    struct Anfrage {
         let methode, pfad: String
         let authorization: String?
         let body: Data
         let vollstaendig: Bool
     }
 
-    private static func httpParsen(_ data: Data) -> Anfrage? {
+    static func httpParsen(_ data: Data) -> Anfrage? {
         guard let trenn = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
         guard let kopf = String(data: data.subdata(in: data.startIndex..<trenn.lowerBound), encoding: .utf8) else { return nil }
         let zeilen = kopf.components(separatedBy: "\r\n")
         let start = zeilen.first?.components(separatedBy: " ") ?? []
         let methode = start.first ?? ""
         let pfad = start.count > 1 ? start[1] : "/"
-        var auth: String?; var laenge = 0
+        var auth: String?
+        // `nil` = kein (gültiges) Content-Length gesehen. Wichtig, dass das von „0" unterscheidbar
+        // bleibt: Vorher war beides `0`, und `body.count >= 0` ist **immer** wahr – eine Anfrage
+        // ohne Content-Length galt damit als vollständig und wurde mit abgeschnittenem Body
+        // dispatcht, sobald die Header da waren.
+        var laenge: Int?
         for z in zeilen.dropFirst() {
             guard let doppel = z.firstIndex(of: ":") else { continue }
             let schluessel = z[..<doppel].trimmingCharacters(in: .whitespaces).lowercased()
             let wert = z[z.index(after: doppel)...].trimmingCharacters(in: .whitespaces)
             switch schluessel {
             case "authorization":  auth = wert
-            case "content-length": laenge = Int(wert) ?? 0
+            case "content-length":
+                // Nur nicht-negative Zahlen; alles andere bleibt „fehlt".
+                if let n = Int(wert), n >= 0 { laenge = n }
             default: break
             }
         }
         let body = data.subdata(in: trenn.upperBound..<data.endIndex)
-        return Anfrage(methode: methode, pfad: pfad, authorization: auth, body: body, vollstaendig: body.count >= laenge)
+        // Ohne angekündigte Länge ist die Anfrage **nie** vollständig: Wir dispatchen keinen
+        // Body, dessen Ende wir nicht kennen. Der 30-Sekunden-Timeout räumt die Verbindung
+        // dann weg. (Chunked Transfer-Encoding unterstützt dieser Server bewusst nicht.)
+        guard let laenge else {
+            return Anfrage(methode: methode, pfad: pfad, authorization: auth, body: body, vollstaendig: false)
+        }
+        return Anfrage(methode: methode, pfad: pfad, authorization: auth, body: body,
+                       vollstaendig: body.count >= laenge)
     }
 }
