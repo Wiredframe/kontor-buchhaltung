@@ -8,15 +8,8 @@ import SwiftData
 @MainActor
 struct MCPServerTests {
 
-    private func container() throws -> ModelContainer {
-        let c = try ModelContainer(
-            for: YearSettings.self, ExpenseEntry.self, Vorlage.self,
-                Income.self, MonthlyTask.self,
-                GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
-                ZuordnungsRegel.self, ImportBuchung.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        return c
-    }
+    /// Geteilt: siehe Testhelfer.swift (das Schema stand hier 5x wortgleich).
+    private func container() throws -> ModelContainer { try testContainer() }
 
     /// Minimaldaten: 1 bezahlte Einnahme (Feb 2026), 1 betriebliche Ausgabe (Feb 2026), YearSettings 2026.
     private func seed(_ c: ModelContainer) throws {
@@ -355,40 +348,43 @@ struct MCPServerTests {
         return String(zeile.split(separator: ";").last!)
     }
 
+    /// Schreibt eine echte Datei – deshalb im Temp-Verzeichnis statt im App-Support-Ordner
+    /// des Nutzers (vorher blieb bei einem Abbruch dort Müll liegen).
     @Test func belegAnhaengenUndEntfernen() async throws {
-        let c = try container(); try seed(c)
-        let id = await idAusListe(c, typ: "ausgaben", enthaelt: "Hosting")
+        try await mitTemporaerenBelegen { _ in
+            let c = try container(); try seed(c)
+            let id = await idAusListe(c, typ: "ausgaben", enthaelt: "Hosting")
 
-        // PDF (Base64) anhängen.
-        let pdf = Data("%PDF-1.4\nKontor-Testbeleg\n%%EOF".utf8)
-        let antwort = await ruf(c, "tools/call", ["name": "kontor_beleg", "arguments": [
-            "typ": "ausgaben", "id": id, "dateiname": "RE-Test.pdf",
-            "inhalt_base64": pdf.base64EncodedString(),
-        ]])
-        #expect((antwort["result"] as! [String: Any])["isError"] as? Bool == false)
+            // PDF (Base64) anhängen.
+            let pdf = Data("%PDF-1.4\nKontor-Testbeleg\n%%EOF".utf8)
+            let antwort = await ruf(c, "tools/call", ["name": "kontor_beleg", "arguments": [
+                "typ": "ausgaben", "id": id, "dateiname": "RE-Test.pdf",
+                "inhalt_base64": pdf.base64EncodedString(),
+            ]])
+            #expect((antwort["result"] as! [String: Any])["isError"] as? Bool == false)
 
-        let eintrag = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung == "Hosting" }!
-        let pfad = try #require(eintrag.belegPfad)
-        #expect(pfad.hasPrefix("2026/"))
-        #expect(pfad.hasSuffix(".pdf"))
+            let eintrag = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung == "Hosting" }!
+            let pfad = try #require(eintrag.belegPfad)
+            #expect(pfad.hasPrefix("2026/"))
+            #expect(pfad.hasSuffix(".pdf"))
 
-        // Datei liegt physisch im Belege-Ordner und hat den richtigen Inhalt – danach aufräumen.
-        let url = Belege.url(fuer: pfad)
-        defer { try? FileManager.default.removeItem(at: url) }
-        #expect(FileManager.default.fileExists(atPath: url.path))
-        #expect((try? Data(contentsOf: url)) == pdf)
+            // Datei liegt physisch im Belege-Ordner und hat den richtigen Inhalt.
+            let url = Belege.url(fuer: pfad)
+            #expect(FileManager.default.fileExists(atPath: url.path))
+            #expect((try? Data(contentsOf: url)) == pdf)
 
-        // beleg-Spalte der Ausgabenliste zeigt den Pfad.
-        let liste = toolText(await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "jahr": 2026]]))
-        #expect(liste.split(separator: "\n").first == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg")
-        #expect(liste.contains(pfad))
+            // beleg-Spalte der Ausgabenliste zeigt den Pfad.
+            let liste = toolText(await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "jahr": 2026]]))
+            #expect(liste.split(separator: "\n").first == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg")
+            #expect(liste.contains(pfad))
 
-        // entfernen=true löst den Verweis (Datei darf bleiben).
-        let entf = await ruf(c, "tools/call", ["name": "kontor_beleg", "arguments": [
-            "typ": "ausgaben", "id": id, "entfernen": true,
-        ]])
-        #expect((entf["result"] as! [String: Any])["isError"] as? Bool == false)
-        #expect(eintrag.belegPfad == nil)
+            // entfernen=true löst den Verweis (Datei darf bleiben).
+            let entf = await ruf(c, "tools/call", ["name": "kontor_beleg", "arguments": [
+                "typ": "ausgaben", "id": id, "entfernen": true,
+            ]])
+            #expect((entf["result"] as! [String: Any])["isError"] as? Bool == false)
+            #expect(eintrag.belegPfad == nil)
+        }
     }
 
     @Test func belegOhneInhaltUndFalscherTypMeldenFehler() async throws {

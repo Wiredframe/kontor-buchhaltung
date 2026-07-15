@@ -3,11 +3,23 @@ import Foundation
 /// Ablage und Export von Belegen (PDF/Bild) im App-Container: Belege/<Jahr>/<Datei>.
 /// `ExpenseEntry.belegPfad` speichert den relativen Pfad (z. B. "2026/rechnung.pdf").
 enum Belege {
+    /// Test-Seam: Wurzel der Beleg-Ablage umbiegen.
+    ///
+    /// Ohne ihn schreiben die Tests **echte Dateien** in den App-Support-Ordner des Nutzers –
+    /// bei jedem Lauf, und bei einem Abbruch bleiben sie liegen. `basis` legt sein Verzeichnis
+    /// bei jedem Zugriff an, ein bloßes Lesen genügt also schon.
+    /// Im Produktivbetrieb immer `nil`.
+    static var basisUeberschreibung: URL?
+
     static var basis: URL {
-        let appSup = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = appSup.appendingPathComponent("Belege", isDirectory: true)
+        let dir = basisUeberschreibung ?? Self.standardBasis
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    private static var standardBasis: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Belege", isDirectory: true)
     }
 
     static func url(fuer relativ: String) -> URL {

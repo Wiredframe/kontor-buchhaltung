@@ -27,14 +27,8 @@ struct BackupTests {
         ctx.insert(TaxPayment(kind: .ustVz, jahr: 2026, faellig: tag(2026, 4, 10), betrag: dez("100")))
     }
 
-    private func container() throws -> ModelContainer {
-        try ModelContainer(
-            for: YearSettings.self, ExpenseEntry.self, Vorlage.self,
-                Income.self, MonthlyTask.self,
-                GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
-                ZuordnungsRegel.self, ImportBuchung.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    }
+    /// Geteilt: siehe Testhelfer.swift (das Schema stand hier 5x wortgleich).
+    private func container() throws -> ModelContainer { try testContainer() }
 
     @Test func exportEnthaeltAlleDatenUndIstDekodierbar() throws {
         let ctx = ModelContext(try container())

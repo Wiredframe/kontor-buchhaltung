@@ -18,7 +18,12 @@ stillen Annahmen bei Steuer-/Berechnungslogik:
 - Geld immer als **`Decimal`**, nie `Double`.
 - Leichtes MVVM: Views + `@Model` + **kleine, rein testbare Berechnungs-Structs**
   (keine Rechenlogik in Views).
-- Tests mit **Swift Testing** (`import Testing`, `@Test`, `#expect`).
+- Tests mit **Swift Testing** (`import Testing`, `@Test`, `#expect`), deutsche Namen ohne `test`-Präfix.
+  Geteilte Infrastruktur liegt in **`KontorTests/Testhelfer.swift`**: `testContainer()`/`testKontext()`
+  (in-memory, volles Schema – **muss** mit `KontorApp.macheContainer()` mitwachsen) und
+  `mitTemporaerenBelegen { }`. Letzteres ist Pflicht, sobald ein Test `Belege.basis` auch nur **liest**:
+  Die Property legt ihr Verzeichnis bei jedem Zugriff an und schriebe sonst in
+  `~/Library/Application Support/Belege` des Nutzers (`Belege.basisUeberschreibung` ist der Seam).
 - Swift-Sprachmodus aktuell **5.0** (bewusst, um Concurrency-Reibung zu vermeiden;
   später auf 6 hebbar).
 - **String-Delimiter IMMER ASCII `"` (U+0022) — NIE typografische `“` `”` (U+201C/U+201D).**

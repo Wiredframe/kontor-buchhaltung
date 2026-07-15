@@ -7,6 +7,18 @@ import Observation
 /// (z. B. Claude Code) die Kontor-Daten lesen und – sparsam – schreiben kann.
 /// Nur Loopback, Token-geschützt. Antworten sind bewusst tokensparend: fertige
 /// Engine-Zahlen bzw. dichte CSV statt Rohzeilen-Dumps (siehe `KontorMCP`).
+///
+/// **Threading:** Der veränderliche Zustand (`listener`, `aktiv`, `letzterFehler` – und der
+/// `@Observable`-Storage dahinter) liegt auf dem **MainActor**. Vorher mutierten ihn
+/// `starten()`/`stoppen()` im Thread des Aufrufers, während `zustandGeaendert` ihn auf dem
+/// MainActor schrieb (inkl. `listener = nil`) – zwei Threads auf denselben Feldern, vom
+/// Compiler ungeprüft, weil der Sprachmodus 5 ist.
+///
+/// Der **Verbindungspfad** (`behandle`/`empfange`/`antworten`/`sende`) ist bewusst
+/// `nonisolated`: Er läuft wie bisher auf Netzwerk-Queues und fasst ausschließlich
+/// unveränderliche Felder an (`token`, `container`, `sitzungsId`, die beiden Limits) – so
+/// blockiert kein einziger Request den UI-Thread.
+@MainActor
 @Observable
 final class MCPServer {
     @ObservationIgnored private let container: ModelContainer
@@ -111,7 +123,7 @@ final class MCPServer {
 
     // MARK: - Verbindung
 
-    private func behandle(_ conn: NWConnection) {
+    nonisolated private func behandle(_ conn: NWConnection) {
         guard Self.istLoopback(conn.endpoint) else { conn.cancel(); return }
         conn.start(queue: .global(qos: .userInitiated))
         // Hängende/teilweise Anfragen nach einer Frist schließen (cancel auf bereits
@@ -125,7 +137,7 @@ final class MCPServer {
     /// Konstantzeitiger Vergleich (Defense-in-Depth gegen Timing-Seitenkanäle beim Token-Check).
     /// Intern (nicht `private`) für die Tests – der Token-Vergleich ist sicherheitsrelevant
     /// und war bisher ungetestet.
-    static func sicherGleich(_ a: String, _ b: String) -> Bool {
+    nonisolated static func sicherGleich(_ a: String, _ b: String) -> Bool {
         let x = Array(a.utf8), y = Array(b.utf8)
         guard x.count == y.count else { return false }
         var diff: UInt8 = 0
@@ -133,7 +145,7 @@ final class MCPServer {
         return diff == 0
     }
 
-    private static func istLoopback(_ endpoint: NWEndpoint) -> Bool {
+    nonisolated private static func istLoopback(_ endpoint: NWEndpoint) -> Bool {
         guard case let .hostPort(host, _) = endpoint else { return false }
         switch host {
         case .ipv4(let a): return a.isLoopback
@@ -143,7 +155,7 @@ final class MCPServer {
         }
     }
 
-    private func empfange(_ conn: NWConnection, puffer: Data) {
+    nonisolated private func empfange(_ conn: NWConnection, puffer: Data) {
         conn.receive(minimumIncompleteLength: 1, maximumLength: 1 << 17) { [weak self] daten, _, abgeschlossen, fehler in
             guard let self else { conn.cancel(); return }
             var p = puffer
@@ -162,7 +174,7 @@ final class MCPServer {
         }
     }
 
-    private func antworten(_ conn: NWConnection, _ anfrage: Anfrage) async {
+    nonisolated private func antworten(_ conn: NWConnection, _ anfrage: Anfrage) async {
         guard let auth = anfrage.authorization, Self.sicherGleich(auth, "Bearer \(token)") else {
             sende(conn, status: "401 Unauthorized", body: Data("unauthorized".utf8), typ: "text/plain"); return
         }
@@ -177,7 +189,7 @@ final class MCPServer {
         }
     }
 
-    private func sende(_ conn: NWConnection, status: String, body: Data, typ: String, extra: [String: String] = [:]) {
+    nonisolated private func sende(_ conn: NWConnection, status: String, body: Data, typ: String, extra: [String: String] = [:]) {
         var kopf = "HTTP/1.1 \(status)\r\nContent-Type: \(typ)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n"
         for (k, v) in extra { kopf += "\(k): \(v)\r\n" }
         kopf += "\r\n"
@@ -196,7 +208,7 @@ final class MCPServer {
         let vollstaendig: Bool
     }
 
-    static func httpParsen(_ data: Data) -> Anfrage? {
+    nonisolated static func httpParsen(_ data: Data) -> Anfrage? {
         guard let trenn = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
         guard let kopf = String(data: data.subdata(in: data.startIndex..<trenn.lowerBound), encoding: .utf8) else { return nil }
         let zeilen = kopf.components(separatedBy: "\r\n")

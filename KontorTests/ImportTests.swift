@@ -5,14 +5,8 @@ import SwiftData
 
 @MainActor
 struct ImportTests {
-    private func container() throws -> ModelContainer {
-        try ModelContainer(
-            for: YearSettings.self, ExpenseEntry.self, Vorlage.self,
-                Income.self, MonthlyTask.self,
-                GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
-                ZuordnungsRegel.self, ImportBuchung.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    }
+    /// Geteilt: siehe Testhelfer.swift (das Schema stand hier 5x wortgleich).
+    private func container() throws -> ModelContainer { try testContainer() }
 
     /// Bankbuchung-Fabrik für die Tests.
     private func buchung(_ betrag: String, text: String = "KARTENZAHLUNG", name: String = "Test Haendler",

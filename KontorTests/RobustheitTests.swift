@@ -8,15 +8,19 @@ struct RobustheitTests {
 
     // MARK: - Beleg-Pfade dürfen nicht aus dem Belege-Ordner ausbrechen
 
+    /// Läuft im Temp-Verzeichnis: `Belege.basis` legt sein Verzeichnis bei jedem Zugriff an,
+    /// ein bloßes Lesen hätte also im echten App-Support-Ordner des Nutzers herumgeschrieben.
     @Test func belegPfadBleibtImOrdner() {
-        let basis = Belege.basis.standardizedFileURL.path
-        // Normaler relativer Pfad → innerhalb der Basis.
-        #expect(Belege.url(fuer: "2026/rechnung.pdf").path.hasPrefix(basis + "/"))
-        // Traversal / absoluter Pfad → kein Ausbruch (bleibt unter der Basis).
-        #expect(Belege.url(fuer: "../../etc/passwd").path.hasPrefix(basis + "/"))
-        #expect(Belege.url(fuer: "/etc/passwd").path.hasPrefix(basis + "/"))
-        // Ein Traversal-Pfad zeigt auf nichts Existierendes.
-        #expect(Belege.existiert("../../etc/passwd") == false)
+        mitTemporaerenBelegen { _ in
+            let basis = Belege.basis.standardizedFileURL.path
+            // Normaler relativer Pfad → innerhalb der Basis.
+            #expect(Belege.url(fuer: "2026/rechnung.pdf").path.hasPrefix(basis + "/"))
+            // Traversal / absoluter Pfad → kein Ausbruch (bleibt unter der Basis).
+            #expect(Belege.url(fuer: "../../etc/passwd").path.hasPrefix(basis + "/"))
+            #expect(Belege.url(fuer: "/etc/passwd").path.hasPrefix(basis + "/"))
+            // Ein Traversal-Pfad zeigt auf nichts Existierendes.
+            #expect(Belege.existiert("../../etc/passwd") == false)
+        }
     }
 
     // MARK: - Engine bei leeren Daten (keine Crashes, alles 0)
