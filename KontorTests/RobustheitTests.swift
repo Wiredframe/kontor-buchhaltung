@@ -30,8 +30,21 @@ struct RobustheitTests {
     @Test func euerUndRuecklageLeerLiefertNull() {
         #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: [], jahr: 2026) == 0)
         #expect(Steuer.estRuecklageJahr(jahr: 2026, einnahmen: [], ausgaben: [],
-                                        kskFuer: { _ in 0 }, pauschalSatz: { _, _ in dez("0.15") }) == 0)
+                                        kskFuer: { _, _ in 0 }, pauschalSatz: { _, _ in dez("0.15") }) == 0)
         #expect(Steuer.ustZahllastJahr(jahr: 2026, einnahmen: [], ausgaben: []) == 0)
+    }
+
+    /// Ein Ausfall ohne Nettobetrag darf nichts auflösen – und vor allem kein NaN erzeugen:
+    /// Die anteilige Auflösung teilt durch den Soll-Umsatz des Rechnungsmonats, und
+    /// `Decimal`-Division durch 0 trappt nicht, sondern liefert stillschweigend NaN.
+    @Test func ausfallOhneNettobetragLoestNichtsAufUndErzeugtKeinNaN() {
+        let einnahmen = [EinnahmePosten(rnNetto: 0, ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(a.estKorrektur == 0)
+        #expect(a.estKorrektur.isNaN == false)
+        #expect(a.steuerRuecklage.isNaN == false)
     }
 
     /// Ohne hinterlegte YearSettings liefern die Array-Helfer sichere Defaults (kein Crash).

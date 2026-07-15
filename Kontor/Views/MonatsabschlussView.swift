@@ -100,7 +100,7 @@ struct MonatsabschlussView: View {
         let a = Steuer.monatsauswertung(
             monat: m, jahr: jahr,
             einnahmen: einP, ausgaben: ausP,
-            kskMonat: settings?.ksk(monat: m) ?? 0, fixkostenPrivat: fixkostenPrivat(m),
+            kskFuer: { jahre.ksk(jahr: $0, monat: $1) }, fixkostenPrivat: fixkostenPrivat(m),
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
         let baNetto = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
         let umlage = ausgaben.filter { $0.betrieblich && $0.umlagefaehig && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }

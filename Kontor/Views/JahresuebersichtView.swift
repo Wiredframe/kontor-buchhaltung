@@ -61,7 +61,7 @@ struct JahresuebersichtView: View {
         let einP = einnahmen.flatMap(\.postenListe)
         let ausP = ausgaben.map(\.posten)
         let est = Steuer.estRuecklageJahr(
-            jahr: jahr, einnahmen: einP, ausgaben: ausP, kskFuer: { jahre.ksk(jahr: jahr, monat: $0) },
+            jahr: jahr, einnahmen: einP, ausgaben: ausP, kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
         // USt-Zahllast je VA-Zeitraum – Rhythmus aus den Jahres-Einstellungen (monatlich = 12,
         // sonst 4 Quartale). Die Jahressumme ist in beiden Fällen identisch.

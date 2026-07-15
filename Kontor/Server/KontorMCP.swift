@@ -227,7 +227,7 @@ enum KontorMCP {
         let a = Steuer.monatsauswertung(
             monat: monat, jahr: jahr,
             einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx),
-            kskMonat: settings.ksk(jahr: jahr, monat: monat),
+            kskFuer: { j, m in settings.ksk(jahr: j, monat: m) },
             fixkostenPrivat: fixPrivat,
             pauschalSatz: { j, m in settings.estSatz(jahr: j, monat: m) })
         return """

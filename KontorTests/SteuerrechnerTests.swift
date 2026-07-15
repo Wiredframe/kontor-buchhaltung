@@ -127,7 +127,7 @@ struct JahresAggregatTests {
     /// estRuecklageJahr summiert nur Monate mit Umsatz (übrige rn=0 → est=0).
     @Test func estRuecklageJahrNurMonateMitUmsatz() {
         let est = Steuer.estRuecklageJahr(
-            jahr: 2026, einnahmen: Self.einnahmen, ausgaben: [], kskFuer: { _ in dez("420.00") },
+            jahr: 2026, einnahmen: Self.einnahmen, ausgaben: [], kskFuer: { _, _ in dez("420.00") },
             pauschalSatz: { _, _ in dez("0.15") })
         #expect(est == dez("537.00"))   // nur März: (4000 − 420) × 15 %
     }
@@ -232,7 +232,8 @@ struct RuecklageTests {
         let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: dez("190"),
             rechnungsdatum: tag(2026, 5, 10), zahlungsdatum: nil,
             status: .ausgefallen, ausfalldatum: ausfall)]
-        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [], kskMonat: 0,
+        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 },
             fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
         #expect(a.ustKorrektur == dez("-190"))          // §17-USt zurück
         #expect(a.estKorrektur == dez("-150"))          // ESt-Rücklage auflösen: 1000 × 15 %
@@ -245,9 +246,167 @@ struct RuecklageTests {
             zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 9, 20))]
         // März 19 %, sonst 15 % → Auflösung im September muss mit 19 % rechnen.
         let satz: (Int, Int) -> Decimal = { _, m in m == 3 ? dez("0.19") : dez("0.15") }
-        let a = Steuer.monatsauswertung(monat: 9, jahr: 2026, einnahmen: einnahmen, ausgaben: [], kskMonat: 0,
+        let a = Steuer.monatsauswertung(monat: 9, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 },
             fixkostenPrivat: 0, pauschalSatz: satz)
         #expect(a.estKorrektur == dez("-190"))          // 1000 × 19 % (März), nicht 15 %
+    }
+}
+
+// MARK: - ESt-Auflösung bei Forderungsausfall (anteilig zur Bildung)
+//
+// Die Rücklage wird auf dem Monats-Aggregat gebildet: max(0, (rn − Ausgaben) − KSK) × Satz.
+// Die Auflösung einer einzelnen Rechnung ist deshalb eine anteilige Zerlegung dieser Summe
+// (Anteil = rnNetto der Rechnung ÷ rn des Rechnungsmonats) – nie mehr, als gebildet wurde.
+
+struct EStAusfallTests {
+
+    /// Regression: In einem Verlustmonat wurde nie eine Rücklage gebildet – also darf der
+    /// Ausfall auch nichts auflösen. Früher: −150, die Rücklage wurde grundlos negativ.
+    @Test func ausfallInVerlustmonatLoestNichtsAuf() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        let ausgaben = [AusgabePosten(brutto: dez("1071"), vst: dez("171"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2026, 5, 20))]                    // netto 900
+        // Mai: max(0, (1000 − 900) − 300) × 15 % = 0 → nichts gebildet, nichts aufzulösen.
+        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: { _, _ in dez("300") },
+            fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(a.estKorrektur == 0)
+    }
+
+    /// Fällt der gesamte Monatsumsatz aus, wird exakt die gebildete Rücklage aufgelöst.
+    @Test func vollausfallLoestGenauDieGebildeteRuecklageAuf() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        let ausgaben = [AusgabePosten(brutto: dez("476"), vst: dez("76"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2026, 5, 20))]                    // netto 400
+        let ksk: (Int, Int) -> Decimal = { _, _ in dez("200") }
+        let satz: (Int, Int) -> Decimal = { _, _ in dez("0.15") }
+        // Mai: (1000 − 400 − 200) × 15 % = 60
+        let mai = Steuer.monatsauswertung(monat: 5, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: ksk, fixkostenPrivat: 0, pauschalSatz: satz)
+        let aug = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: ksk, fixkostenPrivat: 0, pauschalSatz: satz)
+        #expect(mai.est == dez("60"))
+        #expect(aug.estKorrektur == dez("-60"))
+        #expect(mai.est + aug.estKorrektur == 0)        // gebildet und wieder aufgelöst
+    }
+
+    /// Teilausfall löst nur den Umsatzanteil der ausgefallenen Rechnung auf.
+    /// (Eine „Delta"-Methode – Monat mit vs. ohne die Rechnung – gäbe hier −30.)
+    @Test func teilausfallLoestAnteiligAuf() {
+        let einnahmen = [
+            EinnahmePosten(rnNetto: dez("600"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 6, 15)),
+            EinnahmePosten(rnNetto: dez("400"), ust: 0, rechnungsdatum: tag(2026, 5, 12),
+                zahlungsdatum: tag(2026, 6, 1), status: .bezahlt, ausfalldatum: nil),
+        ]
+        // Mai: rn 1000, (1000 − 800) × 15 % = 30 gebildet. e1 = 600/1000 = 60 % → −18.
+        let a = Steuer.monatsauswertung(monat: 6, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in dez("800") },
+            fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(a.estKorrektur == dez("-18"))
+    }
+
+    /// Regression gegen Super-Additivität: Fallen mehrere Rechnungen desselben
+    /// Rechnungsmonats in verschiedenen Monaten aus, darf die Summe der Auflösungen
+    /// die gebildete Rücklage nicht übersteigen. (Delta-Methode gäbe −30 + −30 = −60.)
+    @Test func mehrereAusfaelleEinesMonatsUebersteigenDieBildungNicht() {
+        let einnahmen = [
+            EinnahmePosten(rnNetto: dez("600"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 6, 15)),
+            EinnahmePosten(rnNetto: dez("400"), ust: 0, rechnungsdatum: tag(2026, 5, 12),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 20)),
+        ]
+        let ksk: (Int, Int) -> Decimal = { _, _ in dez("800") }
+        let satz: (Int, Int) -> Decimal = { _, _ in dez("0.15") }
+        let mai = Steuer.monatsauswertung(monat: 5, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: ksk, fixkostenPrivat: 0, pauschalSatz: satz)
+        let jun = Steuer.monatsauswertung(monat: 6, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: ksk, fixkostenPrivat: 0, pauschalSatz: satz)
+        let aug = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: ksk, fixkostenPrivat: 0, pauschalSatz: satz)
+        #expect(mai.est == dez("30"))
+        #expect(jun.estKorrektur == dez("-18"))         // 600/1000
+        #expect(aug.estKorrektur == dez("-12"))         // 400/1000
+        #expect(mai.est + jun.estKorrektur + aug.estKorrektur == 0)
+    }
+
+    /// Regression: Die Jahres-ESt-Schätzung darf durch einen Ausfall aus einem
+    /// Verlustmonat nicht negativ werden. Früher: −150.
+    @Test func estRuecklageJahrBleibtBeiVerlustmonatNichtNegativ() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        let ausgaben = [AusgabePosten(brutto: dez("1071"), vst: dez("171"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2026, 5, 20))]                    // netto 900
+        let est = Steuer.estRuecklageJahr(jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: { _, _ in dez("300") }, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(est == 0)
+    }
+
+    /// Die Auflösung rechnet mit der KSK des Rechnungsmonats, nicht der des Ausfallmonats.
+    @Test func estAusfallNimmtKSKDesRechnungsmonats() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        // KSK nur im Mai 400 → Bildung (1000 − 400) × 15 % = 90. August hat KSK 0.
+        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, m in m == 5 ? dez("400") : 0 },
+            fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(a.estKorrektur == dez("-90"))           // nicht −150 (KSK des Augusts)
+    }
+
+    /// Die Auflösung rechnet mit den Ausgaben des Rechnungsmonats, nicht denen des Ausfallmonats.
+    @Test func estAusfallNimmtAusgabenDesRechnungsmonats() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("1000"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
+        let ausgaben = [
+            AusgabePosten(brutto: dez("714"), vst: dez("114"), steuerart: .inland19,
+                betrieblich: true, datum: tag(2026, 5, 20)),                // netto 600 → Mai
+            AusgabePosten(brutto: dez("1190"), vst: dez("190"), steuerart: .inland19,
+                betrieblich: true, datum: tag(2026, 8, 3)),                 // netto 1000 → August
+        ]
+        // Mai: (1000 − 600) × 15 % = 60. Mit den August-Ausgaben käme 0 heraus.
+        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: { _, _ in 0 },
+            fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
+        #expect(a.estKorrektur == dez("-60"))
+    }
+
+    /// Liegt der Rechnungsmonat im Vorjahr, gelten KSK/Ausgaben/Satz **des Vorjahres**.
+    @Test func jahresuebergreifenderAusfallNimmtWerteDesRechnungsjahres() {
+        let einnahmen = [EinnahmePosten(rnNetto: dez("5000"), ust: 0, rechnungsdatum: tag(2025, 11, 10),
+            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 2, 12))]
+        let ausgaben = [AusgabePosten(brutto: dez("1190"), vst: dez("190"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2025, 11, 20))]                   // netto 1000
+        // Nov 2025: (5000 − 1000 − 500) × 19 % = 665
+        let a = Steuer.monatsauswertung(monat: 2, jahr: 2026, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: { j, m in j == 2025 && m == 11 ? dez("500") : 0 },
+            fixkostenPrivat: 0,
+            pauschalSatz: { j, m in j == 2025 && m == 11 ? dez("0.19") : dez("0.15") })
+        #expect(a.estKorrektur == dez("-665"))
+    }
+
+    /// Der Anteil wird je Rechnungsmonat einmal kaufmännisch gerundet – die Summe der
+    /// Auflösungen bleibt dadurch exakt die gebildete Rücklage.
+    @Test func anteiligeAufloesungRundetKaufmaennisch() {
+        let einnahmen = [
+            EinnahmePosten(rnNetto: dez("333.33"), ust: 0, rechnungsdatum: tag(2026, 5, 10),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 6, 15)),
+            EinnahmePosten(rnNetto: dez("666.67"), ust: 0, rechnungsdatum: tag(2026, 5, 12),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 20)),
+        ]
+        let satz: (Int, Int) -> Decimal = { _, _ in dez("0.15") }
+        let mai = Steuer.monatsauswertung(monat: 5, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, pauschalSatz: satz)
+        let jun = Steuer.monatsauswertung(monat: 6, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, pauschalSatz: satz)
+        let aug = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+            kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, pauschalSatz: satz)
+        #expect(mai.est == dez("150"))                  // 1000,00 × 15 %
+        #expect(jun.estKorrektur == dez("-50"))         // 150 × 333,33/1000 = 49,9995 → 50,00
+        #expect(aug.estKorrektur == dez("-100"))        // 150 × 666,67/1000 = 100,0005 → 100,00
+        #expect(mai.est + jun.estKorrektur + aug.estKorrektur == 0)
     }
 }
 

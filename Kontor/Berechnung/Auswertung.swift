@@ -27,25 +27,32 @@ struct JahresAuswertung: Hashable {
 extension Steuer {
 
     /// Monatsauswertung nach den geltenden Einstellungen (Soll-Basis für RN/USt).
+    ///
+    /// `kskFuer(jahr, monat)` statt eines festen Monatsbetrags, weil die Auflösung eines
+    /// Forderungsausfalls die KSK des **Rechnungsmonats** braucht – der in einem Vorjahr
+    /// liegen kann. Symmetrisch zu `pauschalSatz`.
     static func monatsauswertung(
         monat: Int, jahr: Int,
-        einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], kskMonat: Decimal,
+        einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten],
+        kskFuer: (Int, Int) -> Decimal,
         fixkostenPrivat: Decimal,
         pauschalSatz: (Int, Int) -> Decimal
     ) -> MonatsAuswertung {
         let p = Periode.monat(jahr, monat)
+        let kskMonat = kskFuer(jahr, monat)
         let ust = ustSoll(einnahmen, in: p)
         let vst = vorsteuer(ausgaben, in: p)
         let ustKorrektur = ustKorrekturAusfall(einnahmen, in: p)
 
         // ESt-Rücklage pauschal: (betrieblicher Gewinn − KSK) × Satz; ein Forderungsausfall
-        // löst sie im Ausfallmonat wieder auf (per Rechnung über den Umsatzanteil).
+        // löst sie im Ausfallmonat anteilig wieder auf (Anteil am Umsatz des Rechnungsmonats).
         // `estGebildet` ist die gemeinsame Quelle von Bildung und Auflösung.
         let gebildet = estGebildet(jahr: jahr, monat: monat, einnahmen: einnahmen, ausgaben: ausgaben,
-                                   kskFuer: { _, _ in kskMonat }, satzFuer: pauschalSatz)
+                                   kskFuer: kskFuer, satzFuer: pauschalSatz)
         let rn = gebildet.rn
         let est = gebildet.est
-        let estKorrektur = estAusfallKorrektur(einnahmen, in: p, satzFuer: pauschalSatz)
+        let estKorrektur = estAusfallKorrektur(einnahmen, in: p, ausgaben: ausgaben,
+                                               kskFuer: kskFuer, satzFuer: pauschalSatz)
 
         let ruecklage = steuerRuecklage(ust: ust, vorsteuer: vst, ustKorrektur: ustKorrektur,
                                         ksk: kskMonat, estAnteil: est + estKorrektur)
@@ -62,12 +69,12 @@ extension Steuer {
     /// (privaten) Fixkosten ab – daher kein fixkostenPrivat-Parameter.
     static func estRuecklageJahr(
         jahr: Int,
-        einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], kskFuer: (Int) -> Decimal,
+        einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], kskFuer: (Int, Int) -> Decimal,
         pauschalSatz: (Int, Int) -> Decimal
     ) -> Decimal {
         (1...12).reduce(Decimal(0)) { sum, m in
             let a = monatsauswertung(
-                monat: m, jahr: jahr, einnahmen: einnahmen, ausgaben: ausgaben, kskMonat: kskFuer(m),
+                monat: m, jahr: jahr, einnahmen: einnahmen, ausgaben: ausgaben, kskFuer: kskFuer,
                 fixkostenPrivat: 0, pauschalSatz: pauschalSatz)
             return sum + a.est + a.estKorrektur
         }

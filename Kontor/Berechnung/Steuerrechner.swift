@@ -78,19 +78,49 @@ enum Steuer {
         return -summe
     }
 
-    /// ESt-Rücklagen-Korrektur (negativ) für Forderungsausfälle: Die im Rechnungsmonat
-    /// (Soll-Basis) gebildete ESt-Rücklage wird im **Ausfallmonat** wieder aufgelöst,
-    /// da ohne Zufluss keine Einkommensteuer anfällt. `satzFuer(jahr, monat)` liefert den
-    /// Pauschalsatz des jeweiligen Rechnungsmonats (exakte Umkehrung der Bildung).
+    /// Jahr+Monat als hashbarer Schlüssel – zum Gruppieren der Ausfälle nach Rechnungsmonat.
+    private struct JahrMonat: Hashable { var jahr: Int; var monat: Int }
+
+    /// ESt-Rücklagen-Auflösung (negativ) für Forderungsausfälle: Die im **Rechnungsmonat**
+    /// gebildete Rücklage wird im Ausfallmonat **anteilig** wieder aufgelöst, da ohne Zufluss
+    /// keine Einkommensteuer anfällt.
+    ///
+    /// Anteil = `rnNetto` der ausgefallenen Rechnung ÷ `rn` (Soll-Umsatz) ihres Rechnungsmonats.
+    /// Die Bildung arbeitet auf dem **Monats-Aggregat** (`max(0, (rn − Ausgaben) − KSK) × Satz`);
+    /// eine einzelne Rechnung daraus zurückzurechnen ist deshalb eine Zuordnungs-Entscheidung,
+    /// keine Rechnung. Die anteilige Zerlegung addiert sich exakt zur gebildeten Rücklage:
+    /// bei Vollausfall wird genau sie aufgelöst, bei Teilausfall entsprechend weniger – und
+    /// **nie mehr, als gebildet wurde**, auch wenn mehrere Rechnungen desselben Monats ausfallen.
+    ///
+    /// Die Bildungsgrößen (Ausgaben, KSK, Satz) stammen aus dem Rechnungsmonat, der in einem
+    /// **Vorjahr** liegen kann. Gerundet wird **einmal je Rechnungsmonat** – dieselbe Konvention
+    /// wie bei KZ 81/86 (erst summieren, dann runden).
     static func estAusfallKorrektur(_ einnahmen: [EinnahmePosten], in periode: Periode,
+                                    ausgaben: [AusgabePosten],
+                                    kskFuer: (Int, Int) -> Decimal,
                                     satzFuer: (Int, Int) -> Decimal) -> Decimal {
-        let summe = einnahmen
+        let ausgefallen = einnahmen
             .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
-            .reduce(Decimal(0)) { teil, e in
-                let j = appKalender.component(.year, from: e.rechnungsdatum)
-                let m = appKalender.component(.month, from: e.rechnungsdatum)
-                return teil + (e.rnNetto * satzFuer(j, m)).gerundet()
-            }
+        guard !ausgefallen.isEmpty else { return 0 }
+
+        let nachRechnungsmonat = Dictionary(grouping: ausgefallen) {
+            JahrMonat(jahr: appKalender.component(.year, from: $0.rechnungsdatum),
+                      monat: appKalender.component(.month, from: $0.rechnungsdatum))
+        }
+
+        // Je Rechnungsmonat einmal die Bildung nachschlagen, einmal runden, exakt aufsummieren –
+        // dadurch ist das Ergebnis unabhängig von der Iterationsreihenfolge des Dictionaries.
+        let summe = nachRechnungsmonat.reduce(Decimal(0)) { teil, eintrag in
+            let (jm, posten) = eintrag
+            let gebildet = estGebildet(jahr: jm.jahr, monat: jm.monat, einnahmen: einnahmen,
+                                       ausgaben: ausgaben, kskFuer: kskFuer, satzFuer: satzFuer)
+            // Ohne positiven Soll-Umsatz gibt es keinen Anteil zu bilden. Der Guard ist Pflicht:
+            // Decimal-Division durch 0 trappt nicht, sondern liefert NaN – das liefe still als
+            // „NaN €" durch Rücklage und Jahres-ESt und wäre schlimmer als ein Absturz.
+            guard gebildet.rn > 0 else { return teil }
+            let ausgefallenNetto = posten.reduce(Decimal(0)) { $0 + $1.rnNetto }
+            return teil + (gebildet.est * ausgefallenNetto / gebildet.rn).gerundet()
+        }
         return -summe
     }
 
