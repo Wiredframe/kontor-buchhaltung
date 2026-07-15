@@ -126,6 +126,109 @@ struct MCPServerTests {
         #expect(r["isError"] as? Bool == true)
     }
 
+    // MARK: - Datums-Behandlung (Perioden hängen daran)
+
+    /// Regression: Ein unmögliches Datum wurde still weitergerollt. `DateFormatter` prüft auch
+    /// mit `isLenient == false` nur das Format, nicht die Kalender-Gültigkeit: „2026-06-31"
+    /// ergab den 01.07.2026. Unter Soll-Versteuerung verschiebt das die Rechnung von Q2 nach
+    /// Q3 – KZ 81 im einen Quartal zu niedrig, im anderen zu hoch. Zwei falsche UStVAs aus
+    /// einem Tippfehler.
+    @Test(arguments: ["2026-06-31", "2026-02-30", "2025-02-29", "2026-13-01", "2026-04-31", "quatsch"])
+    func unmoeglichesDatumWirdAbgewiesenStattGerollt(_ datum: String) async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "einnahmen",
+            "felder": ["kunde": "Muster", "rnNetto": "10000", "ust": "1900", "rechnungsdatum": datum],
+        ]])
+        let r = try #require(a["result"] as? [String: Any])
+        #expect(r["isError"] as? Bool == true)
+        #expect(try c.mainContext.fetch(FetchDescriptor<Income>()).contains { $0.kunde == "Muster" } == false)
+    }
+
+    /// Gegenprobe: gültige Daten – inklusive echtem Schalttag und unpadded Monat/Tag.
+    @Test(arguments: [("2026-06-25", 6, 25), ("2024-02-29", 2, 29), ("2026-6-5", 6, 5)])
+    func gueltigesDatumGehtDurch(_ text: String, _ monat: Int, _ tag: Int) async throws {
+        let c = try container(); try seed(c)
+        _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "einnahmen",
+            "felder": ["kunde": "Muster \(text)", "rnNetto": "100", "ust": "19", "rechnungsdatum": text],
+        ]])
+        let inc = try #require(try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde.hasPrefix("Muster") })
+        #expect(appKalender.component(.month, from: inc.rechnungsdatum) == monat)
+        #expect(appKalender.component(.day, from: inc.rechnungsdatum) == tag)
+    }
+
+    /// Regression: Ein unparsbares Datum **löschte das Feld** und das Tool meldete trotzdem
+    /// „Aktualisiert". Eine bezahlte Rechnung verlor so ihr zahlungsdatum und fiel aus der EÜR
+    /// (Zuflussprinzip) – ohne dass Client oder Nutzer etwas bemerkten.
+    @Test func unparsbaresDatumLoeschtDasFeldNichtStill() async throws {
+        let c = try container(); try seed(c)
+        c.mainContext.insert(Income(kunde: "Nordlicht", rnNetto: dez("8000"), ust: dez("1520"),
+                                    rechnungsdatum: tag(2026, 3, 1), zahlungsdatum: tag(2026, 3, 20),
+                                    status: .bezahlt, rechnungsnummer: "R-1"))
+        try c.mainContext.save()
+        let id = await idAusListe(c, typ: "einnahmen", enthaelt: "Nordlicht")
+
+        let a = await ruf(c, "tools/call", ["name": "kontor_aktualisieren", "arguments": [
+            "typ": "einnahmen", "id": id, "felder": ["zahlungsdatum": "20.03.2026"],   // nicht ISO
+        ]])
+        #expect((a["result"] as! [String: Any])["isError"] as? Bool == true)   // Fehler statt "Aktualisiert"
+
+        let inc = try #require(try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde == "Nordlicht" })
+        #expect(inc.zahlungsdatum == tag(2026, 3, 20))    // unangetastet
+        #expect(Steuer.euerGewinn(einnahmen: inc.postenListe, ausgaben: [], jahr: 2026) == dez("8000"))
+    }
+
+    /// Explizites `null` darf das Feld weiterhin leeren – das ist der gewollte Weg.
+    @Test func explizitesNullLeertDasDatumsfeld() async throws {
+        let c = try container(); try seed(c)
+        c.mainContext.insert(Income(kunde: "Nordlicht", rnNetto: dez("8000"), ust: dez("1520"),
+                                    rechnungsdatum: tag(2026, 3, 1), zahlungsdatum: tag(2026, 3, 20),
+                                    status: .bezahlt, rechnungsnummer: "R-2"))
+        try c.mainContext.save()
+        let id = await idAusListe(c, typ: "einnahmen", enthaelt: "Nordlicht")
+        let a = await ruf(c, "tools/call", ["name": "kontor_aktualisieren", "arguments": [
+            "typ": "einnahmen", "id": id, "felder": ["zahlungsdatum": NSNull()],
+        ]])
+        #expect((a["result"] as! [String: Any])["isError"] as? Bool == false)
+        let inc = try #require(try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde == "Nordlicht" })
+        #expect(inc.zahlungsdatum == nil)
+    }
+
+    /// Regression: `status: "ausgefallen"` ohne Ausfalldatum. Die gesamte §17-Logik filtert auf
+    /// `ausfalldatum != nil` – die Rechnung stand für immer als ausgefallen da, ohne dass USt
+    /// oder ESt-Rücklage je korrigiert wurden.
+    @Test func ausgefalleneRechnungOhneDatumBekommtEines() async throws {
+        let c = try container(); try seed(c)
+        _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "einnahmen",
+            "felder": ["kunde": "Pleite GmbH", "rnNetto": "5000", "ust": "950",
+                       "rechnungsdatum": "2026-01-10", "status": "ausgefallen"],
+        ]])
+        let inc = try #require(try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde == "Pleite GmbH" })
+        #expect(inc.status == .ausgefallen)
+        let ausfall = try #require(inc.ausfalldatum)      // vorher: nil → §17 greift nie
+        // …und die §17-Korrektur greift damit auch wirklich.
+        let p = Periode.monat(appKalender.component(.year, from: ausfall),
+                              appKalender.component(.month, from: ausfall))
+        #expect(Steuer.ustKorrekturAusfall(inc.postenListe, in: p) == dez("-950"))
+    }
+
+    /// Regression: `kontor_anlegen` war der einzige Erzeuger-Pfad ohne explizites `art:` –
+    /// `art == nil` griff `ArtNachtrag` beim nächsten Start auf und riet die Art aus dem Namen.
+    /// Eine einmalige Ausgabe namens „Adobe" wurde so zur Subscription.
+    @Test func angelegteAusgabeHatEineArtUndBleibtEinmalig() async throws {
+        let c = try container(); try seed(c)
+        _ = await ruf(c, "tools/call", ["name": "kontor_anlegen", "arguments": [
+            "typ": "ausgaben",
+            "felder": ["datum": "2026-06-10", "bezeichnung": "Adobe Lizenz einmalig", "brutto": "119"],
+        ]])
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung.contains("Adobe") })
+        #expect(e.art == .betriebsausgabe)          // explizit gesetzt, nicht nil
+        ArtNachtrag.nachtragen(c.mainContext)       // der nächste App-Start …
+        #expect(e.art == .betriebsausgabe)          // … lässt sie in Ruhe (vorher: .subscription)
+    }
+
     // MARK: - Protokoll
 
     @Test func initializeUndToolsListe() async throws {

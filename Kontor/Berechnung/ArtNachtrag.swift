@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Einmaliger Nachtrag von `ExpenseEntry.art` für Altbestand.
+/// Nachtrag von `ExpenseEntry.art` für Einträge, die noch keine haben.
 ///
 /// Das `art`-Feld (Betriebsausgabe/Fixkosten/Subscription) kam **nach** der Erst-Erfassung
 /// dazu; Buchungen aus der Obsidian-/SubTotal-Migration (und aus alten Backups, die `art`
@@ -13,6 +13,17 @@ import SwiftData
 /// - bekannte SaaS-/Streaming-Namen → **Subscription** (privat **und** betrieblich)
 /// - sonst privat → **Fixkosten**
 /// - sonst betrieblich → **Betriebsausgabe** (Normalfall)
+///
+/// **Läuft bei jedem Start – und das ist Absicht**, kein Versehen: Der Restore eines alten
+/// Backups bringt `art == nil` jederzeit neu herein (`Backup.AusgabeDTO.art` ist optional),
+/// und genau dann soll die Klassifizierung greifen. Der Kommentar sagte früher „einmalig",
+/// was den Blick auf die eigentliche Gefahr verstellte: Solange ein **laufender** Pfad
+/// `art == nil` erzeugt, schreibt der Nachtrag auch **neue** Einträge um und rät ihre Art aus
+/// dem Namen. Genau das tat `kontor_anlegen` (Ausgaben ohne `art:`) – eine per MCP gebuchte
+/// einmalige Ausgabe namens „Adobe" wurde beim nächsten Start zur `.subscription`. Deshalb
+/// gilt: **jeder Erzeuger setzt `art` explizit**, dieser Nachtrag ist nur das Netz für Altdaten.
+/// (Der Schwester-Nachtrag `PrivatBetriebsausgabeNachtrag` wurde entfernt – er reparierte einen
+/// Bug-Zustand, den der Import längst selbst verhindert, und überschrieb dabei Nutzer-Eingaben.)
 ///
 /// Idempotent: greift nur Einträge mit `art == nil`; nach dem Lauf hat jeder Eintrag eine `art`,
 /// ein erneuter Aufruf macht nichts. Der Nutzer kann jede Buchung in „Ausgaben" umtaggen.

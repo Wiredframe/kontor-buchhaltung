@@ -362,9 +362,16 @@ enum KontorMCP {
                   let ust = dezArg(f["ust"]), let rdat = datum(f["rechnungsdatum"]) else {
                 throw fehlt("einnahmen", "kunde, rnNetto, ust, rechnungsdatum") }
             let s: InvoiceStatus = enumWert(f["status"]) ?? .offen
+            // Status/Datum konsistent halten: Eine ausgefallene Rechnung **ohne** Ausfalldatum
+            // ist ein Widerspruch – die gesamte §17-Logik (ustKorrekturAusfall, ausfallNetto,
+            // estAusfallKorrektur) filtert auf `ausfalldatum != nil`. Sie stünde also für immer
+            // als ausgefallen da, ohne dass USt oder ESt-Rücklage je korrigiert würden.
+            // Fällt kein Datum, gilt der Zeitpunkt der Feststellung – wie `setze(status:)` es
+            // in der UI auch macht (der Raw-Init hier umging das).
+            let ausfall = datum(f["ausfalldatum"]) ?? (s == .ausgefallen ? Date() : nil)
             obj = Income(kunde: kunde, rnNetto: netto, ust: ust, rechnungsdatum: rdat,
                          zahlungsdatum: datum(f["zahlungsdatum"]) ?? (s == .bezahlt ? rdat : nil),
-                         status: s, ausfalldatum: datum(f["ausfalldatum"]),
+                         status: s, ausfalldatum: ausfall,
                          rechnungsnummer: f["rechnungsnummer"] as? String,
                          satz: enumWert(f["satz"]),
                          rnNetto2: dezArg(f["rnNetto2"]) ?? 0, ust2: dezArg(f["ust2"]) ?? 0,
@@ -376,7 +383,14 @@ enum KontorMCP {
             obj = ExpenseEntry(datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
                                brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
                                steuerart: st,
-                               betrieblich: f["betrieblich"] as? Bool ?? true, umlagefaehig: f["umlagefaehig"] as? Bool ?? false)
+                               betrieblich: f["betrieblich"] as? Bool ?? true,
+                               umlagefaehig: f["umlagefaehig"] as? Bool ?? false,
+                               // `art` **explizit** setzen. Das war der einzige Erzeuger-Pfad im
+                               // Projekt, der es wegließ – und `art == nil` greift `ArtNachtrag`
+                               // beim nächsten Start auf und rät die Art aus dem Namen: Eine per
+                               // MCP gebuchte einmalige Ausgabe namens „Adobe" wurde so still zur
+                               // `.subscription` und von „Vormonat duplizieren" mitgeschleppt.
+                               art: .betriebsausgabe)
         case "fixkosten", "subscriptions", "subscription":
             guard let bez = f["bezeichnung"] as? String,
                   let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]),
@@ -439,8 +453,9 @@ enum KontorMCP {
             if let v = dezArg(f["ust"]) { o.ust = v }
             if let v = datum(f["rechnungsdatum"]) { o.rechnungsdatum = v }
             if let v: InvoiceStatus = enumWert(f["status"]) { o.setze(status: v) }
-            if hat("zahlungsdatum") { o.zahlungsdatum = datum(f["zahlungsdatum"]) }
-            if hat("ausfalldatum") { o.ausfalldatum = datum(f["ausfalldatum"]) }
+            // `datumFeld` wirft bei unparsbarem Datum, statt das Feld still zu leeren.
+            if let v = try datumFeld(f, "zahlungsdatum") { o.zahlungsdatum = v }
+            if let v = try datumFeld(f, "ausfalldatum") { o.ausfalldatum = v }
             if hat("rechnungsnummer") { o.rechnungsnummer = f["rechnungsnummer"] as? String }
             if hat("satz") { o.satz = enumWert(f["satz"]) }
             if let v = dezArg(f["rnNetto2"]) { o.rnNetto2 = v }
@@ -483,7 +498,7 @@ enum KontorMCP {
             if let v = datum(f["faellig"]) { o.faellig = v }
             if let v = dezArg(f["betrag"]) { o.betrag = v }
             if let v = f["bezahlt"] as? Bool { o.bezahlt = v }
-            if hat("bezahltAm") { o.bezahltAm = datum(f["bezahltAm"]) }
+            if let v = try datumFeld(f, "bezahltAm") { o.bezahltAm = v }
             if let v = f["bemerkung"] as? String { o.bemerkung = v }
         case "aufgaben", "aufgabe":
             let o = try modell(MonthlyTask.self, id: id, ctx)
@@ -682,9 +697,45 @@ enum KontorMCP {
     /// Plausible Jahre. Großzügig genug für Altbestand und Vorausplanung, eng genug, dass
     /// `Calendar` nicht aussteigt.
     static let jahrBereich = 1990...2200
+    /// „2026-06-25" → lokale Mitternacht. **Streng**: ein unmögliches Datum wird abgewiesen,
+    /// nicht weitergerollt.
+    ///
+    /// `DateFormatter` half hier nicht: Auch mit `isLenient == false` prüft er nur das *Format*,
+    /// nicht die Kalender-Gültigkeit – „2026-06-31" ergab klaglos den 01.07.2026 und
+    /// „2025-02-29" den 01.03.2025. Unter Soll-Versteuerung verschiebt das die Rechnung in ein
+    /// anderes Quartal: KZ 81 im einen zu niedrig, im anderen zu hoch – zwei falsche UStVAs aus
+    /// einem Tippfehler. Derselbe Pfad trägt `ExpenseEntry.datum` (Vorsteuer-Periode) und
+    /// `TaxPayment.faellig`.
+    ///
+    /// Beim Format bleibt es tolerant (`2026-6-5` ist in Ordnung), bei der Gültigkeit nicht.
     private static func datum(_ v: Any?) -> Date? {
         guard let s = v as? String else { return nil }
-        return mcpTag.date(from: s)
+        let teile = s.split(separator: "-")
+        guard teile.count == 3, teile[0].count == 4,
+              let j = Int(teile[0]), let m = Int(teile[1]), let t = Int(teile[2]) else { return nil }
+        let komponenten = DateComponents(year: j, month: m, day: t)
+        guard komponenten.isValidDate(in: appKalender) else { return nil }
+        return appKalender.date(from: komponenten)
+    }
+
+    /// Optionales Datumsfeld aus `felder` lesen.
+    ///
+    /// Unterscheidet drei Fälle, die vorher alle in `nil` mündeten:
+    /// - Feld **nicht übergeben** → `.none` (nichts ändern)
+    /// - Feld ist **`null`** → `.some(nil)` (bewusst leeren)
+    /// - Feld ist ein **unparsbarer String** → Fehler
+    ///
+    /// Vorher war `o.zahlungsdatum = datum(f["zahlungsdatum"])` gegen alles blind: Ein
+    /// Datums-Tippfehler **löschte das Feld** – und das Tool meldete trotzdem „Aktualisiert".
+    /// Verlor eine bezahlte Rechnung so ihr `zahlungsdatum`, fiel sie aus der EÜR
+    /// (Zuflussprinzip) – ohne dass Client oder Nutzer etwas bemerkten.
+    private static func datumFeld(_ f: [String: Any], _ schluessel: String) throws -> Date?? {
+        guard let roh = f[schluessel] else { return .none }
+        if roh is NSNull { return .some(nil) }
+        guard let d = datum(roh) else {
+            throw MCPFehler("'\(schluessel)' ist kein gültiges Datum (erwartet YYYY-MM-DD, war: \(roh)).")
+        }
+        return .some(d)
     }
     private static func enumWert<E: RawRepresentable>(_ v: Any?) -> E? where E.RawValue == String {
         guard let s = v as? String else { return nil }
