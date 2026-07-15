@@ -289,11 +289,10 @@ enum Backup {
                 snapshotProMonat: d.snapshotProMonat ?? [:])); neu += 1
         }
 
-        var ausgabeKeys = Set(try context.fetch(FetchDescriptor<ExpenseEntry>()).map { posKey($0.datum, $0.bezeichnung, $0.brutto) })
+        var ausgabeBestand = zaehleKeys(try context.fetch(FetchDescriptor<ExpenseEntry>()).map { posKey($0.datum, $0.bezeichnung, $0.brutto) })
         for d in snap.ausgaben {
             let k = posKey(d.datum, d.bezeichnung, d.brutto)
-            if ausgabeKeys.contains(k) { skip += 1; continue }
-            ausgabeKeys.insert(k)
+            if verbrauche(k, &ausgabeBestand) { skip += 1; continue }
             context.insert(ExpenseEntry(datum: d.datum, bezeichnung: d.bezeichnung, anbieter: d.anbieter,
                 brutto: d.brutto, vst: d.vst, steuerart: d.steuerart,
                 betrieblich: d.betrieblich, umlagefaehig: d.umlagefaehig ?? false,
@@ -309,13 +308,21 @@ enum Backup {
                 steuerart: d.steuerart, betrieblich: d.betrieblich, art: d.art, umlagefaehig: d.umlagefaehig)); neu += 1
         }
 
-        let rnNummern = Set(try context.fetch(FetchDescriptor<Income>()).compactMap { $0.rechnungsnummer })
-        var einKeys = Set(try context.fetch(FetchDescriptor<Income>()).map { posKey($0.rechnungsdatum, $0.kunde, $0.rnNetto) })
+        let bestehendeEinnahmen = try context.fetch(FetchDescriptor<Income>())
+        // Die Rechnungsnummer ist der natürliche Schlüssel, wenn sie da ist – das Set muss
+        // deshalb **in** der Schleife mitwachsen, sonst rutschen zwei Backup-Einträge mit
+        // derselben Nummer beide durch (die Sperre griffe nur gegen den Bestand).
+        var rnNummern = Set(bestehendeEinnahmen.compactMap { $0.rechnungsnummer })
+        var einBestand = zaehleKeys(bestehendeEinnahmen.filter { $0.rechnungsnummer == nil }
+            .map { posKey($0.rechnungsdatum, $0.kunde, $0.rnNetto) })
         for d in snap.einnahmen {
-            if let nr = d.rechnungsnummer, rnNummern.contains(nr) { skip += 1; continue }
-            let k = posKey(d.rechnungsdatum, d.kunde, d.rnNetto)
-            if d.rechnungsnummer == nil, einKeys.contains(k) { skip += 1; continue }
-            einKeys.insert(k)
+            if let nr = d.rechnungsnummer {
+                if rnNummern.contains(nr) { skip += 1; continue }
+                rnNummern.insert(nr)
+            } else {
+                let k = posKey(d.rechnungsdatum, d.kunde, d.rnNetto)
+                if verbrauche(k, &einBestand) { skip += 1; continue }
+            }
             context.insert(Income(kunde: d.kunde, rnNetto: d.rnNetto, ust: d.ust, rechnungsdatum: d.rechnungsdatum,
                 zahlungsdatum: d.zahlungsdatum, status: d.status, ausfalldatum: d.ausfalldatum,
                 rechnungsnummer: d.rechnungsnummer, belegPfad: d.belegPfad,
@@ -332,29 +339,26 @@ enum Backup {
                 quartalsMonate: d.quartalsMonate ?? [])); neu += 1
         }
 
-        var lmKeys = Set(try context.fetch(FetchDescriptor<GroceryEntry>()).map { posKey($0.datum, $0.ort, $0.betrag) })
+        var lmBestand = zaehleKeys(try context.fetch(FetchDescriptor<GroceryEntry>()).map { posKey($0.datum, $0.ort, $0.betrag) })
         for d in snap.lebensmittel {
             let k = posKey(d.datum, d.ort, d.betrag)
-            if lmKeys.contains(k) { skip += 1; continue }
-            lmKeys.insert(k)
+            if verbrauche(k, &lmBestand) { skip += 1; continue }
             context.insert(GroceryEntry(datum: d.datum, betrag: d.betrag, ort: d.ort)); neu += 1
         }
 
-        var anKeys = Set(try context.fetch(FetchDescriptor<PurchaseEntry>()).map { posKey($0.datum, $0.bezeichnung, $0.preis) })
+        var anBestand = zaehleKeys(try context.fetch(FetchDescriptor<PurchaseEntry>()).map { posKey($0.datum, $0.bezeichnung, $0.preis) })
         for d in snap.anschaffungen {
             let k = posKey(d.datum, d.bezeichnung, d.preis)
-            if anKeys.contains(k) { skip += 1; continue }
-            anKeys.insert(k)
+            if verbrauche(k, &anBestand) { skip += 1; continue }
             context.insert(PurchaseEntry(datum: d.datum, bezeichnung: d.bezeichnung, preis: d.preis, belegPfad: d.belegPfad)); neu += 1
         }
 
         // Schlüssel inkl. Betrag: sonst kollidierten Zahlung & Erstattung gleicher Art am selben
         // Fälligkeitstag (negativer Betrag) → eine würde beim Restore verschluckt.
-        var steuerKeys = Set(try context.fetch(FetchDescriptor<TaxPayment>()).map { "\($0.kind.rawValue)|\(Int($0.faellig.timeIntervalSince1970))|\($0.betrag)" })
+        var steuerBestand = zaehleKeys(try context.fetch(FetchDescriptor<TaxPayment>()).map { "\($0.kind.rawValue)|\(Int($0.faellig.timeIntervalSince1970))|\($0.betrag)" })
         for d in snap.steuern {
             let k = "\(d.kind.rawValue)|\(Int(d.faellig.timeIntervalSince1970))|\(d.betrag)"
-            if steuerKeys.contains(k) { skip += 1; continue }
-            steuerKeys.insert(k)
+            if verbrauche(k, &steuerBestand) { skip += 1; continue }
             context.insert(TaxPayment(kind: d.kind, jahr: d.jahr, faellig: d.faellig, betrag: d.betrag,
                 bezahlt: d.bezahlt, bezahltAm: d.bezahltAm, bemerkung: d.bemerkung)); neu += 1
         }
@@ -383,6 +387,28 @@ enum Backup {
 
     private static func posKey(_ d: Date, _ s: String, _ w: Decimal) -> String {
         "\(Int(d.timeIntervalSince1970))|\(s.lowercased())|\(w)"
+    }
+
+    // MARK: - Dedup als Multimenge
+    //
+    // Der Dedup-Schlüssel (Datum, Name, Betrag) ist **nicht** eindeutig: zwei reale Vorgänge
+    // können ihn sich teilen (zweimal am selben Tag im selben Laden über denselben Betrag).
+    // Mit Mengen-Semantik verlöre der Restore den zweiten stillschweigend. Deshalb wird
+    // gezählt statt nur „gesehen": jeder Backup-Eintrag verbraucht höchstens einen
+    // vorhandenen Treffer; darüber hinaus wird eingefügt. Das hält den Re-Import idempotent
+    // (Bestand deckt alles ab → alles verbraucht → nichts neu) und ergänzt bei Teil-Bestand
+    // genau die fehlenden.
+
+    private static func zaehleKeys(_ keys: [String]) -> [String: Int] {
+        keys.reduce(into: [:]) { $0[$1, default: 0] += 1 }
+    }
+
+    /// Verbraucht einen vorhandenen Treffer für `k`. `true` = war schon da (überspringen),
+    /// `false` = im Bestand nicht (mehr) gedeckt → einfügen.
+    private static func verbrauche(_ k: String, _ bestand: inout [String: Int]) -> Bool {
+        guard let n = bestand[k], n > 0 else { return false }
+        bestand[k] = n - 1
+        return true
     }
 
     /// Ein Tages-Backup gilt als „leer", wenn es weder Jahre noch Ausgaben noch Einnahmen enthält

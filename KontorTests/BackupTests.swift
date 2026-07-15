@@ -96,6 +96,77 @@ struct BackupTests {
         #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
     }
 
+    /// Regression: Echte Doppel-Vorgänge dürfen beim Restore nicht verschluckt werden.
+    /// Der Dedup-Schlüssel ist (Datum, Name, Betrag) – zwei reale Einkäufe am selben Tag,
+    /// im selben Laden, über denselben Betrag teilen ihn sich. Mit Mengen-Semantik landete
+    /// nur einer davon im Restore, der zweite war unwiederbringlich weg.
+    @Test func roundtripBewahrtEchteDoppelvorgaenge() throws {
+        let quelle = try kontext()
+        quelle.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("12.50"), ort: "Rewe"))
+        quelle.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("12.50"), ort: "Rewe"))
+        quelle.insert(PurchaseEntry(datum: tag(2026, 1, 8), bezeichnung: "Kabel", preis: dez("9.99")))
+        quelle.insert(PurchaseEntry(datum: tag(2026, 1, 8), bezeichnung: "Kabel", preis: dez("9.99")))
+        quelle.insert(ExpenseEntry(datum: tag(2026, 1, 9), bezeichnung: "Taxi", anbieter: "Uber",
+                                   brutto: dez("23.80"), vst: dez("3.80"), steuerart: .inland19))
+        quelle.insert(ExpenseEntry(datum: tag(2026, 1, 9), bezeichnung: "Taxi", anbieter: "Uber",
+                                   brutto: dez("23.80"), vst: dez("3.80"), steuerart: .inland19))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        try Backup.importData(data, in: ziel)
+        #expect(try ziel.fetchCount(FetchDescriptor<GroceryEntry>()) == 2)
+        #expect(try ziel.fetchCount(FetchDescriptor<PurchaseEntry>()) == 2)
+        #expect(try ziel.fetchCount(FetchDescriptor<ExpenseEntry>()) == 2)
+
+        // Re-Import bleibt trotzdem idempotent – nicht plötzlich vier.
+        let r2 = try Backup.importData(data, in: ziel)
+        #expect(r2.neu == 0)
+        #expect(try ziel.fetchCount(FetchDescriptor<GroceryEntry>()) == 2)
+        #expect(try ziel.fetchCount(FetchDescriptor<PurchaseEntry>()) == 2)
+        #expect(try ziel.fetchCount(FetchDescriptor<ExpenseEntry>()) == 2)
+    }
+
+    /// Teil-Bestand: Ist einer der beiden Vorgänge schon da, ergänzt der Import genau den
+    /// fehlenden – nicht beide (Dublette) und nicht keinen (Verlust).
+    @Test func importErgaenztNurDenFehlendenDoppelvorgang() throws {
+        let quelle = try kontext()
+        quelle.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("12.50"), ort: "Rewe"))
+        quelle.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("12.50"), ort: "Rewe"))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        ziel.insert(GroceryEntry(datum: tag(2026, 1, 7), betrag: dez("12.50"), ort: "Rewe"))
+        try ziel.save()
+        let r = try Backup.importData(data, in: ziel)
+        #expect(r.neu == 1 && r.uebersprungen == 1)
+        #expect(try ziel.fetchCount(FetchDescriptor<GroceryEntry>()) == 2)
+    }
+
+    /// Regression: Zwei Backup-Einträge mit **derselben** Rechnungsnummer dürfen nicht beide
+    /// importiert werden. `rnNummern` wurde einmal vor der Schleife gebildet und darin nie
+    /// ergänzt – die Rechnungsnummer-Sperre griff deshalb nur gegen den Bestand, nicht
+    /// innerhalb des Backups.
+    @Test func importLaesstRechnungsnummerNichtDoppeltDurch() throws {
+        let json = """
+        {
+          "exportiertAm": "2026-07-15T10:00:00Z",
+          "jahre": [], "ausgaben": [], "aufgaben": [], "lebensmittel": [], "anschaffungen": [], "steuern": [],
+          "einnahmen": [
+            {"kunde": "Kunde A", "rnNetto": 1000, "ust": 190, "rechnungsdatum": "2026-01-10T00:00:00Z",
+             "status": "offen", "rechnungsnummer": "2026-001"},
+            {"kunde": "Kunde A anders geschrieben", "rnNetto": 1000, "ust": 190,
+             "rechnungsdatum": "2026-01-11T00:00:00Z", "status": "offen", "rechnungsnummer": "2026-001"}
+          ]
+        }
+        """.data(using: .utf8)!
+        let ctx = try kontext()
+        let r = try Backup.importData(json, in: ctx)
+        #expect(r.neu == 1 && r.uebersprungen == 1)
+        #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 1)
+    }
+
     /// Regression: Ein einzelner unbekannter Enum-Wert darf nicht den **ganzen** Restore kippen.
     /// Realistischer Fall: Backup einer neueren App-Version in eine ältere zurückspielen.
     /// Unbekanntes wird auf den jeweils neutralen Wert gedeutet, statt zu werfen.
