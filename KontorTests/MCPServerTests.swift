@@ -46,6 +46,93 @@ struct MCPServerTests {
         return content[0]["text"] as! String
     }
 
+    // MARK: - Härtung gegen fehlerhafte/böswillige Argumente
+
+    /// Regression: `limit: -1` riss die **gesamte App** runter – `Array.prefix(_:)` hat
+    /// `precondition(maxLength >= 0)`, und der Wert ging ungeprüft an 9 Aufrufstellen.
+    /// Ein einzelner MCP-Aufruf genügte.
+    @Test func negativesLimitStuerztNichtAb() async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_liste",
+                                            "arguments": ["typ": "einnahmen", "limit": -1]])
+        #expect(a["result"] != nil)          // sauber beantwortet statt Absturz
+        #expect(!toolText(a).isEmpty)        // Kopfzeile kommt, nur eben keine Zeilen
+    }
+
+    /// Auch ein absurd großes Limit muss die App am Leben lassen (geklemmt, nicht vertraut).
+    @Test func riesigesLimitWirdGeklemmt() async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_liste",
+                                            "arguments": ["typ": "einnahmen", "limit": 999_999_999]])
+        #expect(a["result"] != nil)
+    }
+
+    /// Regression: `Periode.quartal`/`Periode.monat` validieren nicht. `quartal: 0` normalisiert
+    /// still auf **Oktober des Vorjahres**, `monat: 13` auf Januar des Folgejahres – der Client
+    /// bekäme klaglos die Zahlen einer ganz anderen Periode geliefert.
+    @Test(arguments: [["jahr": 2026, "quartal": 0], ["jahr": 2026, "quartal": 5],
+                      ["jahr": 2026, "monat": 0], ["jahr": 2026, "monat": 13]])
+    func unmoeglichePeriodeWirdAbgewiesen(_ args: [String: Int]) async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_ustva", "arguments": args])
+        let r = try #require(a["result"] as? [String: Any])
+        #expect(r["isError"] as? Bool == true)
+    }
+
+    /// Extreme Jahreszahlen liefen über `tag()` in einen Force-Unwrap.
+    @Test(arguments: [1, 999_999_999, -2026])
+    func extremesJahrStuerztNichtAb(_ jahr: Int) async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_monat",
+                                            "arguments": ["jahr": jahr, "monat": 6]])
+        let r = try #require(a["result"] as? [String: Any])
+        #expect(r["isError"] as? Bool == true)
+    }
+
+    /// Gegenprobe: gültige Perioden müssen weiter durchgehen.
+    @Test func gueltigePeriodeGehtDurch() async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_ustva",
+                                            "arguments": ["jahr": 2026, "quartal": 1]])
+        #expect((a["result"] as? [String: Any])?["isError"] as? Bool != true)
+    }
+
+    /// Regression: Die CSV wurde roh mit `;` gejoint. Ein Semikolon im Freitext verschob die
+    /// Spalten – und da die `id` in der **letzten** Spalte steht und die KI sie zum Ändern und
+    /// Löschen zurückspeist, griffe sie danach die **falsche id**.
+    @Test func semikolonImFreitextVerschiebtDieSpaltenNicht() async throws {
+        let c = try container()
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Miete; Nebenkosten",
+                                          anbieter: "Haus \"Nord\"; GmbH", brutto: dez("725"), vst: 0,
+                                          steuerart: .steuerfrei, betrieblich: true))
+        try c.mainContext.save()
+        let text = await toolText(ruf(c, "tools/call", ["name": "kontor_liste",
+                                                        "arguments": ["typ": "ausgaben", "mit_id": true]]))
+        let zeilen = text.split(separator: "\n").map(String.init)
+        let spalten = Bankimport.felder(zeilen[0]).count      // Kopf gibt die Spaltenzahl vor
+        for z in zeilen.dropFirst() {
+            #expect(Bankimport.felder(z).count == spalten)    // keine Zeile verrutscht
+        }
+        // Der Freitext kommt beim Zerlegen unverfälscht wieder heraus …
+        let daten = Bankimport.felder(zeilen[1])
+        #expect(daten.contains("Miete; Nebenkosten"))
+        #expect(daten.contains("Haus \"Nord\"; GmbH"))
+        // … und die id ist noch die letzte Spalte, nicht ein Textfragment.
+        let id = try #require(daten.last)
+        #expect(Data(base64Encoded: id) != nil)
+    }
+
+    /// Eine gebastelte/veraltete id muss einen Fehler geben, keinen Absturz:
+    /// `ctx.model(for:)` trappt bei unbekanntem PersistentIdentifier.
+    @Test func unbekannteIdWirftFehlerStattAbzustuerzen() async throws {
+        let c = try container(); try seed(c)
+        let a = await ruf(c, "tools/call", ["name": "kontor_loeschen",
+                                            "arguments": ["typ": "einnahmen",
+                                                          "id": Data("kein-gueltiger-identifier".utf8).base64EncodedString()]])
+        let r = try #require(a["result"] as? [String: Any])
+        #expect(r["isError"] as? Bool == true)
+    }
+
     // MARK: - Protokoll
 
     @Test func initializeUndToolsListe() async throws {

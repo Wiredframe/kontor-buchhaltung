@@ -112,10 +112,12 @@ enum KontorMCP {
         let ctx = container.mainContext
         switch name {
         case "kontor_uebersicht": return uebersichtText(jahr: intArg(a["jahr"]) ?? heuteJahr, ctx)
-        case "kontor_eur":        return eurText(jahr: try pflichtInt(a, "jahr"), ctx)
-        case "kontor_ustva":      return ustvaText(jahr: try pflichtInt(a, "jahr"),
-                                                    quartal: intArg(a["quartal"]), monat: intArg(a["monat"]), ctx)
-        case "kontor_monat":      return monatText(jahr: try pflichtInt(a, "jahr"), monat: try pflichtInt(a, "monat"), ctx)
+        case "kontor_eur":        return eurText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich), ctx)
+        case "kontor_ustva":      return ustvaText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
+                                                    quartal: try intArg(a, "quartal", bereich: 1...4),
+                                                    monat: try intArg(a, "monat", bereich: 1...12), ctx)
+        case "kontor_monat":      return monatText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
+                                                    monat: try pflichtInt(a, "monat", bereich: 1...12), ctx)
         case "kontor_liste":      return try listeCSV(a, ctx)
         case "kontor_anlegen":       return try anlegen(a, ctx)
         case "kontor_aktualisieren": return try aktualisieren(a, ctx)
@@ -258,8 +260,12 @@ enum KontorMCP {
     @MainActor
     static func listeCSV(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
-        let jahr = intArg(a["jahr"]); let monat = intArg(a["monat"])
-        let limit = intArg(a["limit"]) ?? 50
+        let jahr = try intArg(a, "jahr", bereich: jahrBereich)
+        let monat = try intArg(a, "monat", bereich: 1...12)
+        // Geklemmt statt vertraut: `Array.prefix(_:)` hat precondition(maxLength >= 0) – ein
+        // limit von -1 riss die gesamte App runter, per einzelnem MCP-Aufruf. Die Obergrenze
+        // hält die Antwort tokensparend (und den Vollfetch auf dem MainActor kurz).
+        let limit = min(max(intArg(a["limit"]) ?? 50, 0), 1000)
         let mitId = a["mit_id"] as? Bool ?? false
         func imZeitraum(_ d: Date) -> Bool {
             if let j = jahr, appKalender.component(.year, from: d) != j { return false }
@@ -348,7 +354,7 @@ enum KontorMCP {
     static func anlegen(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
         let f = a["felder"] as? [String: Any] ?? [:]
-        KISicherung.sichereVorSchreibzugriff(ctx)
+        try KISicherung.sichereVorSchreibzugriff(ctx)
         let obj: any PersistentModel
         switch typ {
         case "einnahmen", "einnahme":
@@ -423,7 +429,7 @@ enum KontorMCP {
         guard let id = a["id"] as? String, !id.isEmpty else { throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).") }
         let f = a["felder"] as? [String: Any] ?? [:]
         guard !f.isEmpty else { throw MCPFehler("Keine 'felder' zum Ändern übergeben.") }
-        KISicherung.sichereVorSchreibzugriff(ctx)
+        try KISicherung.sichereVorSchreibzugriff(ctx)
         func hat(_ k: String) -> Bool { f.keys.contains(k) }
         switch typ {
         case "einnahmen", "einnahme":
@@ -508,7 +514,7 @@ enum KontorMCP {
     static func loeschen(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
         guard let id = a["id"] as? String, !id.isEmpty else { throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).") }
-        KISicherung.sichereVorSchreibzugriff(ctx)
+        try KISicherung.sichereVorSchreibzugriff(ctx)
         switch typ {
         case "einnahmen", "einnahme":                          ctx.delete(try modell(Income.self, id: id, ctx))
         case "ausgaben", "ausgabe",
@@ -556,7 +562,7 @@ enum KontorMCP {
             throw MCPFehler("typ '\(typ)' führt keinen Beleg. Erlaubt: einnahmen | ausgaben | einkaeufe.")
         }
 
-        KISicherung.sichereVorSchreibzugriff(ctx)
+        try KISicherung.sichereVorSchreibzugriff(ctx)
 
         if entfernen {
             setze(nil)
@@ -613,8 +619,22 @@ enum KontorMCP {
         return f.string(from: n) ?? "\(d)"
     }
 
+    /// Ein CSV-Feld maskieren (RFC-4180-Stil: in `"…"`, inneres `"` verdoppelt).
+    ///
+    /// Pflicht, nicht Kosmetik: Freitextfelder (Bezeichnung, Kunde, Anbieter, Ort, Bemerkung,
+    /// Titel) dürfen `;` und Zeilenumbrüche enthalten. Roh gejoint verschöben die sich die
+    /// Spalten – und da die `id` in der **letzten** Spalte steht und die KI sie in
+    /// `kontor_aktualisieren`/`kontor_loeschen` zurückspeist, griffe sie danach die **falsche
+    /// id** und änderte oder löschte den falschen Datensatz. Eine Ausgabe namens
+    /// „Miete; Nebenkosten" genügt dafür.
+    private static func csvFeld(_ s: String) -> String {
+        guard s.contains(";") || s.contains("\"") || s.contains("\n") || s.contains("\r") else { return s }
+        return "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
     private static func csv(_ kopf: [String], _ zeilen: [[String]]) -> String {
-        ([kopf.joined(separator: ";")] + zeilen.map { $0.joined(separator: ";") }).joined(separator: "\n")
+        ([kopf.map(csvFeld).joined(separator: ";")]
+            + zeilen.map { $0.map(csvFeld).joined(separator: ";") }).joined(separator: "\n")
     }
 
     private static func intArg(_ v: Any?) -> Int? {
@@ -632,6 +652,31 @@ enum KontorMCP {
         guard let i = intArg(a[schluessel]) else { throw MCPFehler("Pflichtfeld '\(schluessel)' fehlt oder ist keine Zahl.") }
         return i
     }
+
+    /// Pflicht-Int mit Bereichsprüfung – für Jahr/Monat/Quartal.
+    ///
+    /// Ohne Prüfung landeten diese Werte ungefiltert in `Periode.monat`/`Periode.quartal` und
+    /// damit in `tag()`. Beides ist nachsichtig: `quartal: 0` normalisiert still auf Oktober des
+    /// **Vorjahres**, `monat: 13` auf Januar des Folgejahres – der Client bekäme also klaglos die
+    /// Zahlen einer ganz anderen Periode. Bei extremen Jahreszahlen liefert `Calendar.date(from:)`
+    /// dagegen `nil` und der Force-Unwrap in `tag()` reißt die App runter.
+    private static func pflichtInt(_ a: [String: Any], _ schluessel: String, bereich: ClosedRange<Int>) throws -> Int {
+        let i = try pflichtInt(a, schluessel)
+        guard bereich.contains(i) else {
+            throw MCPFehler("'\(schluessel)' muss zwischen \(bereich.lowerBound) und \(bereich.upperBound) liegen (war \(i)).")
+        }
+        return i
+    }
+
+    /// Optionaler Int mit Bereichsprüfung (nil bleibt nil, Unsinn wirft).
+    private static func intArg(_ a: [String: Any], _ schluessel: String, bereich: ClosedRange<Int>) throws -> Int? {
+        guard a[schluessel] != nil else { return nil }
+        return try pflichtInt(a, schluessel, bereich: bereich)
+    }
+
+    /// Plausible Jahre. Großzügig genug für Altbestand und Vorausplanung, eng genug, dass
+    /// `Calendar` nicht aussteigt.
+    static let jahrBereich = 1990...2200
     private static func datum(_ v: Any?) -> Date? {
         guard let s = v as? String else { return nil }
         return mcpTag.date(from: s)
@@ -655,8 +700,13 @@ enum KontorMCP {
               let pid = try? JSONDecoder().decode(PersistentIdentifier.self, from: data) else {
             throw MCPFehler("Ungültige id – bitte aus kontor_liste (mit_id=true) übernehmen.")
         }
-        guard let obj = ctx.model(for: pid) as? T else {
-            throw MCPFehler("Kein Datensatz dieses typs mit dieser id gefunden.")
+        // Über einen Fetch statt `ctx.model(for:)`: Letzteres **trappt** bei einem unbekannten
+        // oder veralteten PersistentIdentifier (gelöschter Datensatz, id eines anderen Typs),
+        // statt nil zu liefern – eine zurückgespeiste alte id hätte die App also abgeschossen,
+        // statt einen sauberen Fehler an den Client zu geben.
+        let treffer = (try? ctx.fetch(FetchDescriptor<T>()))?.first { $0.persistentModelID == pid }
+        guard let obj = treffer else {
+            throw MCPFehler("Kein Datensatz dieses typs mit dieser id gefunden (evtl. gelöscht?).")
         }
         return obj
     }
