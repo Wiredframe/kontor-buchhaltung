@@ -96,6 +96,44 @@ struct BackupTests {
         #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
     }
 
+    /// Regression: Das Import-Gedächtnis (`ImportBuchung`) muss mitgesichert werden.
+    /// Fehlt es im Backup, ist nach einem Restore nicht mehr bekannt, welche Bankbewegungen
+    /// schon verarbeitet wurden – derselbe Kontoauszug schlägt dann alles erneut als „neu"
+    /// vor und erzeugt Dubletten.
+    @Test func roundtripBewahrtImportGedaechtnis() throws {
+        let quelle = try kontext()
+        befuelle(quelle)
+        quelle.insert(ImportBuchung(schluessel: "2026-01-05|-35.00|figma", buchungstag: tag(2026, 1, 5),
+                                    betrag: dez("-35.00"), gegenpartei: "FIGMA/San Francisco/US",
+                                    kategorie: .subscription, betrieblich: true))
+        quelle.insert(ImportBuchung(schluessel: "2026-01-07|-50.00|rewe", buchungstag: tag(2026, 1, 7),
+                                    betrag: dez("-50.00"), gegenpartei: "REWE Berlin",
+                                    kategorie: .lebensmittel, betrieblich: false))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let snap = try {
+            let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
+            return try d.decode(Backup.Snapshot.self, from: data)
+        }()
+        #expect(snap.importBuchungen?.count == 2)
+
+        let ziel = try kontext()
+        try Backup.importData(data, in: ziel)
+        let wieder = try ziel.fetch(FetchDescriptor<ImportBuchung>())
+        #expect(wieder.count == 2)
+        // Der Dedup-Schlüssel ist das Einzige, worauf schonVerarbeitet() schaut – er muss stimmen.
+        #expect(Set(wieder.map(\.schluessel)) == ["2026-01-05|-35.00|figma", "2026-01-07|-50.00|rewe"])
+        let figma = try #require(wieder.first { $0.schluessel.contains("figma") })
+        #expect(figma.kategorie == .subscription)
+        #expect(figma.betrieblich == true)
+        #expect(figma.betrag == dez("-35.00"))
+
+        // Erneuter Import darf nicht duplizieren (schluessel ist @Attribute(.unique)).
+        try Backup.importData(data, in: ziel)
+        #expect(try ziel.fetchCount(FetchDescriptor<ImportBuchung>()) == 2)
+    }
+
     /// USt-Satz + Mischrechnungs-Bucket überstehen Export→Import verlustfrei.
     @Test func roundtripBewahrtUStSatzUndMischrechnung() throws {
         let quelle = try kontext()

@@ -17,8 +17,21 @@ enum Backup {
         var steuern: [SteuerDTO]
         var zuordnungsRegeln: [ZuordnungsRegelDTO]? = nil   // Import-Lernregeln (optional → alte Backups bleiben lesbar)
         var vorlagen: [VorlageDTO]? = nil                   // Fixkosten/Subscription-Vorlagen (optional)
+        var importBuchungen: [ImportBuchungDTO]? = nil      // Import-Gedächtnis (optional)
         // Hinweis: Felder `regeln`/`fixkosten` (abgelöste Alt-Modelle) sind entfallen; sie in
         // sehr alten Backups werden beim Import ignoriert (Migration ist abgeschlossen).
+    }
+
+    /// Gedächtnis der schon verarbeiteten Bankbewegungen. Gehört ins Backup, weil sonst nach
+    /// einem Restore jede Bewegung wieder als „neu" gilt → derselbe Kontoauszug erzeugt Dubletten.
+    struct ImportBuchungDTO: Codable {
+        var schluessel: String
+        var buchungstag: Date
+        var betrag: Decimal
+        var gegenpartei: String
+        var kategorie: ImportKategorie
+        var betrieblich: Bool
+        var erstellt: Date
     }
 
     struct VorlageDTO: Codable {
@@ -155,7 +168,11 @@ enum Backup {
                     aktualisiert: $0.aktualisiert) },
             vorlagen: try context.fetch(FetchDescriptor<Vorlage>()).map {
                 VorlageDTO(bezeichnung: $0.bezeichnung, anbieter: $0.anbieter, betragBrutto: $0.betragBrutto,
-                    steuerart: $0.steuerart, betrieblich: $0.betrieblich, art: $0.art, umlagefaehig: $0.umlagefaehig) }
+                    steuerart: $0.steuerart, betrieblich: $0.betrieblich, art: $0.art, umlagefaehig: $0.umlagefaehig) },
+            importBuchungen: try context.fetch(FetchDescriptor<ImportBuchung>()).map {
+                ImportBuchungDTO(schluessel: $0.schluessel, buchungstag: $0.buchungstag, betrag: $0.betrag,
+                    gegenpartei: $0.gegenpartei, kategorie: $0.kategorie, betrieblich: $0.betrieblich,
+                    erstellt: $0.erstellt) }
         )
     }
 
@@ -349,6 +366,15 @@ enum Backup {
             context.insert(ZuordnungsRegel(schluessel: d.schluessel, kategorie: d.kategorie,
                 betrieblich: d.betrieblich, steuerart: d.steuerart, steuerKind: d.steuerKind ?? .ustVz,
                 aktualisiert: d.aktualisiert)); neu += 1
+        }
+
+        var importKeys = Set(try context.fetch(FetchDescriptor<ImportBuchung>()).map(\.schluessel))
+        for d in snap.importBuchungen ?? [] {
+            if importKeys.contains(d.schluessel) { skip += 1; continue }
+            importKeys.insert(d.schluessel)
+            context.insert(ImportBuchung(schluessel: d.schluessel, buchungstag: d.buchungstag,
+                betrag: d.betrag, gegenpartei: d.gegenpartei, kategorie: d.kategorie,
+                betrieblich: d.betrieblich, erstellt: d.erstellt)); neu += 1
         }
 
         try context.save()
