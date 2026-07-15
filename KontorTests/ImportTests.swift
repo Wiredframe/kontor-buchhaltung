@@ -82,25 +82,39 @@ struct ImportTests {
         #expect(z.kategorie == .betriebsausgabe && z.betrieblich == true)   // Vorschlag ist normalisiert
     }
 
-    @Test func nachtragRepariertPrivateBetriebsausgabe() throws {
+    /// Regression: Die Invariante „eine Betriebsausgabe ist immer betrieblich" gehört an den
+    /// **Import** (`Zuordnung.normalisiert`) – nicht in einen Nachtrag, der beim App-Start
+    /// über den ganzen Bestand läuft. Der frühere `PrivatBetriebsausgabeNachtrag` tat genau
+    /// das und überschrieb dabei auch neue, absichtlich private Einträge samt erfundener
+    /// Vorsteuer; der Nutzer konnte seine Eingabe nicht halten. Er ist entfernt – dieser Test
+    /// pinnt, dass der Import die Invariante trotzdem selbst durchsetzt.
+    @Test func importErzwingtBetrieblichOhneNachtrag() throws {
         let c = try container()
-        // Alt-Bug-Datensatz: Betriebsausgabe privat gebucht, VSt 0.
-        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Adobe", anbieter: "Adobe",
+        let b = buchung("-119,00", name: "ADOBE/Dublin/IE", glaeubiger: "DE00ZZZADOBE")
+        _ = try ImportAnwendung.anwenden(b, Zuordnung(kategorie: .betriebsausgabe, betrieblich: false,
+                                                      steuerart: .inland19),
+                                         aktion: .neu, c.mainContext)
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.betrieblich == true)      // vom Import normalisiert, nicht von einem Nachtrag
+        #expect(e.vst == dez("19"))
+    }
+
+    /// Eine bewusst privat gestellte Ausgabe muss privat bleiben – auch mit `art:.betriebsausgabe`
+    /// (die Art steuert nur die Ansicht, `betrieblich` die EÜR). Genau das kippte der Nachtrag
+    /// bei jedem Start zurück.
+    @Test func privatGestellteAusgabeBleibtPrivat() throws {
+        let c = try container()
+        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 1), bezeichnung: "Sneaker", anbieter: "Shop",
                                           brutto: dez("119"), vst: 0, steuerart: .inland19,
                                           betrieblich: false, art: .betriebsausgabe))
-        // Gegenprobe: legitime private Fixkosten bleiben unangetastet.
-        c.mainContext.insert(ExpenseEntry(datum: tag(2026, 6, 2), bezeichnung: "Miete", anbieter: "Hausverwaltung",
-                                          brutto: dez("800"), vst: 0, steuerart: .steuerfrei,
-                                          betrieblich: false, art: .fixkosten))
         try c.mainContext.save()
-        PrivatBetriebsausgabeNachtrag.nachtragen(c.mainContext)
-        let alle = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
-        let ba = try #require(alle.first { $0.artEffektiv == .betriebsausgabe })
-        #expect(ba.betrieblich == true && ba.vst == dez("19"))     // korrigiert + VSt aus Betrag/Steuerart
-        let fix = try #require(alle.first { $0.artEffektiv == .fixkosten })
-        #expect(fix.betrieblich == false)                          // private Fixkosten unberührt
-        PrivatBetriebsausgabeNachtrag.nachtragen(c.mainContext)    // idempotent
-        #expect(try c.mainContext.fetchCount(FetchDescriptor<ExpenseEntry>()) == 2)
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.betrieblich == false)
+        #expect(e.vst == 0)
+        // …und sie bleibt aus EÜR und Vorsteuer draußen.
+        let p = [e.posten]
+        #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: p, jahr: 2026) == 0)
+        #expect(Steuer.vorsteuer(p, in: Periode.quartal(2026, 2)) == 0)
     }
 
     @Test func privateFixkostenAlsBuchung() throws {

@@ -29,8 +29,6 @@ struct KontorApp: App {
         ZuordnungsRegel.seedeStartRegeln(c.mainContext)
         // Altbestand ohne `art` nachtragen (Fixkosten/Subscriptions sichtbar machen; idempotent).
         ArtNachtrag.nachtragen(c.mainContext)
-        // Alt-Bug reparieren: privat gebuchte Betriebsausgaben → betrieblich + VSt neu (idempotent).
-        PrivatBetriebsausgabeNachtrag.nachtragen(c.mainContext)
         if wiederhergestellt {
             UserDefaults.standard.set(true, forKey: "storeWiederhergestellt")
         } else {
