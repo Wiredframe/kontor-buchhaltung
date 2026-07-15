@@ -96,6 +96,73 @@ struct BackupTests {
         #expect(try ziel.fetch(FetchDescriptor<ZuordnungsRegel>()).contains { $0.steuerKind == .estVz })
     }
 
+    /// Regression: Ein NaN-Betrag darf kein stilles Schein-Backup erzeugen.
+    ///
+    /// `JSONEncoder` wirft bei `Decimal.nan` nicht, sondern schreibt literales `NaN` – also
+    /// syntaktisch kaputtes JSON. Ohne Wächter meldete der Export „gespeichert", die Datei
+    /// läge da, und erst der Restore (im Ernstfall) liefe auf: nicht dekodierbar.
+    @Test func exportMitNaNBetragWirftStattEinScheinBackupZuSchreiben() throws {
+        let ctx = try kontext()
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 5), bezeichnung: "Kaputt", anbieter: "X",
+                                brutto: Decimal(1) / Decimal(0), vst: 0, steuerart: .steuerfrei))
+        try ctx.save()
+        #expect(throws: Backup.Fehler.self) { try Backup.exportData(ctx) }
+    }
+
+    /// Der Wächter darf gültige Daten nicht behindern.
+    @Test func exportMitNormalenBetraegenBleibtGueltigesJSON() throws {
+        let ctx = try kontext()
+        befuelle(ctx)
+        try ctx.save()
+        #expect(istGueltigesJSON(try Backup.exportData(ctx)))
+    }
+
+    /// Ein Encode-Fehler darf einen bereits eingefrorenen Monat nicht wegräumen.
+    /// (`dict[key] = try?` hätte den Schlüssel gelöscht → Monat rechnet still wieder live.)
+    @Test func setzeSnapshotZerstoertBestehendenStandNichtBeiFehler() {
+        let y = YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"))
+        let gut = MonatsSnapshot(rn: dez("1000"), ust: dez("190"), vst: 0, ustKorrektur: 0, ksk: 0,
+                                 est: dez("150"), estKorrektur: 0, betriebsausgabenNetto: 0,
+                                 umlagefaehig: 0, privatFix: 0, privatVariabel: 0)
+        #expect(y.setzeSnapshot(monat: 5, gut) == true)
+        #expect(y.snapshot(monat: 5)?.rn == dez("1000"))
+
+        var kaputt = gut
+        kaputt.rn = Decimal(1) / Decimal(0)          // NaN
+        #expect(y.setzeSnapshot(monat: 5, kaputt) == false)
+        #expect(y.snapshot(monat: 5)?.rn == dez("1000"))   // alter Stand unangetastet
+    }
+
+    /// Ein gescheiterter Komplett-Export darf das vorhandene Backup nicht vernichten.
+    /// Vorher wurde das Ziel gelöscht, bevor das neue geschrieben war.
+    @Test func gescheiterterKomplettExportLaesstAltesBackupStehen() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("kontor-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let ziel = tmp.appendingPathComponent("Kontor-Backup-2026-07-15")
+
+        let ctx = try kontext()
+        befuelle(ctx)
+        try ctx.save()
+        try Backup.exportiereKomplett(ctx, nach: ziel)
+        let ersteJSON = try Data(contentsOf: ziel.appendingPathComponent("kontor.json"))
+        #expect(!ersteJSON.isEmpty)
+
+        // Zweiter Export auf dasselbe Ziel, der scheitern MUSS (NaN):
+        ctx.insert(ExpenseEntry(datum: tag(2026, 1, 5), bezeichnung: "Kaputt", anbieter: "X",
+                                brutto: Decimal(1) / Decimal(0), vst: 0, steuerart: .steuerfrei))
+        try ctx.save()
+        #expect(throws: (any Error).self) { try Backup.exportiereKomplett(ctx, nach: ziel) }
+
+        // Das gute Backup von vorhin muss unversehrt dastehen.
+        let nachher = try Data(contentsOf: ziel.appendingPathComponent("kontor.json"))
+        #expect(nachher == ersteJSON)
+        // Und kein halbfertiger Temp-Ordner bleibt liegen.
+        let reste = try FileManager.default.contentsOfDirectory(atPath: tmp.path)
+        #expect(reste == ["Kontor-Backup-2026-07-15"])
+    }
+
     /// Regression: Echte Doppel-Vorgänge dürfen beim Restore nicht verschluckt werden.
     /// Der Dedup-Schlüssel ist (Datum, Name, Betrag) – zwei reale Einkäufe am selben Tag,
     /// im selben Laden, über denselben Betrag teilen ihn sich. Mit Mengen-Semantik landete

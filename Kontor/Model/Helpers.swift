@@ -13,6 +13,19 @@ func dez(_ string: String) -> Decimal {
     return wert
 }
 
+/// Ist `data` syntaktisch gültiges JSON?
+///
+/// Nötig als Wächter, weil `JSONEncoder` bei `Decimal.nan` **nicht wirft**, sondern literales
+/// `NaN` ins JSON schreibt (`{"brutto":NaN}`) – syntaktisch kaputt, kein Decoder liest es je
+/// wieder. Ein einziger NaN-Wert macht so ein ganzes Backup lautlos wertlos: Der Export meldet
+/// Erfolg, die Datei liegt da, und erst beim Restore (also im Ernstfall) fällt es auf.
+///
+/// NaN entsteht bei `Decimal` still: Eine Division durch 0 trappt nicht, sie liefert NaN.
+/// (`Decimal(string: "nan")` dagegen liefert `nil` – von dort droht nichts.)
+func istGueltigesJSON(_ data: Data) -> Bool {
+    (try? JSONSerialization.jsonObject(with: data)) != nil
+}
+
 extension Decimal {
     /// Kaufmännisch gerundet (Standard: 2 Nachkommastellen, halbe auf).
     func gerundet(_ stellen: Int = 2, _ modus: NSDecimalNumber.RoundingMode = .plain) -> Decimal {

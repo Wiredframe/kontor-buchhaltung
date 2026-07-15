@@ -176,11 +176,27 @@ enum Backup {
         )
     }
 
+    enum Fehler: LocalizedError {
+        case ungueltigesJSON
+        var errorDescription: String? {
+            switch self {
+            case .ungueltigesJSON:
+                "Das Backup enthält einen ungültigen Zahlenwert und wäre nicht wieder einlesbar. "
+                + "Es wurde deshalb nicht geschrieben."
+            }
+        }
+    }
+
     static func exportData(_ context: ModelContext) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(snapshot(context))
+        let data = try encoder.encode(snapshot(context))
+        // Letzte Verteidigungslinie: `JSONEncoder` wirft bei `Decimal.nan` nicht, sondern
+        // schreibt literales `NaN` – ungültiges JSON, das beim Restore niemand mehr liest.
+        // Lieber hier laut scheitern als ein Schein-Backup, das erst im Ernstfall auffliegt.
+        guard istGueltigesJSON(data) else { throw Fehler.ungueltigesJSON }
+        return data
     }
 
     // MARK: - Automatische Backups
@@ -208,9 +224,11 @@ enum Backup {
         let datei = ordner.appendingPathComponent("Auto-\(df.string(from: Date())).json")
         // Heute schon gesichert? Nur dann überspringen, wenn das vorhandene Backup nicht leer war
         // (ein früheres, leer geschriebenes Tages-Backup darf durch echte Daten ersetzt werden).
-        if FileManager.default.fileExists(atPath: datei.path), !istLeeresBackup(datei) { return }
+        if FileManager.default.fileExists(atPath: datei.path), !darfErsetztWerden(datei) { return }
         guard let data = try? exportData(context) else { return }
-        try? data.write(to: datei)
+        // Erst wenn das heutige Backup wirklich auf der Platte liegt, dürfen alte weichen –
+        // sonst dünnt ein fehlgeschlagener Write den Bestand aus, ohne Neues zu schaffen.
+        do { try data.write(to: datei) } catch { return }
         let alle = (try? FileManager.default.contentsOfDirectory(at: ordner, includingPropertiesForKeys: nil))?
             .filter { $0.lastPathComponent.hasPrefix("Auto-") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent } ?? []
@@ -221,15 +239,30 @@ enum Backup {
 
     /// Vollständiges Backup als Ordner: `kontor.json` + Kopie aller Belege.
     /// Der Aufrufer hält den Security-Scope der user-gewählten Ziel-URL.
+    ///
+    /// Schreibt **erst vollständig daneben und tauscht dann**. Vorher wurde das Ziel gelöscht,
+    /// bevor das neue Backup stand: Ein zweiter Export am selben Tag vernichtete damit das
+    /// vorhandene gute Backup, und scheiterte der neue (Platte voll), waren beide weg.
     static func exportiereKomplett(_ context: ModelContext, nach ziel: URL) throws {
         let fm = FileManager.default
-        if fm.fileExists(atPath: ziel.path) { try fm.removeItem(at: ziel) }
-        try fm.createDirectory(at: ziel, withIntermediateDirectories: true)
-        try exportData(context).write(to: ziel.appendingPathComponent("kontor.json"))
-        let quelle = Belege.basis
-        if fm.fileExists(atPath: quelle.path) {
-            try? fm.copyItem(at: quelle, to: ziel.appendingPathComponent("Belege", isDirectory: true))
+        let temp = ziel.deletingLastPathComponent()
+            .appendingPathComponent(".\(ziel.lastPathComponent).unvollstaendig", isDirectory: true)
+        if fm.fileExists(atPath: temp.path) { try fm.removeItem(at: temp) }
+        try fm.createDirectory(at: temp, withIntermediateDirectories: true)
+        do {
+            try exportData(context).write(to: temp.appendingPathComponent("kontor.json"))
+            let quelle = Belege.basis
+            if fm.fileExists(atPath: quelle.path) {
+                // Bewusst nicht `try?`: Ein Backup ohne Belege darf sich nicht als
+                // „gespeichert, inkl. Belege" melden.
+                try fm.copyItem(at: quelle, to: temp.appendingPathComponent("Belege", isDirectory: true))
+            }
+        } catch {
+            try? fm.removeItem(at: temp)   // Halbfertiges nicht liegen lassen
+            throw error
         }
+        if fm.fileExists(atPath: ziel.path) { try fm.removeItem(at: ziel) }
+        try fm.moveItem(at: temp, to: ziel)
     }
 
     /// Liest ein Komplett-Backup (Ordner): kopiert die Belege zurück und importiert die Daten.
@@ -411,12 +444,17 @@ enum Backup {
         return true
     }
 
-    /// Ein Tages-Backup gilt als „leer", wenn es weder Jahre noch Ausgaben noch Einnahmen enthält
-    /// (z. B. das frühere Sicherheitsnetz eines frischen Stores) – ein solches darf ersetzt werden.
-    private static func istLeeresBackup(_ datei: URL) -> Bool {
-        guard let data = try? Data(contentsOf: datei) else { return false }
+    /// Darf das vorhandene Tages-Backup durch ein neues ersetzt werden?
+    ///
+    /// Ja, wenn es **leer** ist (weder Jahre noch Ausgaben noch Einnahmen – z. B. das frühere
+    /// Sicherheitsnetz eines frischen Stores) **oder unlesbar/korrupt**: Eine kaputte Datei ist
+    /// als Sicherung wertlos, sie durch eine gute zu ersetzen ist immer die bessere Wahl.
+    /// (Vorher hieß „unlesbar" hier `false` = „nicht leer, Finger weg" – ein einziges korruptes
+    /// Tages-Backup blockierte damit die Sicherung dieses Tages dauerhaft und lautlos.)
+    private static func darfErsetztWerden(_ datei: URL) -> Bool {
+        guard let data = try? Data(contentsOf: datei) else { return true }
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        guard let snap = try? decoder.decode(Snapshot.self, from: data) else { return false }
+        guard let snap = try? decoder.decode(Snapshot.self, from: data) else { return true }
         return snap.jahre.isEmpty && snap.ausgaben.isEmpty && snap.einnahmen.isEmpty
     }
 

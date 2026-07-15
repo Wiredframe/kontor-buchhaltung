@@ -130,8 +130,21 @@ final class YearSettings {
         guard let d = snapshotProMonat[String(monat)] else { return nil }
         return try? JSONDecoder().decode(MonatsSnapshot.self, from: d)
     }
-    func setzeSnapshot(monat: Int, _ snap: MonatsSnapshot) {
-        snapshotProMonat[String(monat)] = try? JSONEncoder().encode(snap)
+    /// Friert den Monatsstand ein. Liefert `false`, wenn das nicht gelang – dann bleibt ein
+    /// **bereits vorhandener** Snapshot unangetastet.
+    ///
+    /// Zwei Fallen stecken hier:
+    /// 1. `dict[key] = try?` weist bei einem Fehler `nil` zu und **löscht den Schlüssel** –
+    ///    der abgeschlossene Monat verlöre still seinen eingefrorenen Stand und rechnete
+    ///    wieder live, ohne dass irgendwo etwas schiefzugehen scheint.
+    /// 2. Ein `Decimal.nan` im Snapshot lässt `JSONEncoder` **nicht** werfen; er schreibt
+    ///    literales `NaN`. Der Encode „gelingt", aber `snapshot(monat:)` bekommt es nie wieder
+    ///    dekodiert. Deshalb wird die Gültigkeit hier geprüft, statt nur auf `try?` zu bauen.
+    @discardableResult
+    func setzeSnapshot(monat: Int, _ snap: MonatsSnapshot) -> Bool {
+        guard let d = try? JSONEncoder().encode(snap), istGueltigesJSON(d) else { return false }
+        snapshotProMonat[String(monat)] = d
+        return true
     }
     func loescheSnapshot(monat: Int) { snapshotProMonat[String(monat)] = nil }
 }
