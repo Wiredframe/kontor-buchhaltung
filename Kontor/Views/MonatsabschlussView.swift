@@ -3,6 +3,7 @@ import SwiftData
 import AppKit
 
 struct MonatsabschlussView: View {
+    @Environment(\.modelContext) private var context
     @Environment(Navigation.self) private var nav
 
     @Query private var ausgaben: [ExpenseEntry]
@@ -134,6 +135,12 @@ struct MonatsabschlussView: View {
         VStack(spacing: 0) {
             kopf
             Divider()
+            // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
+            // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
+            FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
+                context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
+                try? context.save()
+            }
             if jahresansicht { jahresAnsicht } else { monatsAnsicht }
         }
         .navigationTitle("Monatsabschluss")

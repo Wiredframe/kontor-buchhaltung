@@ -13,6 +13,7 @@ struct JahresuebersichtView: View {
     @Query private var jahre: [YearSettings]
     @Query private var tasks: [MonthlyTask]
 
+    @Environment(\.modelContext) private var context
     @Environment(Zeitkontext.self) private var zeit
     @Environment(Navigation.self) private var nav
     @State private var zeigeAufgaben = true
@@ -104,6 +105,12 @@ struct JahresuebersichtView: View {
             }
             .padding()
             Divider()
+            // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
+            // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
+            FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
+                context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
+                try? context.save()
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {

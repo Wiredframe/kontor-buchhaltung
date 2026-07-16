@@ -4,6 +4,43 @@ import AppKit
 import PDFKit
 import UniformTypeIdentifiers
 
+/// Warnleiste über einem Auswertungs-Screen, wenn dem gewählten Jahr die `YearSettings` fehlen.
+///
+/// Ohne sie rechnet die Engine **still weiter**: `Array<YearSettings>.estSatz` fällt auf 15 %
+/// zurück, `.ksk` auf 0. Das ist kein Absturz und keine Null, sondern eine *glaubwürdig falsche*
+/// Zahl – die Sorte, die niemandem auffällt, weil sie plausibel aussieht. Betrifft jedes Jahr
+/// ohne eigene Einstellungen: ein vorausgeplantes Folgejahr genauso wie ein importiertes Altjahr.
+struct FehlendeJahresEinstellungen: View {
+    let jahr: Int
+    /// `nil` = keine Einstellungen für dieses Jahr → Hinweis zeigen.
+    let settings: YearSettings?
+    var beiAnlegen: (() -> Void)?
+
+    var body: some View {
+        if settings == nil {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Für \(String(jahr)) sind keine Einstellungen hinterlegt.")
+                        .font(.callout.weight(.semibold))
+                    Text("ESt-Rücklage und KSK sind deshalb geschätzt: 15 % Pauschalsatz, KSK 0 €. "
+                         + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                if let beiAnlegen {
+                    Button("Jahr anlegen", action: beiAnlegen)
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color.orange.opacity(0.10))
+            .overlay(alignment: .bottom) { Divider() }
+        }
+    }
+}
+
 /// Beschrifteter Zahlenwert als elevierte Karte mit optionalem Akzent-Icon.
 /// Klick kopiert den Wert (deutsches Zahlformat, ohne Tausenderpunkt) in die Zwischenablage.
 struct Kennzahl: View {
