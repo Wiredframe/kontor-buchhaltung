@@ -48,22 +48,55 @@ final class MCPServer {
 
     private static let tokenKonto = "mcpToken"
 
+    /// Was mit dem Token zu tun ist. Rein aus dem Keychain-Ergebnis abgeleitet – **ohne**
+    /// Keychain, damit die Regel testbar ist.
+    enum TokenPlan: Equatable {
+        /// Token steht fest, **nichts** in die Keychain schreiben.
+        case verwende(String)
+        /// Es gibt wirklich keines → anlegen (und die Klartext-Kopie danach entfernen).
+        case speichere(String)
+    }
+
+    /// Regression-Regel: Ein **nicht verfügbarer** Schlüsselbund heißt nicht „kein Token".
+    ///
+    /// Vorher lieferte `Schlusselbund.lade` für beides `nil`. War die Keychain nur kurz nicht
+    /// ansprechbar (gesperrt, unsignierter Build, fehlende Entitlements), erzeugte der Server
+    /// ein **neues** Token – und `speichere` fand den bestehenden Eintrag und überschrieb ihn
+    /// per `SecItemUpdate`. Das alte Token war damit weg, und der bereits per `claude mcp add`
+    /// konfigurierte Client authentifizierte ab dann gegen ein rotiertes Token, ohne dass
+    /// irgendwo etwas fehlschlug: Er bekam schlicht 401, bis jemand den Befehl neu ausführte.
+    nonisolated static func tokenPlan(keychain: Schlusselbund.LadeErgebnis, klartext: String?,
+                                      neuesToken: () -> String) -> TokenPlan {
+        switch keychain {
+        case .gefunden(let t):
+            return .verwende(t)
+        case .nichtVerfuegbar:
+            // Nichts schreiben. Lieber diese Sitzung mit einem Ersatz-Token fahren (der Nutzer
+            // sieht es in den Einstellungen), als das gespeicherte zu zerstören.
+            return .verwende(klartext ?? neuesToken())
+        case .nichtVorhanden:
+            return .speichere(klartext ?? neuesToken())
+        }
+    }
+
     /// Token bevorzugt aus der Keychain; migriert ein evtl. vorhandenes Alt-Token aus
     /// `UserDefaults` (Klartext) dorthin; legt sonst ein neues an. `UserDefaults` dient nur
     /// noch als Fallback, falls die Keychain nicht verfügbar ist (unsignierter Debug-Build).
     private static func ermittleToken() -> String {
-        if let t = Schlusselbund.lade(tokenKonto) { return t }
-        if let alt = UserDefaults.standard.string(forKey: tokenKonto) {
-            if Schlusselbund.speichere(alt, konto: tokenKonto) {
+        let plan = tokenPlan(keychain: Schlusselbund.lies(tokenKonto),
+                             klartext: UserDefaults.standard.string(forKey: tokenKonto),
+                             neuesToken: { UUID().uuidString })
+        switch plan {
+        case .verwende(let t):
+            return t
+        case .speichere(let t):
+            if Schlusselbund.speichere(t, konto: tokenKonto) {
                 UserDefaults.standard.removeObject(forKey: tokenKonto)   // Klartext-Kopie entfernen
+            } else {
+                UserDefaults.standard.set(t, forKey: tokenKonto)         // Fallback (Dev/unsigniert)
             }
-            return alt
+            return t
         }
-        let neu = UUID().uuidString
-        if !Schlusselbund.speichere(neu, konto: tokenKonto) {
-            UserDefaults.standard.set(neu, forKey: tokenKonto)          // Fallback (Dev)
-        }
-        return neu
     }
 
     // MARK: - Lebenszyklus

@@ -14,16 +14,45 @@ enum Schlusselbund {
          kSecAttrAccount as String: konto]
     }
 
-    /// Liest ein Geheimnis; `nil`, wenn keines vorliegt oder die Keychain nicht verfügbar ist.
-    static func lade(_ konto: String) -> String? {
+    /// Ergebnis eines Lesezugriffs.
+    ///
+    /// Die Unterscheidung ist der ganze Punkt: „es gibt kein Geheimnis" und „die Keychain ist
+    /// gerade nicht ansprechbar" sind **völlig verschiedene** Lagen. Früher lieferte `lade`
+    /// für beide `nil` – und der Aufrufer legte daraufhin ein neues Token an, das das
+    /// bestehende überschrieb.
+    enum LadeErgebnis: Equatable {
+        case gefunden(String)
+        /// Es existiert wirklich keines (`errSecItemNotFound`) → neu anlegen ist richtig.
+        case nichtVorhanden
+        /// Keychain gesperrt, fehlende Entitlements, unsignierter Build … → **nichts schreiben**.
+        case nichtVerfuegbar(OSStatus)
+    }
+
+    /// Liest ein Geheimnis und sagt dazu, **warum** es ggf. keines gibt.
+    static func lies(_ konto: String) -> LadeErgebnis {
         var query = basis(konto)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var ergebnis: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &ergebnis) == errSecSuccess,
-              let data = ergebnis as? Data, let s = String(data: data, encoding: .utf8)
-        else { return nil }
-        return s
+        let status = SecItemCopyMatching(query as CFDictionary, &ergebnis)
+        switch status {
+        case errSecSuccess:
+            guard let data = ergebnis as? Data, let s = String(data: data, encoding: .utf8) else {
+                return .nichtVerfuegbar(status)   // Eintrag da, aber unlesbar → nicht überschreiben
+            }
+            return .gefunden(s)
+        case errSecItemNotFound:
+            return .nichtVorhanden
+        default:
+            return .nichtVerfuegbar(status)
+        }
+    }
+
+    /// Liest ein Geheimnis; `nil`, wenn keines vorliegt **oder** die Keychain nicht verfügbar ist.
+    /// Für Aufrufer, denen der Unterschied egal ist – beim Token ist er es **nicht**, dort `lies`.
+    static func lade(_ konto: String) -> String? {
+        if case .gefunden(let s) = lies(konto) { return s }
+        return nil
     }
 
     /// Speichert (oder ersetzt) ein Geheimnis. Liefert `true` bei Erfolg.
@@ -33,9 +62,17 @@ enum Schlusselbund {
         let query = basis(konto)
         let status = SecItemCopyMatching(query as CFDictionary, nil)
         if status == errSecSuccess {
+            // `kSecAttrAccessible` mit aktualisieren: Beim Add wird es gesetzt, beim Update stand
+            // es früher nicht dabei – ein Eintrag aus einer älteren Version behielte sonst für
+            // immer sein altes Zugriffs-Attribut.
             return SecItemUpdate(query as CFDictionary,
-                                 [kSecValueData as String: daten] as CFDictionary) == errSecSuccess
+                                 [kSecValueData as String: daten,
+                                  kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
+                                 as CFDictionary) == errSecSuccess
         }
+        // Nur bei „gibt es wirklich nicht" anlegen. Ein anderer Fehler (Keychain gesperrt) heißt
+        // nicht, dass der Platz frei ist – hier blind zu schreiben hieße raten.
+        guard status == errSecItemNotFound else { return false }
         var neu = query
         neu[kSecValueData as String] = daten
         neu[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
