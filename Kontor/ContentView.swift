@@ -91,8 +91,11 @@ struct ContentView: View {
     @State private var zeit = Zeitkontext()
     @State private var zeigeWiederherstellung = UserDefaults.standard.bool(forKey: "storeWiederhergestellt")
     @State private var zeigeOnboarding = false
+    #if !APPSTORE
     /// Spendenseite (Stripe) – freiwillige Unterstützung, öffnet im Browser.
+    /// Im App-Store-Build (`APPSTORE`) entfällt jeder Spendenaufruf (Guideline 3.1.1).
     private static let stripeSpendenURL = "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00"
+    #endif
 
     var body: some View {
         @Bindable var nav = nav
@@ -106,7 +109,9 @@ struct ContentView: View {
                         }
                     }
                 }
+                #if !APPSTORE
                 spendenMenue
+                #endif
             }
             .navigationTitle("Kontor")
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
@@ -154,6 +159,7 @@ struct ContentView: View {
         .onChange(of: nav.modul) { _, _ in aktualisiereJahre(zeit, context) }
     }
 
+    #if !APPSTORE
     /// Letzter Menüpunkt zum Unterstützen der Entwicklung: Link auf die Stripe-Spendenseite.
     @ViewBuilder private var spendenMenue: some View {
         Section {
@@ -166,6 +172,7 @@ struct ContentView: View {
             .buttonStyle(.plain)
         }
     }
+    #endif
 
     /// Routet auf die Ansicht des gewählten Moduls.
     @ViewBuilder

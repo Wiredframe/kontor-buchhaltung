@@ -42,7 +42,9 @@ struct EinstellungenView: View {
 
 private struct EinstellungenForm: View {
     @Environment(\.modelContext) private var context
+    #if !APPSTORE
     @Environment(MCPServer.self) private var mcp
+    #endif
     @Bindable var settings: YearSettings
     @State private var status: String?
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
@@ -96,6 +98,7 @@ private struct EinstellungenForm: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
+            #if !APPSTORE
             Section("KI-Zugriff (MCP)") {
                 Toggle("Lokalen MCP-Server aktivieren", isOn: Binding(
                     get: { mcp.aktiv },
@@ -132,6 +135,7 @@ private struct EinstellungenForm: View {
                 Text("Kontor ist kostenlos. Über eine freiwillige Spende freue ich mich sehr – der Link öffnet die Spendenseite im Browser.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            #endif
 
             Section("Rechtliches") {
                 Button {

@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 import SwiftData
 
@@ -33,3 +34,5 @@ enum KISicherung {
         gesichertInSitzung = true   // erst jetzt: das Backup liegt wirklich auf der Platte
     }
 }
+
+#endif

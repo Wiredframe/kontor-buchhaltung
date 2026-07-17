@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 import SwiftData
 
@@ -87,3 +88,5 @@ enum MCPProtokoll {
 
 /// Fehler mit klartextlicher, tokensparender Meldung für Tool-/Resource-Antworten.
 struct MCPFehler: Error { let text: String; init(_ text: String) { self.text = text } }
+
+#endif

@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 import Security
 
@@ -84,3 +85,5 @@ enum Schlusselbund {
         SecItemDelete(basis(konto) as CFDictionary)
     }
 }
+
+#endif

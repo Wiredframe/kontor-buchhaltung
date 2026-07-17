@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 import Network
 import SwiftData
@@ -277,3 +278,5 @@ final class MCPServer {
                        vollstaendig: body.count >= laenge)
     }
 }
+
+#endif
