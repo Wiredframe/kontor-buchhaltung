@@ -50,6 +50,14 @@ private struct EinstellungenForm: View {
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
 
+    /// Grundfreibetrag zum Editieren: zeigt den gesetzlichen Standard des Jahres, bis der Nutzer
+    /// einen eigenen Wert setzt (dann lokaler Override in `settings.grundfreibetrag`).
+    private var grundfreibetragBinding: Binding<Decimal> {
+        Binding {
+            settings.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: settings.jahr)
+        } set: { settings.grundfreibetrag = $0 }
+    }
+
     var body: some View {
         Form {
             Section("Jahr \(String(settings.jahr))") {
@@ -58,6 +66,9 @@ private struct EinstellungenForm: View {
                 }
                 Toggle("Dauerfristverlängerung", isOn: $settings.dauerfristverlaengerung)
                 LabeledContent("Versteuerung", value: "Soll (vereinbarte Entgelte)")
+                TextField("Grundfreibetrag (ESt)", value: grundfreibetragBinding, format: .currency(code: "EUR"))
+                Text("Für die jahresbasierte ESt-Schätzung in der Jahresübersicht. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag).")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("KSK-Beitrag und ESt-Satz werden pro Monat im Monatsabschluss gepflegt (Sidebar-Tab „Werte“).")
                     .font(.caption).foregroundStyle(.secondary)
             }

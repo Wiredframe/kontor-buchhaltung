@@ -238,6 +238,42 @@ struct ESTPauschalTests {
     }
 }
 
+// MARK: - ESt jahresbasiert (Grundfreibetrag)
+
+struct ESTGrundfreibetragTests {
+    /// Standard-Grundfreibetrag (Grundtarif) je Jahr; künftige Jahre erben den letzten Wert.
+    @Test func standardProJahr() {
+        #expect(Steuer.grundfreibetragStandard(jahr: 2024) == dez("11784"))
+        #expect(Steuer.grundfreibetragStandard(jahr: 2025) == dez("12096"))
+        #expect(Steuer.grundfreibetragStandard(jahr: 2026) == dez("12348"))
+        #expect(Steuer.grundfreibetragStandard(jahr: 2027) == dez("12348")) // Fallback = zuletzt bekannt
+        #expect(Steuer.grundfreibetragStandard(jahr: 2023) == dez("11784")) // vor 2024 = frühester Wert
+    }
+
+    /// Jahresbasierte ESt: `max(0, Gewinn − KSK − Grundfreibetrag) × Satz`.
+    /// (18000 − 12348 − 2400) × 15 % = 3252 × 0,15 = 487,80.
+    @Test func voraussichtlichMitFreibetrag() {
+        #expect(Steuer.estVoraussichtlich(gewinn: dez("18000.00"), ksk: dez("2400.00"),
+                                          grundfreibetrag: dez("12348.00"), satz: dez("0.15")) == dez("487.80"))
+    }
+
+    /// Liegt der Gewinn unter KSK + Grundfreibetrag, ist die Rücklage 0 (nie negativ).
+    @Test func voraussichtlichNieNegativ() {
+        #expect(Steuer.estVoraussichtlich(gewinn: dez("10000.00"), ksk: dez("2000.00"),
+                                          grundfreibetrag: dez("12348.00"), satz: dez("0.15")) == 0)
+    }
+
+    /// Der Grundfreibetrag senkt die Schätzung gegenüber der reinen Pauschale (kleine Gewinne).
+    @Test func freibetragSenktGegenueberPauschal() {
+        let gewinn = dez("18000.00"), ksk = dez("2400.00"), satz = dez("0.15")
+        let pauschal = Steuer.estPauschal(basis: gewinn, ksk: ksk, satz: satz)
+        let mitFreibetrag = Steuer.estVoraussichtlich(gewinn: gewinn, ksk: ksk,
+                                                      grundfreibetrag: dez("12348.00"), satz: satz)
+        #expect(pauschal == dez("2340.00"))
+        #expect(mitFreibetrag < pauschal)
+    }
+}
+
 // MARK: - EÜR-Gewinn (Zuflussprinzip)
 
 struct EUERTests {

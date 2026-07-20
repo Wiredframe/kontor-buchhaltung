@@ -415,6 +415,19 @@ struct BackupTests {
         #expect(zahlungen.contains { $0.betrag == dez("-50") })
     }
 
+    /// Der lokale Grundfreibetrag-Override rundet über Export/Import (neues Jahr → Insert-Zweig).
+    @Test func grundfreibetragRoundTrip() throws {
+        let quelle = try kontext()
+        quelle.insert(YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"), grundfreibetrag: dez("24696")))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        try Backup.importData(data, in: ziel)
+        let ys = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(ys.grundfreibetrag == dez("24696"))
+    }
+
     /// Vorwärtskompatibilität: ein **altes** Backup-Schema (ohne KSK/ESt-Monatsdicts, ohne
     /// Vorlagen/Regeln, Ausgabe ohne `art`/`umlagefaehig`) muss ohne Crash importierbar sein.
     @Test func importAltesSchemaOhneNeueFelder() throws {

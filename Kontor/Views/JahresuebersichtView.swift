@@ -35,9 +35,11 @@ struct JahresuebersichtView: View {
         /// oder 4 Quartale (Label + Betrag). Folgt dem `ustvaRhythmus` des Jahres.
         var ustPerioden: [(label: String, betrag: Decimal)]
         var ustRhythmus: UStVARhythmus
-        var estRuecklage: Decimal            // Σ ESt-Rücklage über 12 Monate (geschätzt)
+        var estRuecklage: Decimal            // Σ ESt-Rücklage über 12 Monate (geschätzt, pauschal)
         var ksk: (kv: Decimal, rv: Decimal, pv: Decimal)
         var zahlungen: [TaxPayment]          // des Jahres, nach Datum sortiert
+        var grundfreibetrag: Decimal         // angesetzter Grundfreibetrag (Standard oder lokaler Override)
+        var estVoraussichtlich: Decimal      // jahresbasierte ESt inkl. Grundfreibetrag (realistischer)
 
         var ustJahr: Decimal { ustPerioden.reduce(Decimal(0)) { $0 + $1.betrag } }
         var kskGesamt: Decimal { ksk.kv + ksk.rv + ksk.pv }
@@ -61,9 +63,17 @@ struct JahresuebersichtView: View {
     private func baueWerte() -> Jahreswerte {
         let einP = einnahmen.flatMap(\.postenListe)
         let ausP = ausgaben.map(\.posten)
+        let a = Steuer.jahresauswertung(jahr: jahr, einnahmen: einP, ausgaben: ausP)
+        let kskT = kskJahr
         let est = Steuer.estRuecklageJahr(
             jahr: jahr, einnahmen: einP, ausgaben: ausP, kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
+        // Jahresbasierte, realistischere ESt: berücksichtigt den steuerfreien Grundfreibetrag.
+        // Standard des Jahres, lokal je Jahr überschreibbar; Satz = zuletzt gültiger (Dez.-effektiv),
+        // kein Hochrechnen. Rechnet auf demselben Gewinn/KSK, die oben angezeigt werden.
+        let gfb = settings?.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: jahr)
+        let voraus = Steuer.estVoraussichtlich(gewinn: a.gewinn, ksk: kskT.kv + kskT.rv + kskT.pv,
+                                               grundfreibetrag: gfb, satz: jahre.estSatz(jahr: jahr, monat: 12))
         // USt-Zahllast je VA-Zeitraum – Rhythmus aus den Jahres-Einstellungen (monatlich = 12,
         // sonst 4 Quartale). Die Jahressumme ist in beiden Fällen identisch.
         let rhythmus = settings?.ustvaRhythmus ?? .vierteljaehrlich
@@ -72,8 +82,8 @@ struct JahresuebersichtView: View {
             : (1...4).map { ("Q\($0)", Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.quartal(jahr, $0)).zahllast) }
         let jz = zahlungen.filter { $0.jahr == jahr }.sorted { $0.anzeigeDatum < $1.anzeigeDatum }
         return Jahreswerte(
-            a: Steuer.jahresauswertung(jahr: jahr, einnahmen: einP, ausgaben: ausP),
-            ustPerioden: ustP, ustRhythmus: rhythmus, estRuecklage: est, ksk: kskJahr, zahlungen: jz)
+            a: a, ustPerioden: ustP, ustRhythmus: rhythmus, estRuecklage: est, ksk: kskT,
+            zahlungen: jz, grundfreibetrag: gfb, estVoraussichtlich: voraus)
     }
 
     /// KSK des Jahres nach Versicherungszweig – Summe der je Monat gültigen Beitragssätze
@@ -146,6 +156,12 @@ struct JahresuebersichtView: View {
                             Kartenzeile(label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt, icon: "function")
                             Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage, farbe: Stil.steuer)
                             Text("Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Divider().padding(.vertical, 4)
+                            Kartenzeile(label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag, icon: "person.crop.circle", minus: true)
+                            Summenzeile(label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich, farbe: Stil.steuer)
+                            Kartenzeile(label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich, icon: "arrow.down.right.circle")
+                            Text("Jahresbasiert: (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt, der Gewinn wächst bis Dezember noch." : "") Grobe Orientierung, keine Steuererklärung: Progression, weitere Einkünfte und Splitting bleiben unberücksichtigt. Grundfreibetrag in den Einstellungen je Jahr anpassbar.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }

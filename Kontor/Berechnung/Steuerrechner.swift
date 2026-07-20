@@ -217,6 +217,25 @@ enum Steuer {
         (max(0, basis - ksk) * satz).gerundet()
     }
 
+    /// Gesetzlicher Grundfreibetrag (Grundtarif) je Jahr als Standard-Vorbelegung für die
+    /// jahresbasierte ESt-Schätzung. Pro Jahr über `YearSettings.grundfreibetrag` lokal
+    /// überschreibbar (z. B. Splitting). Künftige Jahre erben den zuletzt bekannten Wert.
+    static func grundfreibetragStandard(jahr: Int) -> Decimal {
+        switch jahr {
+        case ...2024: return Decimal(11784)
+        case 2025: return Decimal(12096)
+        default: return Decimal(12348)   // 2026 und (mangels neuerer Werte) spätere Jahre
+        }
+    }
+
+    /// Jahresbasierte, realistischere ESt-Schätzung: `max(0, Gewinn − KSK − Grundfreibetrag) × Satz`.
+    /// Im Gegensatz zur pauschalen Monatsrücklage berücksichtigt sie den steuerfreien
+    /// Grundfreibetrag. Bewusst kein §32a-Tarif: grobe Jahres-Orientierung, kein Hochrechnen.
+    static func estVoraussichtlich(gewinn: Decimal, ksk: Decimal,
+                                   grundfreibetrag: Decimal, satz: Decimal) -> Decimal {
+        estPauschal(basis: gewinn - grundfreibetrag, ksk: ksk, satz: satz)
+    }
+
     /// Die in (`jahr`, `monat`) **gebildete** ESt-Rücklage samt zugehöriger Soll-Basis `rn`.
     ///
     /// **Einzige Quelle** für beide Richtungen: die Bildung (`monatsauswertung`) und die

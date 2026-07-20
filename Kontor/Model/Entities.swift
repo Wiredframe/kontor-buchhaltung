@@ -14,6 +14,10 @@ final class YearSettings {
     var versteuerung: Versteuerung
     /// Jahres-Standardsatz für die ESt-Rücklage (z. B. 0,15).
     var estPauschalSatz: Decimal
+    /// Lokaler Grundfreibetrag-Override für die jahresbasierte ESt-Schätzung (Grundtarif, z. B.
+    /// Splitting). `nil` = gesetzlicher Standard des Jahres (`Steuer.grundfreibetragStandard`).
+    /// Optional gehalten → migrationssicher; bestehende Stores materialisieren `nil`.
+    var grundfreibetrag: Decimal? = nil
     /// Monatliche Satz-Overrides (Key = Monat "1"…"12"). Ohne Eintrag gilt
     /// estPauschalSatz – so lassen sich Rücklagen agil je Monat steuern, ohne
     /// bereits gesetzte Monate zu verändern (nur explizit gesetzte sind fix).
@@ -45,6 +49,7 @@ final class YearSettings {
         dauerfristverlaengerung: Bool = false,
         versteuerung: Versteuerung = .soll,
         estPauschalSatz: Decimal,
+        grundfreibetrag: Decimal? = nil,
         estSatzProMonat: [String: Decimal] = [:],
         abschlussProMonat: [String: Date] = [:],
         kskJAEProMonat: [String: Decimal] = [:],
@@ -58,6 +63,7 @@ final class YearSettings {
         self.dauerfristverlaengerung = dauerfristverlaengerung
         self.versteuerung = versteuerung
         self.estPauschalSatz = estPauschalSatz
+        self.grundfreibetrag = grundfreibetrag
         self.estSatzProMonat = estSatzProMonat
         self.abschlussProMonat = abschlussProMonat
         self.kskJAEProMonat = kskJAEProMonat

@@ -58,6 +58,8 @@ enum Backup {
         var dauerfristverlaengerung: Bool
         var versteuerung: Versteuerung
         var estPauschalSatz: Decimal
+        // Später ergänzt → optional, damit ältere Backups ohne diesen Schlüssel weiter dekodieren.
+        var grundfreibetrag: Decimal? = nil
         // Alle Monats-Dictionaries sind **optional** → auch sehr alte Backups (die einen oder
         // mehrere dieser später ergänzten Schlüssel nicht enthalten) bleiben restore-bar; ein
         // fehlender Schlüssel wird beim Import zu `[:]` (kein Decoding-Crash).
@@ -134,7 +136,7 @@ enum Backup {
             jahre: try context.fetch(FetchDescriptor<YearSettings>()).map {
                 YearSettingsDTO(jahr: $0.jahr, ustvaRhythmus: $0.ustvaRhythmus,
                     dauerfristverlaengerung: $0.dauerfristverlaengerung, versteuerung: $0.versteuerung,
-                    estPauschalSatz: $0.estPauschalSatz,
+                    estPauschalSatz: $0.estPauschalSatz, grundfreibetrag: $0.grundfreibetrag,
                     estSatzProMonat: $0.estSatzProMonat, abschlussProMonat: $0.abschlussProMonat,
                     kskJAEProMonat: $0.kskJAEProMonat,
                     kskRVProMonat: $0.kskRVProMonat, kskKVProMonat: $0.kskKVProMonat,
@@ -326,7 +328,7 @@ enum Backup {
             }
             context.insert(YearSettings(jahr: d.jahr, ustvaRhythmus: d.ustvaRhythmus,
                 dauerfristverlaengerung: d.dauerfristverlaengerung, versteuerung: d.versteuerung,
-                estPauschalSatz: d.estPauschalSatz,
+                estPauschalSatz: d.estPauschalSatz, grundfreibetrag: d.grundfreibetrag,
                 estSatzProMonat: d.estSatzProMonat ?? [:], abschlussProMonat: d.abschlussProMonat ?? [:],
                 kskJAEProMonat: d.kskJAEProMonat ?? [:],
                 kskRVProMonat: d.kskRVProMonat ?? [:],
