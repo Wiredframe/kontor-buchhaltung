@@ -117,7 +117,12 @@ final class MCPServer {
             // weg): Port 8787 war scannbar, und macOS fragte nach der Firewall-Freigabe.
             // Die Prüfung je Verbindung (`istLoopback`) bleibt als zweite Schicht.
             params.requiredLocalEndpoint = NWEndpoint.hostPort(host: .ipv4(.loopback), port: nwPort)
-            let l = try NWListener(using: params, on: nwPort)
+            // Den Port NICHT zusätzlich über `on:` angeben – er steckt bereits im
+            // `requiredLocalEndpoint`. Beides zusammen ist für Network.framework eine doppelte,
+            // widersprüchliche Port-Angabe und lässt `NWListener` mit POSIX 22 (EINVAL,
+            // „Invalid argument") scheitern: genau der Grund, warum der Server nach dem
+            // Loopback-Umbau nicht mehr ansprang.
+            let l = try NWListener(using: params)
             l.newConnectionHandler = { [weak self] conn in self?.behandle(conn) }
             l.stateUpdateHandler = { [weak self] zustand in
                 Task { @MainActor in self?.zustandGeaendert(zustand) }

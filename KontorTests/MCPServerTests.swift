@@ -509,4 +509,23 @@ struct MCPServerTests {
         ]])
         #expect((falscherTyp["result"] as! [String: Any])["isError"] as? Bool == true)
     }
+
+    // MARK: - Listener-Start
+
+    /// Regression (POSIX 22 / EINVAL, „Invalid argument"): Der Loopback-Umbau setzte
+    /// `requiredLocalEndpoint` **mit** Port und rief `NWListener` zugleich mit `on: port` auf.
+    /// Die doppelte Port-Angabe ließ den Listener beim Start scheitern – der Server sprang gar
+    /// nicht mehr an (in den Einstellungen als NWError 22 sichtbar). Hier wird ein echter Start
+    /// gefahren: Er muss READY werden, ohne Fehler. Eigener Port, um die laufende App (8787)
+    /// nicht zu stören.
+    @Test func serverStartetOhneEINVALUndBindetLoopback() async throws {
+        let server = MCPServer(container: try container(), port: 8799)
+        defer { server.stoppen() }
+        server.starten()
+        for _ in 0..<60 where !server.aktiv && server.letzterFehler == nil {
+            try await Task.sleep(nanoseconds: 50_000_000)   // bis READY oder Fehler, max ~3 s
+        }
+        #expect(server.letzterFehler == nil, "Listener meldete: \(server.letzterFehler ?? "")")
+        #expect(server.aktiv, "Server wurde nicht READY")
+    }
 }
