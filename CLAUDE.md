@@ -103,7 +103,17 @@ einmalig ein Signing-Team wählen (oder „Sign to Run Locally").
   Der frühere **§32a-Tarifschätzer ist entfernt**
   (`EStReserveModus`, `Tarifzone`, `estReserveModus`/`tarifZonen`/`grundfreibetrag`): die
   Monats-Hochrechnung (`monatsGewinn × 12`) war bei unterjährigem/unregelmäßigem Datenstand
-  unzuverlässig – §32a-Progression braucht das ganze Jahres-zvE. Pauschal ist der einzige Modus.
+  unzuverlässig – §32a-Progression braucht das ganze Jahres-zvE. Pauschal ist der einzige Modus
+  **der Rücklage**; das alte `grundfreibetrag` der Tarifzonen ist weg (nicht zu verwechseln mit dem
+  neuen `YearSettings.grundfreibetrag`, siehe nächster Punkt).
+- **Grundfreibetrag = jahresbasierte Zusatz-ESt (nur Jahresübersicht):** Neben der pauschalen
+  Rücklage zeigt der Jahresabschluss eine zweite, realistischere Schätzung `Steuer.estVoraussichtlich`
+  = `max(0, Jahresgewinn − Jahres-KSK − Grundfreibetrag) × Satz` (Satz = Dezember-effektiv,
+  **kein** Hochrechnen), plus **Puffer** = Rücklage minus voraussichtliche ESt. GFB als optionales
+  `YearSettings.grundfreibetrag` (`nil` = gesetzlicher Grundtarif via `Steuer.grundfreibetragStandard(jahr:)`,
+  in den Einstellungen je Jahr überschreibbar, z. B. Splitting = doppelter Betrag). **Bewusst NICHT**
+  in die Monats-/Kernrücklage (`estRuecklageJahr`, `estGebildet`) gezogen und **kein** §32a-Wiederaufbau:
+  der GFB verpufft monatlich im `max(0)` je Monat, jahresbasiert nicht. Backup-Feld nachgezogen.
 - **Steuerrücklage (Monat)** = `(USt − VSt) + KSK + ESt-Anteil`. „Gehalt"/Liquidität
   separat = Σ private wiederkehrende Buchungen (`ExpenseEntry.wiederkehrendBrutto(...betrieblich:false)`).
 - **Forderungsausfall** (`InvoiceStatus.ausgefallen`): USt-Korrektur **§17 UStG** im
@@ -176,7 +186,7 @@ Prüfgrößen (synthetisch, exemplarisch):
 - **Auswertungen = 3 Zeithorizonte** (konsolidiert): **Monatsabschluss** (Monat – inkl. der früheren
   „Steuer & Rücklagen": RN/USt/VSt/KSK/ESt-Kacheln, KSK mit „anpassen"-Link, Fixkosten/Subscriptions-Panel),
   **UStVA** (Quartal), **Jahresabschluss** (Jahr – frühere „Jahresübersicht (EÜR)" + „Steuern & Abgaben":
-  EÜR-Gewinn, Steuerlast ESt+USt, KSK-Jahr KV/RV/PV, ESt-Abgleich, Zahlungen/Termine). „Steuer & Rücklagen"
+  EÜR-Gewinn, Steuerlast ESt+USt, voraussichtliche ESt (Grundfreibetrag), KSK-Jahr KV/RV/PV, ESt-Abgleich, Zahlungen/Termine). „Steuer & Rücklagen"
   und „Steuern & Abgaben" gibt es nicht mehr.
 - **UStVA formular-getreu (zum Ausfüllen):** `UStVAErgebnis` ist nach den ELSTER-Kennzahlen benannt –
   **KZ 81 = Netto-Bemessungsgrundlage 19 %** (nicht die Steuer!), `ust81` = die daraus errechnete USt 19 %,
