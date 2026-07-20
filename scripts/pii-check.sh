@@ -43,12 +43,12 @@ PATTERNS=(
 # Zu einer Alternation zusammensetzen.
 JOINED=$(IFS='|'; echo "${PATTERNS[*]}")
 
-# Sanktionierte Ausnahme: die bewusste Urheber-/Copyright-Nennung im README ist
-# öffentliche Attribution (vom Betreiber selbst gesetzt, „Update author name"),
-# KEIN versehentliches Leak – und landet nicht im App-Bundle. Nur GENAU diese
-# Zeile wird durchgelassen; alle übrigen Marker (Adresse, IBANs, Gläubiger-IDs,
+# Sanktionierte Ausnahmen: die bewusste Urheber-/Copyright-Nennung im README und die
+# Autoren-Byline im Making-of-Blog sind öffentliche Attribution (vom Betreiber selbst
+# gesetzt), kein versehentliches Leak, und landen nicht im App-Bundle. Nur GENAU diese
+# beiden Zeilen werden durchgelassen; alle übrigen Marker (Adresse, IBANs, Gläubiger-IDs,
 # Mandanten, E-Mail) schlagen weiterhin hart an.
-ALLOWLIST='Urheber \(Ulf Schuster\)'
+ALLOWLIST='Urheber \(Ulf Schuster\)|Ulf Schuster .* UI-Designer und Product Owner der App'
 
 # In allen getrackten Dateien suchen, dieses Skript ausnehmen; sanktionierte Zeile filtern.
 git grep -nIiE "$JOINED" -- ':!scripts/pii-check.sh' 2>/dev/null | grep -vE "$ALLOWLIST" > /tmp/pii-hits.$$ || true
