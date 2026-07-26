@@ -1,4 +1,3 @@
-#if !APPSTORE
 import Foundation
 import Security
 
@@ -86,4 +85,3 @@ enum Schlusselbund {
     }
 }
 
-#endif

@@ -1,4 +1,3 @@
-#if !APPSTORE
 import Foundation
 import Network
 import SwiftData
@@ -284,4 +283,3 @@ final class MCPServer {
     }
 }
 
-#endif

@@ -1,4 +1,3 @@
-#if !APPSTORE
 import Foundation
 import SwiftData
 
@@ -35,4 +34,3 @@ enum KISicherung {
     }
 }
 
-#endif

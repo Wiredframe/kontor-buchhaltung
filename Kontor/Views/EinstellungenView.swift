@@ -42,11 +42,11 @@ struct EinstellungenView: View {
 
 private struct EinstellungenForm: View {
     @Environment(\.modelContext) private var context
-    #if !APPSTORE
     @Environment(MCPServer.self) private var mcp
-    #endif
     @Bindable var settings: YearSettings
     @State private var status: String?
+    @State private var selbsttestLaeuft = false
+    @State private var selbsttestErgebnis: String?
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
 
@@ -56,6 +56,33 @@ private struct EinstellungenForm: View {
         Binding {
             settings.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: settings.jahr)
         } set: { settings.grundfreibetrag = $0 }
+    }
+
+    /// Selbsttest ohne externen Client: schickt eine echte MCP-Anfrage (kontor_uebersicht)
+    /// durch dieselbe Verarbeitungsschicht, die auch der lokale Server bedient
+    /// (MCPProtokoll.verarbeite), und zeigt die Antwort. So ist die MCP-Funktion und damit
+    /// der Zweck des network.server-Entitlements direkt in der App prüfbar, ohne Terminal.
+    private func selbsttestAusfuehren() {
+        selbsttestLaeuft = true
+        selbsttestErgebnis = nil
+        let jahr = Calendar.current.component(.year, from: Date())
+        let anfrage: [String: Any] = [
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": ["name": "kontor_uebersicht", "arguments": ["jahr": jahr]],
+        ]
+        let container = context.container
+        Task { @MainActor in
+            defer { selbsttestLaeuft = false }
+            guard let body = try? JSONSerialization.data(withJSONObject: anfrage),
+                  let antwort = await MCPProtokoll.verarbeite(body, container: container, sitzung: "selbsttest"),
+                  let obj = try? JSONSerialization.jsonObject(with: antwort) as? [String: Any],
+                  let result = obj["result"] as? [String: Any],
+                  let inhalt = (result["content"] as? [[String: Any]])?.first?["text"] as? String else {
+                selbsttestErgebnis = "Selbsttest fehlgeschlagen: keine Antwort vom lokalen MCP-Endpoint."
+                return
+            }
+            selbsttestErgebnis = inhalt
+        }
     }
 
     var body: some View {
@@ -109,7 +136,6 @@ private struct EinstellungenForm: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            #if !APPSTORE
             Section("KI-Zugriff (MCP)") {
                 Toggle("Lokalen MCP-Server aktivieren", isOn: Binding(
                     get: { mcp.aktiv },
@@ -126,6 +152,18 @@ private struct EinstellungenForm: View {
                     } label: {
                         Label("Einrichtungsbefehl für Claude Code kopieren", systemImage: "doc.on.doc")
                     }
+                    Button {
+                        selbsttestAusfuehren()
+                    } label: {
+                        Label("Selbsttest: Beispielabfrage ausführen", systemImage: "checkmark.seal")
+                    }
+                    .disabled(selbsttestLaeuft)
+                    if let selbsttestErgebnis {
+                        Text(selbsttestErgebnis)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
                 }
                 if let fehler = mcp.letzterFehler {
                     Label(fehler, systemImage: "exclamationmark.triangle")
@@ -133,8 +171,11 @@ private struct EinstellungenForm: View {
                 }
                 Text("Erlaubt einem externen KI-Client (z. B. Claude Code) Zugriff auf deine Daten – nur lokal (127.0.0.1), Token-geschützt. Lesen (Engine-Zahlen/CSV) **und** sparsames Schreiben (Ausgabe anlegen, Rechnung bezahlt); vor dem ersten Schreibzugriff je Sitzung wird automatisch ein Backup im Ordner „KI-Backups“ abgelegt.")
                     .font(.caption).foregroundStyle(.secondary)
+                Text("Der Server ist standardmäßig aus und läuft nur, solange dieser Schalter an ist; beim Beenden der App stoppt er. Der Selbsttest führt lokal eine Beispielabfrage aus, ganz ohne externen Client.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
+            #if !APPSTORE
             Section("Unterstützung") {
                 Button {
                     if let url = URL(string: "https://donate.stripe.com/28E14obXGgBH3ol2Fs6sw00") {

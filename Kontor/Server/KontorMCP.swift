@@ -1,4 +1,3 @@
-#if !APPSTORE
 import Foundation
 import SwiftData
 
@@ -781,4 +780,3 @@ enum KontorMCP {
     private static func freiObj(_ d: String) -> [String: Any] { ["type": "object", "description": d, "additionalProperties": true] }
 }
 
-#endif

@@ -6,9 +6,7 @@ import Foundation
 @main
 struct KontorApp: App {
     let container: ModelContainer
-    #if !APPSTORE
     let mcp: MCPServer
-    #endif
 
     init() {
         // Öffnen + Fehlerbehandlung liegen in `StoreOeffner` – herausgelöst, weil das der
@@ -32,12 +30,11 @@ struct KontorApp: App {
             UserDefaults.standard.set(true, forKey: "storeWiederhergestellt")
             UserDefaults.standard.set(zustand == .nurImSpeicher, forKey: "storeNurImSpeicher")
         }
-        #if !APPSTORE
-        // Lokaler MCP-Server (für externe KI-Clients wie Claude Code) – nur auf Wunsch.
-        // Im App-Store-Build (`APPSTORE`) komplett ausgeschlossen (Guideline 2.4.5).
+        // Lokaler MCP-Server (für externe KI-Clients wie Claude Code): nur auf Wunsch,
+        // standardmäßig aus. Nur Loopback (127.0.0.1), Token-geschützt. In allen Builds
+        // enthalten (auch App Store); der Nutzer schaltet ihn in den Einstellungen frei.
         mcp = MCPServer(container: c)
         if UserDefaults.standard.bool(forKey: "mcpAktiv") { mcp.starten() }
-        #endif
     }
 
     var body: some Scene {
@@ -46,8 +43,6 @@ struct KontorApp: App {
         }
         .defaultSize(width: 1100, height: 720)
         .modelContainer(container)
-        #if !APPSTORE
         .environment(mcp)
-        #endif
     }
 }
