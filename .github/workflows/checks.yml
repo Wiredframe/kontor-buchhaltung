@@ -1,0 +1,16 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guard-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Quote-Check (typografische Anführungszeichen als String-Delimiter)
+        run: ./scripts/quote-check.sh
+      - name: PII-Check (versehentlich eingecheckte Personendaten)
+        run: ./scripts/pii-check.sh
