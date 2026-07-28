@@ -26,14 +26,17 @@ EXPORT="$OUT/export"
 TEAM="7RN999S858"
 ENTITLEMENTS="Kontor/Kontor-AppStore.entitlements"
 
-echo "* 1/4  PII-Check (kein Build mit eingecheckten Personendaten)"
+echo "* 1/5  Quote-Check (typografische Anführungszeichen als String-Delimiter)"
+./scripts/quote-check.sh
+
+echo "* 2/5  PII-Check (kein Build mit eingecheckten Personendaten)"
 ./scripts/pii-check.sh
 
-echo "* 2/4  Tests (Normal-Build, MCP vorhanden)"
+echo "* 3/5  Tests (Normal-Build, MCP vorhanden)"
 xcodebuild test -scheme Kontor -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO -quiet
 
-echo "* 3/4  Archiv (APPSTORE-Flag, ohne MCP/Spende, App-Store-Entitlements)"
+echo "* 4/5  Archiv (APPSTORE-Flag, ohne MCP/Spende, App-Store-Entitlements)"
 rm -rf "$OUT"; mkdir -p "$OUT"
 xcodebuild archive \
   -scheme Kontor -configuration Release \
@@ -45,7 +48,7 @@ xcodebuild archive \
   CODE_SIGN_STYLE=Automatic \
   -allowProvisioningUpdates
 
-echo "* 4/4  Export fuer App Store Connect (.pkg)"
+echo "* 5/5  Export fuer App Store Connect (.pkg)"
 cat > "$OUT/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

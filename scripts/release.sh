@@ -16,25 +16,28 @@ DERIVED="$OUT/dd"
 ENTITLEMENTS="Kontor/Kontor.entitlements"
 APP="$OUT/Kontor.app"
 
-echo "▸ 1/5  PII-Check (kein Release mit eingecheckten Personendaten)"
+echo "▸ 1/6  Quote-Check (typografische Anführungszeichen als String-Delimiter)"
+./scripts/quote-check.sh
+
+echo "▸ 2/6  PII-Check (kein Release mit eingecheckten Personendaten)"
 ./scripts/pii-check.sh
 
-echo "▸ 2/5  Tests"
+echo "▸ 3/6  Tests"
 xcodebuild test -scheme Kontor -destination 'platform=macOS' \
   CODE_SIGNING_ALLOWED=NO -quiet
 
-echo "▸ 3/5  Build (Release, unsigniert)"
+echo "▸ 4/6  Build (Release, unsigniert)"
 rm -rf "$OUT"; mkdir -p "$OUT"
 xcodebuild build -scheme Kontor -configuration Release \
   -destination 'generic/platform=macOS' -derivedDataPath "$DERIVED" \
   CODE_SIGNING_ALLOWED=NO -quiet
 cp -R "$DERIVED/Build/Products/Release/Kontor.app" "$APP"
 
-echo "▸ 4/5  Ad-hoc signieren (inkl. Sandbox-Entitlements)"
+echo "▸ 5/6  Ad-hoc signieren (inkl. Sandbox-Entitlements)"
 codesign --force --sign - --entitlements "$ENTITLEMENTS" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
 
-echo "▸ 5/5  ZIP packen + SHA256"
+echo "▸ 6/6  ZIP packen + SHA256"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 ZIP="$OUT/Kontor-$VERSION.zip"
 ditto -c -k --keepParent "$APP" "$ZIP"
