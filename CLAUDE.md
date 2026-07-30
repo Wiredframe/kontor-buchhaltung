@@ -48,6 +48,21 @@ xcodebuild test  -scheme Kontor -destination 'platform=macOS' CODE_SIGNING_ALLOW
 In Xcode einfach `Kontor.xcodeproj` öffnen und ⌘R / ⌘U. Beim ersten Run ggf.
 einmalig ein Signing-Team wählen (oder „Sign to Run Locally").
 
+## QA (lokal, kein CI) — Details in `QA.md`
+Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
+```bash
+./scripts/install-hooks.sh   # einmalig je Arbeitskopie: pre-commit + pre-push
+./scripts/qa.sh --fast       # Sekunden: quote-check + pii-check + format-check (pre-commit)
+./scripts/qa.sh --full       # zusätzlich Build + Tests (pre-push, Release)
+./scripts/coverage.sh        # Abdeckung pro Datei (wöchentlicher Sweep)
+```
+- **Format:** swift-format aus der Xcode-Toolchain (`xcrun swift-format`, Config `.swift-format`),
+  kein `brew` nötig. Gegatet wird nur `Kontor/`; `KontorTests/` wird mitformatiert, aber nicht
+  gelintet. Auto-fix: `xcrun swift-format format -i -r Kontor KontorTests`.
+- **Wöchentlicher Sweep:** `coverage.sh` + `/code-review` (Wochendiff) + `/security-review`
+  (MCP-Server, Bankimport-Parser, Backup).
+- `quote-check.sh`/`pii-check.sh` sind jetzt in `qa.sh` gebündelt und laufen automatisch im Hook.
+
 ## Projektstruktur
 - **File-System-Synchronized Groups**: neue `.swift`-Dateien einfach in `Kontor/`
   (App) bzw. `KontorTests/` (Tests) ablegen – **kein** Eintrag in `project.pbxproj`
