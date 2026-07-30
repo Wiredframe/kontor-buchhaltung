@@ -7,16 +7,20 @@ enum Stil {
 
     /// Marken-Verlauf (Blau→Violett) – Hero des Monatsabschlusses.
     static let markenVerlauf = LinearGradient(
-        colors: [Color(red: 0.34, green: 0.66, blue: 0.97),
-                 Color(red: 0.43, green: 0.22, blue: 0.87)],
+        colors: [
+            Color(red: 0.34, green: 0.66, blue: 0.97),
+            Color(red: 0.43, green: 0.22, blue: 0.87),
+        ],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     /// Eigener Verlauf (warmes Grasgrün→Tannengrün, in der Hue der Gewinn-Farbe) – Hero des
     /// Jahresabschlusses, bewusst andere Farbe als der Monats-Hero, damit die beiden
     /// Abschluss-Screens auf einen Blick unterscheidbar sind.
     static let jahresVerlauf = LinearGradient(
-        colors: [Color(red: 0.30, green: 0.74, blue: 0.38),
-                 Color(red: 0.10, green: 0.48, blue: 0.26)],
+        colors: [
+            Color(red: 0.30, green: 0.74, blue: 0.38),
+            Color(red: 0.10, green: 0.48, blue: 0.26),
+        ],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
     /// Wertfarbe für negative Hero-Kennzahlen (zarter Rotton auf dem Verlauf).
@@ -24,12 +28,12 @@ enum Stil {
 
     // Semantische Akzente
     static let einnahmen = Color.blue
-    static let ausgaben  = Color.orange
-    static let steuer    = Color.purple
-    static let gewinn    = Color.green
-    static let ksk       = Color.teal
-    static let umlage    = Color.indigo
-    static let privat    = Color.pink
+    static let ausgaben = Color.orange
+    static let steuer = Color.purple
+    static let gewinn = Color.green
+    static let ksk = Color.teal
+    static let umlage = Color.indigo
+    static let privat = Color.pink
 }
 
 extension View {

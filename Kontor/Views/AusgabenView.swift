@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 // MARK: - Anzeige-Helfer auf dem Zahlungs-Modell
@@ -19,9 +19,9 @@ private struct LedgerZeile: Identifiable {
     let datum: Date
     let bezeichnung: String
     let artLabel: String
-    let sparte: String?           // nil = Steuer/Vorsorge (keine Sparte)
+    let sparte: String?  // nil = Steuer/Vorsorge (keine Sparte)
     let betrag: Decimal
-    let vst: Decimal?             // nil = Steuer/Vorsorge
+    let vst: Decimal?  // nil = Steuer/Vorsorge
     let netto: Decimal?
     let ausgabe: ExpenseEntry?
     let zahlung: TaxPayment?
@@ -71,19 +71,19 @@ struct AusgabenView: View {
         init(ziel art: AusgabeArt?) {
             switch art {
             case .betriebsausgabe: self = .betriebsausgabe
-            case .fixkosten:       self = .fixkosten
-            case .subscription:    self = .subscription
-            case nil:              self = .alle
+            case .fixkosten: self = .fixkosten
+            case .subscription: self = .subscription
+            case nil: self = .alle
             }
         }
         var symbol: String {
             switch self {
-            case .alle:            "tray.full"
+            case .alle: "tray.full"
             case .betriebsausgabe: "briefcase"
-            case .fixkosten:       "house"
-            case .subscription:    "arrow.triangle.2.circlepath"
-            case .vorsorge:        "cross.case"
-            case .steuern:         "building.columns"
+            case .fixkosten: "house"
+            case .subscription: "arrow.triangle.2.circlepath"
+            case .vorsorge: "cross.case"
+            case .steuern: "building.columns"
             }
         }
         /// Hat diese Art überhaupt eine Sparte (privat/betrieblich)? Betriebsausgaben sind
@@ -96,20 +96,20 @@ struct AusgabenView: View {
         /// Lässt diese Filterwahl Ausgaben (ExpenseEntry) der gegebenen Art durch?
         func passtAusgabe(_ e: ExpenseEntry) -> Bool {
             switch self {
-            case .alle:            true
+            case .alle: true
             case .betriebsausgabe: e.artEffektiv == .betriebsausgabe
-            case .fixkosten:       e.artEffektiv == .fixkosten
-            case .subscription:    e.artEffektiv == .subscription
+            case .fixkosten: e.artEffektiv == .fixkosten
+            case .subscription: e.artEffektiv == .subscription
             case .vorsorge, .steuern: false
             }
         }
         /// Lässt diese Filterwahl die Zahlung (TaxPayment) durch?
         func passtZahlung(_ t: TaxPayment) -> Bool {
             switch self {
-            case .alle:     true
+            case .alle: true
             case .vorsorge: t.kind == .ksk
-            case .steuern:  t.kind != .ksk
-            default:        false
+            case .steuern: t.kind != .ksk
+            default: false
             }
         }
     }
@@ -117,7 +117,11 @@ struct AusgabenView: View {
         case alle = "Alle", privat = "Privat", betrieblich = "Betrieblich"
         var id: String { rawValue }
         func passt(betrieblich: Bool) -> Bool {
-            switch self { case .alle: true; case .privat: !betrieblich; case .betrieblich: betrieblich }
+            switch self {
+            case .alle: true
+            case .privat: !betrieblich
+            case .betrieblich: betrieblich
+            }
         }
         func passt(_ e: ExpenseEntry) -> Bool { passt(betrieblich: e.betrieblich) }
     }
@@ -128,20 +132,28 @@ struct AusgabenView: View {
 
     private var zeilen: [LedgerZeile] {
         var rows: [LedgerZeile] = []
-        for e in alle where artFilter.passtAusgabe(e) && sparte.passt(e)
-            && zeit.filter.enthaelt(e.datum) && sucheMatch(e.bezeichnung, e.anbieter) {
-            rows.append(LedgerZeile(id: e.id, datum: e.datum, bezeichnung: e.bezeichnung,
-                artLabel: e.artEffektiv.bezeichnung, sparte: e.betrieblich ? "betrieblich" : "privat",
-                betrag: e.brutto, vst: e.vst, netto: e.netto, ausgabe: e, zahlung: nil))
+        for e in alle
+        where artFilter.passtAusgabe(e) && sparte.passt(e)
+            && zeit.filter.enthaelt(e.datum) && sucheMatch(e.bezeichnung, e.anbieter)
+        {
+            rows.append(
+                LedgerZeile(
+                    id: e.id, datum: e.datum, bezeichnung: e.bezeichnung,
+                    artLabel: e.artEffektiv.bezeichnung, sparte: e.betrieblich ? "betrieblich" : "privat",
+                    betrag: e.brutto, vst: e.vst, netto: e.netto, ausgabe: e, zahlung: nil))
         }
         // Steuer/Vorsorge haben keine Sparte → nur zeigen, wenn nicht nach Sparte gefiltert wird.
         if sparte == .alle {
-            for t in zahlungen where artFilter.passtZahlung(t)
-                && zeit.filter.enthaelt(t.anzeigeDatum) && sucheMatch(t.kind.bezeichnung, t.bemerkung) {
-                rows.append(LedgerZeile(id: t.id, datum: t.anzeigeDatum,
-                    bezeichnung: t.bemerkung.isEmpty ? t.kind.bezeichnung : t.bemerkung,
-                    artLabel: t.kind == .ksk ? "Vorsorgeaufwand" : "Steuer",
-                    sparte: nil, betrag: t.betrag, vst: nil, netto: nil, ausgabe: nil, zahlung: t))
+            for t in zahlungen
+            where artFilter.passtZahlung(t)
+                && zeit.filter.enthaelt(t.anzeigeDatum) && sucheMatch(t.kind.bezeichnung, t.bemerkung)
+            {
+                rows.append(
+                    LedgerZeile(
+                        id: t.id, datum: t.anzeigeDatum,
+                        bezeichnung: t.bemerkung.isEmpty ? t.kind.bezeichnung : t.bemerkung,
+                        artLabel: t.kind == .ksk ? "Vorsorgeaufwand" : "Steuer",
+                        sparte: nil, betrag: t.betrag, vst: nil, netto: nil, ausgabe: nil, zahlung: t))
             }
         }
         return rows
@@ -156,7 +168,8 @@ struct AusgabenView: View {
     /// nie eine Vorlage ein, deren Buchung der aktive Filter danach gleich wieder ausblendet.
     private var sichtbareVorlagen: [Vorlage] {
         vorlagen.filter { v in
-            let artOk = artFilter == .alle
+            let artOk =
+                artFilter == .alle
                 || (artFilter == .fixkosten && v.art == .fixkosten)
                 || (artFilter == .subscription && v.art == .subscription)
             return artOk && sparte.passt(betrieblich: v.betrieblich)
@@ -205,10 +218,14 @@ struct AusgabenView: View {
             }
             Divider()
             Table(liste, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Datum", value: \.datum) { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
-                    .width(min: 64, ideal: 92)
-                TableColumn("Bezeichnung", value: \.bezeichnung) { Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1) }
-                    .width(min: 70, ideal: 180)
+                TableColumn("Datum", value: \.datum) {
+                    Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1)
+                }
+                .width(min: 64, ideal: 92)
+                TableColumn("Bezeichnung", value: \.bezeichnung) {
+                    Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1)
+                }
+                .width(min: 70, ideal: 180)
                 // „Art" nur in der Gesamtansicht – sonst ist sie durch die Bereichswahl ohnehin bekannt.
                 if artFilter == .alle {
                     TableColumn("Art", value: \.artLabel) { Text($0.artLabel).foregroundStyle(.secondary).lineLimit(1) }
@@ -216,8 +233,10 @@ struct AusgabenView: View {
                 }
                 // „Sparte" nur, wo es privat/betrieblich überhaupt gibt.
                 if artFilter.hatSparte {
-                    TableColumn("Sparte", value: \.sparteSort) { Text($0.sparte ?? "—").foregroundStyle(.secondary).lineLimit(1) }
-                        .width(min: 50, ideal: 92)
+                    TableColumn("Sparte", value: \.sparteSort) {
+                        Text($0.sparte ?? "—").foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    .width(min: 50, ideal: 92)
                 }
                 TableColumn("Betrag", value: \.betrag) { z in
                     // Negative Beträge (Erstattungen/Gutschriften) neutral – kein Rot: eine
@@ -227,10 +246,14 @@ struct AusgabenView: View {
                 .width(min: 60, ideal: 88)
                 // VSt/Netto nur bei Ausgaben – Vorsorge/Steuern haben keine Vorsteuer.
                 if artFilter.hatVorsteuer {
-                    TableColumn("VSt", value: \.vstSort) { Text($0.vst.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
-                        .width(min: 50, ideal: 74)
-                    TableColumn("Netto", value: \.nettoSort) { Text($0.netto.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1) }
-                        .width(min: 56, ideal: 80)
+                    TableColumn("VSt", value: \.vstSort) {
+                        Text($0.vst.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                    }
+                    .width(min: 50, ideal: 74)
+                    TableColumn("Netto", value: \.nettoSort) {
+                        Text($0.netto.map(\.euro) ?? "—").foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
+                    }
+                    .width(min: 56, ideal: 80)
                 }
             }
             .onDeleteCommand { loesche(selection) }
@@ -250,16 +273,20 @@ struct AusgabenView: View {
                 guard !dok.isEmpty else { return false }
                 batchAuftrag = BelegBatchAuftrag(urls: dok)
                 return true
-            } isTargeted: { zielAktiv = $0 }
+            } isTargeted: {
+                zielAktiv = $0
+            }
             .overlay {
                 if zielAktiv {
                     RoundedRectangle(cornerRadius: 16)
                         .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [8]))
                         .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
                         .overlay {
-                            Label("Beleg ablegen – Felder werden per Texterkennung vorausgefüllt",
-                                  systemImage: "doc.viewfinder")
-                                .font(.headline).foregroundStyle(Color.accentColor)
+                            Label(
+                                "Beleg ablegen – Felder werden per Texterkennung vorausgefüllt",
+                                systemImage: "doc.viewfinder"
+                            )
+                            .font(.headline).foregroundStyle(Color.accentColor)
                         }
                         .padding(10).allowsHitTesting(false)
                 }
@@ -289,12 +316,26 @@ struct AusgabenView: View {
                     Label("Neu", systemImage: "plus")
                 }
                 .help("Neuen Ausgabeeintrag anlegen")
-                Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
-                    .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
-                Button { vormonatDuplizieren() } label: { Label("Vormonat duplizieren", systemImage: "doc.on.doc") }
-                    .help("Kopiert die wiederkehrenden Buchungen des Vormonats in \(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))")
-                Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
-                    .help("Inspector-Seitenleiste ein-/ausblenden")
+                Button {
+                    belegeWaehlen()
+                } label: {
+                    Label("Belege importieren", systemImage: "doc.viewfinder")
+                }
+                .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
+                Button {
+                    vormonatDuplizieren()
+                } label: {
+                    Label("Vormonat duplizieren", systemImage: "doc.on.doc")
+                }
+                .help(
+                    "Kopiert die wiederkehrenden Buchungen des Vormonats in \(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))"
+                )
+                Button {
+                    zeigeInspektor.toggle()
+                } label: {
+                    Label("Details", systemImage: "sidebar.trailing")
+                }
+                .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -329,9 +370,10 @@ struct AusgabenView: View {
                             LeereInspektorView(hinweis: "Zeile wählen – oder Tab Vorlagen zum Einfügen.")
                         }
                     } else {
-                        VorlagenPanel(vorlagen: sichtbareVorlagen, auswahl: $vorlagenAuswahl,
-                                      zielText: "\(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))",
-                                      einfuegen: einfuegen, neueVorlage: neueVorlage, loescheVorlage: loescheVorlage)
+                        VorlagenPanel(
+                            vorlagen: sichtbareVorlagen, auswahl: $vorlagenAuswahl,
+                            zielText: "\(monatsName(zielJahrMonat.monat)) \(String(zielJahrMonat.jahr))",
+                            einfuegen: einfuegen, neueVorlage: neueVorlage, loescheVorlage: loescheVorlage)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -341,7 +383,9 @@ struct AusgabenView: View {
         .sheet(item: $batchAuftrag) { auftrag in
             BelegBatchView(modus: .ausgabe, urls: auftrag.urls) { datum in
                 // Filter so öffnen, dass der neu angelegte Eintrag garantiert sichtbar ist (wie „+").
-                artFilter = .alle; sparte = .alle; suche = ""
+                artFilter = .alle
+                sparte = .alle
+                suche = ""
                 if !zeit.filter.enthaelt(datum) { zeit.filter.modus = .alle }
             }
         }
@@ -363,34 +407,47 @@ struct AusgabenView: View {
         switch typ {
         case .vorsorge, .steuer:
             let jahr = appKalender.component(.year, from: Date())
-            let t = TaxPayment(kind: typ == .vorsorge ? .ksk : .estVz, jahr: jahr, faellig: Date(),
-                               bezahlt: true, bezahltAm: Date())
-            context.insert(t); try? context.save()
+            let t = TaxPayment(
+                kind: typ == .vorsorge ? .ksk : .estVz, jahr: jahr, faellig: Date(),
+                bezahlt: true, bezahltAm: Date())
+            context.insert(t)
+            try? context.save()
             neueID = t.id
             if !zeit.filter.enthaelt(t.anzeigeDatum) { zeit.filter.modus = .alle }
         case .betriebsausgabe, .fixkosten, .subscription:
-            let art: AusgabeArt = typ == .fixkosten ? .fixkosten : typ == .subscription ? .subscription : .betriebsausgabe
+            let art: AusgabeArt =
+                typ == .fixkosten ? .fixkosten : typ == .subscription ? .subscription : .betriebsausgabe
             let datum = zeit.filter.modus == .monat ? ersterTag(zielJahrMonat.jahr, zielJahrMonat.monat) : Date()
-            let e = ExpenseEntry(datum: datum, bezeichnung: "", anbieter: "", brutto: 0, vst: 0,
-                                 steuerart: .inland19, betrieblich: true,
-                                 art: art)
-            context.insert(e); try? context.save()
+            let e = ExpenseEntry(
+                datum: datum, bezeichnung: "", anbieter: "", brutto: 0, vst: 0,
+                steuerart: .inland19, betrieblich: true,
+                art: art)
+            context.insert(e)
+            try? context.save()
             neueID = e.id
             if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
         }
         // Filter zurücksetzen, damit der neue Eintrag sicher sichtbar ist.
-        artFilter = .alle; sparte = .alle; suche = ""
-        selection = [neueID]; sidebarModus = .eintrag; zeigeInspektor = true
+        artFilter = .alle
+        sparte = .alle
+        suche = ""
+        selection = [neueID]
+        sidebarModus = .eintrag
+        zeigeInspektor = true
     }
     private func duplizieren(_ ids: Set<PersistentIdentifier>) {
         for e in alle where ids.contains(e.id) {
-            context.insert(ExpenseEntry(datum: Date(), bezeichnung: e.bezeichnung, anbieter: e.anbieter,
-                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
-                betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
+            context.insert(
+                ExpenseEntry(
+                    datum: Date(), bezeichnung: e.bezeichnung, anbieter: e.anbieter,
+                    brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
+                    betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
         }
         for t in zahlungen where ids.contains(t.id) {
-            context.insert(TaxPayment(kind: t.kind, jahr: t.jahr, faellig: Date(), betrag: t.betrag,
-                                      bezahlt: true, bezahltAm: Date(), bemerkung: t.bemerkung))
+            context.insert(
+                TaxPayment(
+                    kind: t.kind, jahr: t.jahr, faellig: Date(), betrag: t.betrag,
+                    bezahlt: true, bezahltAm: Date(), bemerkung: t.bemerkung))
         }
     }
     private func loesche(_ ids: Set<PersistentIdentifier>) {
@@ -416,27 +473,37 @@ struct AusgabenView: View {
                 zielPeriode.enthaelt($0.datum) && $0.bezeichnung.caseInsensitiveCompare(e.bezeichnung) == .orderedSame
             }
             if schonDa { continue }
-            context.insert(ExpenseEntry(datum: zielDatum, bezeichnung: e.bezeichnung, anbieter: e.anbieter,
-                brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
-                betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
+            context.insert(
+                ExpenseEntry(
+                    datum: zielDatum, bezeichnung: e.bezeichnung, anbieter: e.anbieter,
+                    brutto: e.brutto, vst: e.vst, steuerart: e.steuerart,
+                    betrieblich: e.betrieblich, umlagefaehig: e.umlagefaehig, art: e.art))
         }
         try? context.save()
-        if zeit.filter.modus != .monat { zeit.filter.modus = .monat; zeit.filter.jahr = zJ; zeit.filter.monat = zM }
+        if zeit.filter.modus != .monat {
+            zeit.filter.modus = .monat
+            zeit.filter.jahr = zJ
+            zeit.filter.monat = zM
+        }
     }
 
     private func einfuegen(_ v: Vorlage) {
         let (j, m) = zielJahrMonat
         let e = v.buchung(am: ersterTag(j, m))
-        context.insert(e); try? context.save()
+        context.insert(e)
+        try? context.save()
         if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
-        selection = [e.id]; sidebarModus = .eintrag
+        selection = [e.id]
+        sidebarModus = .eintrag
     }
     private func neueVorlage() -> Vorlage {
         // Neue Vorlage erbt den aktiven Filter (Art/Sparte), damit sie sofort sichtbar bleibt.
         let art: AusgabeArt = artFilter == .subscription ? .subscription : .fixkosten
-        let v = Vorlage(bezeichnung: "Neue Vorlage", betragBrutto: 0,
-                        betrieblich: sparte == .betrieblich, art: art)
-        context.insert(v); try? context.save()
+        let v = Vorlage(
+            bezeichnung: "Neue Vorlage", betragBrutto: 0,
+            betrieblich: sparte == .betrieblich, art: art)
+        context.insert(v)
+        try? context.save()
         return v
     }
     private func loescheVorlage(_ v: Vorlage) { context.delete(v) }
@@ -448,17 +515,20 @@ struct AusgabenView: View {
         var letzte: Vorlage?
         for e in alle where ids.contains(e.id) {
             let art: AusgabeArt = e.artEffektiv == .subscription ? .subscription : .fixkosten
-            let v = Vorlage(bezeichnung: e.bezeichnung, anbieter: e.anbieter, betragBrutto: e.brutto,
-                            steuerart: e.steuerart, betrieblich: e.betrieblich, art: art,
-                            umlagefaehig: e.betrieblich && e.umlagefaehig)
+            let v = Vorlage(
+                bezeichnung: e.bezeichnung, anbieter: e.anbieter, betragBrutto: e.brutto,
+                steuerart: e.steuerart, betrieblich: e.betrieblich, art: art,
+                umlagefaehig: e.betrieblich && e.umlagefaehig)
             context.insert(v)
             letzte = v
         }
         try? context.save()
         guard let neu = letzte else { return }
         // Filter öffnen, damit der Vorlagen-Tab erreichbar und die neue Vorlage sichtbar ist.
-        artFilter = .alle; sparte = .alle
-        sidebarModus = .vorlagen; zeigeInspektor = true
+        artFilter = .alle
+        sparte = .alle
+        sidebarModus = .vorlagen
+        zeigeInspektor = true
         vorlagenAuswahl = neu.id
     }
 }
@@ -493,15 +563,15 @@ private struct ArtLeiste: View {
                             Image(systemName: art.symbol)
                         }
                     }
-                        .font(.callout.weight(aktiv ? .semibold : .regular))
-                        .foregroundStyle(aktiv ? Color.accentColor : .secondary)
-                        .padding(.horizontal, zeigeText ? 10 : 8).padding(.vertical, 5)
-                        .background {
-                            if aktiv {
-                                RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(0.14))
-                            }
+                    .font(.callout.weight(aktiv ? .semibold : .regular))
+                    .foregroundStyle(aktiv ? Color.accentColor : .secondary)
+                    .padding(.horizontal, zeigeText ? 10 : 8).padding(.vertical, 5)
+                    .background {
+                        if aktiv {
+                            RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(0.14))
                         }
-                        .contentShape(RoundedRectangle(cornerRadius: 7))
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
                 .help(art.rawValue)
@@ -521,7 +591,11 @@ struct AusgabeInspektor: View {
     @FocusState private var fokus: Bool
 
     private var artBinding: Binding<AusgabeArt> {
-        Binding { eintrag.artEffektiv } set: { eintrag.art = $0 }
+        Binding {
+            eintrag.artEffektiv
+        } set: {
+            eintrag.art = $0
+        }
     }
 
     var body: some View {
@@ -567,7 +641,8 @@ struct AusgabeInspektor: View {
                     }
                 } else {
                     BelegDropArea { url in
-                        eintrag.belegPfad = Belege.speichere(url, jahr: appKalender.component(.year, from: eintrag.datum))
+                        eintrag.belegPfad = Belege.speichere(
+                            url, jahr: appKalender.component(.year, from: eintrag.datum))
                     }
                 }
             }
@@ -583,7 +658,11 @@ struct ZahlungInspektor: View {
     @Bindable var eintrag: TaxPayment
 
     private var bezahltAm: Binding<Date> {
-        Binding { eintrag.bezahltAm ?? Date() } set: { eintrag.bezahltAm = $0 }
+        Binding {
+            eintrag.bezahltAm ?? Date()
+        } set: {
+            eintrag.bezahltAm = $0
+        }
     }
 
     var body: some View {
@@ -592,12 +671,17 @@ struct ZahlungInspektor: View {
                 ForEach(SteuerKind.allCases) { Text($0.bezeichnung).tag($0) }
             }
             TextField("Betrag", value: $eintrag.betrag, format: .currency(code: "EUR"))
-            Text(eintrag.istErstattung ? "Negativ = Erstattung (mindert die Steuersumme)." : "Positiv = Zahlung ans Finanzamt / an die KSK.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text(
+                eintrag.istErstattung
+                    ? "Negativ = Erstattung (mindert die Steuersumme)."
+                    : "Positiv = Zahlung ans Finanzamt / an die KSK."
+            )
+            .font(.caption).foregroundStyle(.secondary)
             TextField("Jahr (Zuordnung)", value: $eintrag.jahr, format: .number.grouping(.never))
             DatePicker("Fällig", selection: $eintrag.faellig, displayedComponents: .date)
             Toggle("bezahlt", isOn: $eintrag.bezahlt)
-                .onChange(of: eintrag.bezahlt) { _, neu in eintrag.bezahltAm = neu ? (eintrag.bezahltAm ?? Date()) : nil }
+                .onChange(of: eintrag.bezahlt) { _, neu in eintrag.bezahltAm = neu ? (eintrag.bezahltAm ?? Date()) : nil
+                }
             if eintrag.bezahlt {
                 DatePicker("Bezahlt am", selection: bezahltAm, displayedComponents: .date)
             }
@@ -624,13 +708,18 @@ struct VorlagenPanel: View {
             HStack {
                 Text("Vorlagen").font(.headline)
                 Spacer()
-                Button { auswahl = neueVorlage().id } label: { Label("Neu", systemImage: "plus") }
-                    .buttonStyle(.borderless)
+                Button {
+                    auswahl = neueVorlage().id
+                } label: {
+                    Label("Neu", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
             }
             .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
 
             if vorlagen.isEmpty {
-                ContentUnavailableView("Keine Vorlagen", systemImage: "doc.badge.plus",
+                ContentUnavailableView(
+                    "Keine Vorlagen", systemImage: "doc.badge.plus",
                     description: Text("Oben mit Plus eine Fixkosten- oder Subscription-Vorlage anlegen."))
             } else {
                 ScrollView {
@@ -644,8 +733,11 @@ struct VorlagenPanel: View {
 
                 if let v = gewaehlt {
                     Divider()
-                    VorlageEditor(vorlage: v) { loescheVorlage(v); auswahl = nil }
-                        .frame(maxHeight: 340)
+                    VorlageEditor(vorlage: v) {
+                        loescheVorlage(v)
+                        auswahl = nil
+                    }
+                    .frame(maxHeight: 340)
                 }
             }
             Spacer(minLength: 0)
@@ -704,6 +796,8 @@ struct VorlageEditor: View {
             }
         }
         .formStyle(.grouped)
-        .onChange(of: vorlage.id, initial: true) { _, _ in fokus = vorlage.bezeichnung == "Neue Vorlage" || vorlage.bezeichnung.isEmpty }
+        .onChange(of: vorlage.id, initial: true) { _, _ in
+            fokus = vorlage.bezeichnung == "Neue Vorlage" || vorlage.bezeichnung.isEmpty
+        }
     }
 }

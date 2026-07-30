@@ -15,18 +15,20 @@ enum MCPProtokoll {
             return fehler(id: nil, code: -32700, nachricht: "Parse error")
         }
         let methode = obj["method"] as? String ?? ""
-        let id = obj["id"]   // nil ⇒ Notification
+        let id = obj["id"]  // nil ⇒ Notification
 
         switch methode {
         case "initialize":
-            await MainActor.run { KISicherung.neueSitzung() }   // neue MCP-Session → nächster Schreibzugriff sichert
+            await MainActor.run { KISicherung.neueSitzung() }  // neue MCP-Session → nächster Schreibzugriff sichert
             let clientVer = ((obj["params"] as? [String: Any])?["protocolVersion"] as? String) ?? protokollVersion
-            return antwort(id: id, result: [
-                "protocolVersion": clientVer,
-                "capabilities": ["tools": [String: Any](), "resources": [String: Any]()],
-                "serverInfo": ["name": "Kontor", "version": "1.1"],
-                "instructions": KontorMCP.briefing,
-            ])
+            return antwort(
+                id: id,
+                result: [
+                    "protocolVersion": clientVer,
+                    "capabilities": ["tools": [String: Any](), "resources": [String: Any]()],
+                    "serverInfo": ["name": "Kontor", "version": "1.1"],
+                    "instructions": KontorMCP.briefing,
+                ])
         case "ping":
             return antwort(id: id, result: [String: Any]())
         case "notifications/initialized", "notifications/cancelled":
@@ -43,11 +45,14 @@ enum MCPProtokoll {
             let name = params["name"] as? String ?? ""
             let args = params["arguments"] as? [String: Any] ?? [:]
             do {
-                let text = try await MainActor.run { try KontorMCP.fuehreAus(name: name, argumente: args, container: container) }
+                let text = try await MainActor.run {
+                    try KontorMCP.fuehreAus(name: name, argumente: args, container: container)
+                }
                 return antwort(id: id, result: ["content": [["type": "text", "text": text]], "isError": false])
             } catch {
                 let m = (error as? MCPFehler)?.text ?? error.localizedDescription
-                return antwort(id: id, result: ["content": [["type": "text", "text": "Fehler: \(m)"]], "isError": true])
+                return antwort(
+                    id: id, result: ["content": [["type": "text", "text": "Fehler: \(m)"]], "isError": true])
             }
 
         // MARK: Resources
@@ -86,5 +91,7 @@ enum MCPProtokoll {
 }
 
 /// Fehler mit klartextlicher, tokensparender Meldung für Tool-/Resource-Antworten.
-struct MCPFehler: Error { let text: String; init(_ text: String) { self.text = text } }
-
+struct MCPFehler: Error {
+    let text: String
+    init(_ text: String) { self.text = text }
+}

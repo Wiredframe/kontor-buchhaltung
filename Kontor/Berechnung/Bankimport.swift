@@ -4,14 +4,14 @@ import Foundation
 /// ohne SwiftData – damit der Parser testbar bleibt).
 struct Bankbuchung: Hashable, Identifiable {
     var buchungstag: Date
-    var betrag: Decimal            // signiert: + Eingang, − Ausgang
-    var buchungstext: String       // z. B. KARTENZAHLUNG, SEPA-ELV-LASTSCHRIFT, ÜBERTRAG
+    var betrag: Decimal  // signiert: + Eingang, − Ausgang
+    var buchungstext: String  // z. B. KARTENZAHLUNG, SEPA-ELV-LASTSCHRIFT, ÜBERTRAG
     var verwendungszweck: String
-    var gegenpartei: String        // „Beguenstigter/Zahlungspflichtiger" (Händlername)
-    var iban: String               // Gegen-IBAN
+    var gegenpartei: String  // „Beguenstigter/Zahlungspflichtiger" (Händlername)
+    var iban: String  // Gegen-IBAN
     var glaeubigerID: String
     var mandatsreferenz: String
-    var kundenreferenz: String     // End-to-End-Referenz
+    var kundenreferenz: String  // End-to-End-Referenz
     var waehrung: String
 
     var id: String { dedupSchluessel }
@@ -91,18 +91,23 @@ enum Bankimport {
             // Komplett leere Zeile (Trailing-Newline o. Ä.) ist kein Fehler, nur nichts.
             if row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) { continue }
             guard let betrag = dezimal(feld(row, "Betrag")),
-                  let datum = datum(feld(row, "Buchungstag")) else { verworfen += 1; continue }
-            ergebnis.append(Bankbuchung(
-                buchungstag: datum,
-                betrag: betrag,
-                buchungstext: feld(row, "Buchungstext"),
-                verwendungszweck: feld(row, "Verwendungszweck"),
-                gegenpartei: feld(row, "Beguenstigter/Zahlungspflichtiger"),
-                iban: feld(row, "Kontonummer/IBAN"),
-                glaeubigerID: feld(row, "Glaeubiger ID"),
-                mandatsreferenz: feld(row, "Mandatsreferenz"),
-                kundenreferenz: feld(row, "Kundenreferenz (End-to-End)"),
-                waehrung: feld(row, "Waehrung")))
+                let datum = datum(feld(row, "Buchungstag"))
+            else {
+                verworfen += 1
+                continue
+            }
+            ergebnis.append(
+                Bankbuchung(
+                    buchungstag: datum,
+                    betrag: betrag,
+                    buchungstext: feld(row, "Buchungstext"),
+                    verwendungszweck: feld(row, "Verwendungszweck"),
+                    gegenpartei: feld(row, "Beguenstigter/Zahlungspflichtiger"),
+                    iban: feld(row, "Kontonummer/IBAN"),
+                    glaeubigerID: feld(row, "Glaeubiger ID"),
+                    mandatsreferenz: feld(row, "Mandatsreferenz"),
+                    kundenreferenz: feld(row, "Kundenreferenz (End-to-End)"),
+                    waehrung: feld(row, "Waehrung")))
         }
         return Ergebnis(buchungen: ergebnis, verworfen: verworfen, kopfErkannt: kopfErkannt)
     }
@@ -120,11 +125,23 @@ enum Bankimport {
         while i < chars.count {
             let c = chars[i]
             if c == "\"" {
-                if inQuote, i + 1 < chars.count, chars[i + 1] == "\"" { feld.append("\""); i += 2; continue }
-                inQuote.toggle(); i += 1; continue
+                if inQuote, i + 1 < chars.count, chars[i + 1] == "\"" {
+                    feld.append("\"")
+                    i += 2
+                    continue
+                }
+                inQuote.toggle()
+                i += 1
+                continue
             }
-            if c == ";", !inQuote { out.append(feld); feld = ""; i += 1; continue }
-            feld.append(c); i += 1
+            if c == ";", !inQuote {
+                out.append(feld)
+                feld = ""
+                i += 1
+                continue
+            }
+            feld.append(c)
+            i += 1
         }
         out.append(feld)
         return out
@@ -144,7 +161,7 @@ enum Bankimport {
             let wort = String(teil)
             let buchstaben = wort.filter(\.isLetter)
             guard !buchstaben.isEmpty, buchstaben == buchstaben.uppercased(), buchstaben != buchstaben.lowercased()
-            else { return wort }                       // gemischt/ohne Buchstaben → unverändert
+            else { return wort }  // gemischt/ohne Buchstaben → unverändert
             return wort.capitalized(with: Locale(identifier: "de_DE"))
         }.joined(separator: " ")
     }

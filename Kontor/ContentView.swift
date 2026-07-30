@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 // MARK: - Module
 
@@ -28,35 +28,35 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
 
     var titel: String {
         switch self {
-        case .dashboard:        "Übersicht"
-        case .monatsabschluss:  "Monatsabschluss"
-        case .kontoauszug:      "Kontoauszug"
-        case .aufgaben:         "Aufgaben"
+        case .dashboard: "Übersicht"
+        case .monatsabschluss: "Monatsabschluss"
+        case .kontoauszug: "Kontoauszug"
+        case .aufgaben: "Aufgaben"
         case .betriebsausgaben: "Ausgaben"
-        case .einnahmen:        "Einnahmen"
-        case .ustva:            "UStVA"
+        case .einnahmen: "Einnahmen"
+        case .ustva: "UStVA"
         case .jahresuebersicht: "Jahresabschluss"
         case .privatUebersicht: "Privat-Übersicht"
-        case .lebensmittel:     "Lebensmittel"
-        case .anschaffungen:    "Einkäufe"
-        case .einstellungen:    "Einstellungen"
+        case .lebensmittel: "Lebensmittel"
+        case .anschaffungen: "Einkäufe"
+        case .einstellungen: "Einstellungen"
         }
     }
 
     var symbol: String {
         switch self {
-        case .dashboard:        "rectangle.3.group"
-        case .monatsabschluss:  "calendar.badge.checkmark"
-        case .kontoauszug:      "tray.and.arrow.down"
-        case .aufgaben:         "checklist"
+        case .dashboard: "rectangle.3.group"
+        case .monatsabschluss: "calendar.badge.checkmark"
+        case .kontoauszug: "tray.and.arrow.down"
+        case .aufgaben: "checklist"
         case .betriebsausgaben: "creditcard"
-        case .einnahmen:        "eurosign.circle"
-        case .ustva:            "doc.plaintext"
+        case .einnahmen: "eurosign.circle"
+        case .ustva: "doc.plaintext"
         case .jahresuebersicht: "chart.bar.xaxis"
         case .privatUebersicht: "person.crop.circle"
-        case .lebensmittel:     "cart"
-        case .anschaffungen:    "bag"
-        case .einstellungen:    "gearshape"
+        case .lebensmittel: "cart"
+        case .anschaffungen: "bag"
+        case .einstellungen: "gearshape"
         }
     }
 }
@@ -74,10 +74,10 @@ enum ModulGruppe: String, CaseIterable, Identifiable {
     var module: [Modul] {
         switch self {
         case .arbeitsflaeche: [.dashboard, .monatsabschluss, .kontoauszug, .aufgaben]
-        case .stammdaten:     [.einnahmen, .betriebsausgaben]
-        case .auswertungen:   [.ustva, .jahresuebersicht]
-        case .privat:         [.privatUebersicht, .lebensmittel, .anschaffungen]
-        case .system:         [.einstellungen]
+        case .stammdaten: [.einnahmen, .betriebsausgaben]
+        case .auswertungen: [.ustva, .jahresuebersicht]
+        case .privat: [.privatUebersicht, .lebensmittel, .anschaffungen]
+        case .system: [.einstellungen]
         }
     }
 }
@@ -132,7 +132,9 @@ struct ContentView: View {
         .alert("Datenbank zurückgesetzt", isPresented: $zeigeWiederherstellung) {
             Button("OK") { UserDefaults.standard.set(false, forKey: "storeWiederhergestellt") }
         } message: {
-            Text("Die Datenbank war beschädigt und wurde neu angelegt. Stelle deine Daten über Einstellungen → Import aus einem Auto-Backup wieder her (Ordner App-Daten/Backups).")
+            Text(
+                "Die Datenbank war beschädigt und wurde neu angelegt. Stelle deine Daten über Einstellungen → Import aus einem Auto-Backup wieder her (Ordner App-Daten/Backups)."
+            )
         }
         .sheet(isPresented: $zeigeOnboarding) {
             OnboardingView(
@@ -146,7 +148,8 @@ struct ContentView: View {
                 aufLeer: {
                     UserDefaults.standard.set(true, forKey: "onboardingErledigt")
                     zeigeOnboarding = false
-                })
+                }
+            )
             .interactiveDismissDisabled()
         }
         .task {
@@ -178,18 +181,18 @@ struct ContentView: View {
     @ViewBuilder
     private func detailAnsicht(_ modul: Modul) -> some View {
         switch modul {
-        case .dashboard:        DashboardView()
-        case .monatsabschluss:  MonatsabschlussView()
-        case .kontoauszug:      ImportView()
-        case .aufgaben:         AufgabenView()
+        case .dashboard: DashboardView()
+        case .monatsabschluss: MonatsabschlussView()
+        case .kontoauszug: ImportView()
+        case .aufgaben: AufgabenView()
         case .betriebsausgaben: AusgabenView()
-        case .einnahmen:        EinnahmenView()
-        case .ustva:            UStVAView()
+        case .einnahmen: EinnahmenView()
+        case .ustva: UStVAView()
         case .jahresuebersicht: JahresuebersichtView()
         case .privatUebersicht: PrivatUebersichtView()
-        case .lebensmittel:     LebensmittelView()
-        case .anschaffungen:    AnschaffungenView()
-        case .einstellungen:    EinstellungenView()
+        case .lebensmittel: LebensmittelView()
+        case .anschaffungen: AnschaffungenView()
+        case .einstellungen: EinstellungenView()
         }
     }
 }

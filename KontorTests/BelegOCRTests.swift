@@ -1,6 +1,7 @@
-import Testing
-import Foundation
 import CoreGraphics
+import Foundation
+import Testing
+
 @testable import Kontor
 
 struct BelegOCRTests {
@@ -18,16 +19,16 @@ struct BelegOCRTests {
             f("597,55 €", x: 0.80, y: 0.262), f("USt. (19%)", x: 0.10, y: 0.260),
         ]
         let zeilen = BelegOCR.zeilen(aus: frag)
-        #expect(zeilen.first == "Summe netto 3.145,00 €")        // links→rechts, oben→unten
+        #expect(zeilen.first == "Summe netto 3.145,00 €")  // links→rechts, oben→unten
         let d = BelegOCR.extrahiereEinnahme(aus: zeilen)
         #expect(d.rnNetto == dez("3145.00"))
-        #expect(d.ust == dez("597.55"))                          // Brutto − Netto
+        #expect(d.ust == dez("597.55"))  // Brutto − Netto
     }
 
     @Test func betragNormalisierung() {
         #expect(BelegOCR.normalisiere("35,00") == dez("35.00"))
-        #expect(BelegOCR.normalisiere("1.234,56") == dez("1234.56"))   // de: Punkt = Tausender
-        #expect(BelegOCR.normalisiere("1,234.56") == dez("1234.56"))   // en: Komma = Tausender
+        #expect(BelegOCR.normalisiere("1.234,56") == dez("1234.56"))  // de: Punkt = Tausender
+        #expect(BelegOCR.normalisiere("1,234.56") == dez("1234.56"))  // en: Komma = Tausender
         #expect(BelegOCR.normalisiere("12.99") == dez("12.99"))
     }
 
@@ -96,11 +97,13 @@ struct BelegOCRTests {
             f("Summe netto", x: 0.66, y: 0.340), f("3.145,00 €", x: 0.86, y: 0.340),
             f("USt. (19%)", x: 0.66, y: 0.318), f("597,55 €", x: 0.86, y: 0.318),
             f("Gesamtbetrag", x: 0.66, y: 0.296), f("3.742,55 €", x: 0.86, y: 0.296),
-            f("Zahlungsinformationen: Musterbank Berlin • IBAN: DE00 0000 0000 0000 0000 00 • BIC: ABCDDEFFXXX", x: 0.06, y: 0.045),
+            f(
+                "Zahlungsinformationen: Musterbank Berlin • IBAN: DE00 0000 0000 0000 0000 00 • BIC: ABCDDEFFXXX",
+                x: 0.06, y: 0.045),
         ]
         #expect(BelegOCR.empfaenger(frag) == "Nordstern Studio GmbH")
         #expect(BelegOCR.betragRechtsVomLabel(["summe netto", "netto"], frag) == dez("3145.00"))
-        #expect(BelegOCR.betragRechtsVomLabel(["ust", "mwst"], frag) == dez("597.55"))   // nicht UStID, nicht 37
+        #expect(BelegOCR.betragRechtsVomLabel(["ust", "mwst"], frag) == dez("597.55"))  // nicht UStID, nicht 37
         let d = BelegOCR.extrahiereEinnahme(fragmente: frag)
         #expect(d.kunde == "Nordstern Studio GmbH")
         #expect(d.rnNetto == dez("3145.00"))
@@ -120,18 +123,20 @@ struct BelegOCRTests {
             "Gesamtbetrag   35,00 €",
         ]
         let d = BelegOCR.extrahiere(aus: zeilen)
-        #expect(d.anbieter == "Figma")               // bekannter Anbieter
-        #expect(d.brutto == dez("35.00"))            // „Gesamtbetrag"
-        #expect(d.vst == dez("5.59"))                // „MwSt"
-        #expect(d.steuerart == .inland19)            // MwSt vorhanden → Inland 19 %
-        #expect(d.rechnungsnummer == "0027")         // RN auch für Ausgaben extrahiert (Bank-Matching)
+        #expect(d.anbieter == "Figma")  // bekannter Anbieter
+        #expect(d.brutto == dez("35.00"))  // „Gesamtbetrag"
+        #expect(d.vst == dez("5.59"))  // „MwSt"
+        #expect(d.steuerart == .inland19)  // MwSt vorhanden → Inland 19 %
+        #expect(d.rechnungsnummer == "0027")  // RN auch für Ausgaben extrahiert (Bank-Matching)
         let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
         #expect(c.year == 2026 && c.month == 6 && c.day == 14)
     }
 
     @Test func mehrwertsteuerAusgeschrieben() {
         // USt-Zeile als ausgeschriebenes „Mehrwertsteuer" (auch „Mehrwert-Steuer" via Wortstamm).
-        let d = BelegOCR.extrahiere(aus: ["Anbieter X", "Netto 100,00", "Mehrwertsteuer 19 % 19,00", "Gesamtbetrag 119,00"])
+        let d = BelegOCR.extrahiere(aus: [
+            "Anbieter X", "Netto 100,00", "Mehrwertsteuer 19 % 19,00", "Gesamtbetrag 119,00",
+        ])
         #expect(d.vst == dez("19.00"))
         #expect(d.steuerart == .inland19)
         #expect(BelegOCR.extrahiere(aus: ["Mehrwert-Steuer 19,00", "Gesamt 119,00"]).vst == dez("19.00"))
@@ -139,7 +144,7 @@ struct BelegOCRTests {
 
     @Test func groessterBetragAlsFallback() {
         let d = BelegOCR.extrahiere(aus: ["Beleg ohne Schlagworte", "Posten A 10,00", "Posten B 119,00"])
-        #expect(d.brutto == dez("119.00"))           // kein „Gesamt" → größter Betrag
+        #expect(d.brutto == dez("119.00"))  // kein „Gesamt" → größter Betrag
     }
 
     @Test func einnahmeAusRechnungstext() {
@@ -161,7 +166,7 @@ struct BelegOCRTests {
         let d = BelegOCR.extrahiereEinnahme(aus: zeilen)
         #expect(d.kunde == "Nordstern Studio GmbH")
         #expect(d.rnNetto == dez("3000.00"))
-        #expect(d.ust == dez("570.00"))                 // Brutto − Netto, nicht aus „UStID"
+        #expect(d.ust == dez("570.00"))  // Brutto − Netto, nicht aus „UStID"
         #expect(d.rechnungsnummer == "202604017")
         let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
         #expect(c.year == 2026 && c.month == 4 && c.day == 2)
@@ -230,15 +235,19 @@ struct BelegOCRTests {
 
     @Test func steuerartErkennung() {
         // MwSt-Zeile → Inland; VSt-Betrag aus der Folgezeile
-        let inland = BelegOCR.extrahiere(aus: ["DomainFactory", "Netto 10,92", "zzgl. 19 % MwSt", "2,07", "Gesamt 12,99"])
+        let inland = BelegOCR.extrahiere(aus: [
+            "DomainFactory", "Netto 10,92", "zzgl. 19 % MwSt", "2,07", "Gesamt 12,99",
+        ])
         #expect(inland.steuerart == .inland19)
-        #expect(inland.vst == dez("2.07"))           // Betrag stand in der Folgezeile
+        #expect(inland.vst == dez("2.07"))  // Betrag stand in der Folgezeile
         // expliziter Reverse-Charge-Hinweis
         #expect(BelegOCR.extrahiere(aus: ["Figma", "Reverse charge", "Total 35,00"]).steuerart == .reverseCharge)
         // gar kein VAT-Hinweis → Reverse-Charge (Auslands-Leistung)
         #expect(BelegOCR.extrahiere(aus: ["Anthropic", "Claude Pro", "Total 18,00"]).steuerart == .reverseCharge)
         // ermäßigter Satz: 7-%-Hinweis ohne 19 % → Inland 7 %
-        #expect(BelegOCR.extrahiere(aus: ["Buchhandlung", "Netto 40,00", "zzgl. 7 % MwSt", "2,80", "Gesamt 42,80"]).steuerart == .inland7)
+        #expect(
+            BelegOCR.extrahiere(aus: ["Buchhandlung", "Netto 40,00", "zzgl. 7 % MwSt", "2,80", "Gesamt 42,80"])
+                .steuerart == .inland7)
         // Mischbeleg (7 % UND 19 %) → Regelsatz 19 %
         #expect(BelegOCR.extrahiere(aus: ["Kiosk", "7 % MwSt", "19 % MwSt", "Gesamt 50,00"]).steuerart == .inland19)
     }

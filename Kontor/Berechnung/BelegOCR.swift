@@ -1,8 +1,9 @@
-import Foundation
-import Vision
-import PDFKit
 import CoreGraphics
+import Foundation
 import ImageIO
+import PDFKit
+import Vision
+
 // Bewusst **kein** AppKit: Diese Datei läuft nonisoliert auf dem globalen Executor (und im
 // Beleg-Batch mehrfach parallel). NSImage/NSGraphicsContext sind Main-Thread-only – siehe
 // `rendere`. Alles hier ist CoreGraphics/ImageIO und damit threadsicher.
@@ -52,8 +53,9 @@ enum BelegOCR {
         }
         // ImageIO statt `NSImage(contentsOf:)` – threadsicher und ohne AppKit-Umweg.
         if let quelle = CGImageSourceCreateWithURL(url as CFURL, nil),
-           CGImageSourceGetCount(quelle) > 0,
-           let cg = CGImageSourceCreateImageAtIndex(quelle, 0, nil) {
+            CGImageSourceGetCount(quelle) > 0,
+            let cg = CGImageSourceCreateImageAtIndex(quelle, 0, nil)
+        {
             return [cg]
         }
         return []
@@ -73,15 +75,18 @@ enum BelegOCR {
         let scale: CGFloat = 2.5
         let breite = Int((rect.width * scale).rounded()), hoehe = Int((rect.height * scale).rounded())
         guard breite > 0, hoehe > 0 else { return nil }
-        guard let ctx = CGContext(data: nil, width: breite, height: hoehe,
-                                  bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        guard
+            let ctx = CGContext(
+                data: nil, width: breite, height: hoehe,
+                bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else { return nil }
         // Weißer Grund: PDF-Seiten sind transparent, Vision liest auf Schwarz sonst nichts.
         ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
         ctx.fill(CGRect(x: 0, y: 0, width: breite, height: hoehe))
         ctx.scaleBy(x: scale, y: scale)
-        ctx.translateBy(x: -rect.origin.x, y: -rect.origin.y)   // mediaBox muss nicht bei 0 beginnen
+        ctx.translateBy(x: -rect.origin.x, y: -rect.origin.y)  // mediaBox muss nicht bei 0 beginnen
         page.draw(with: .mediaBox, to: ctx)
         return ctx.makeImage()
     }
@@ -123,7 +128,7 @@ enum BelegOCR {
     /// Reihenfolge liefert – sie landen so wieder neben ihrem Label („Summe netto … 3.145,00 €").
     static func zeilen(aus fragmente: [TextFragment]) -> [String] {
         guard !fragmente.isEmpty else { return [] }
-        let sortiert = fragmente.sorted { $0.box.midY > $1.box.midY }   // oben zuerst
+        let sortiert = fragmente.sorted { $0.box.midY > $1.box.midY }  // oben zuerst
         var zeilen: [[TextFragment]] = []
         var aktuell: [TextFragment] = []
         var zeilenY = sortiert[0].box.midY
@@ -134,7 +139,9 @@ enum BelegOCR {
                 aktuell.append(f)
             } else {
                 zeilen.append(aktuell)
-                aktuell = [f]; zeilenY = f.box.midY; zeilenH = f.box.height
+                aktuell = [f]
+                zeilenY = f.box.midY
+                zeilenH = f.box.height
             }
         }
         if !aktuell.isEmpty { zeilen.append(aktuell) }
@@ -150,21 +157,27 @@ enum BelegOCR {
     /// Zeilenhöhe genommen. Ignoriert Nachbarspalten anderer Zeilen (z. B. die Stundenzahl).
     static func betragRechtsVomLabel(_ schlagworte: [String], _ frag: [TextFragment]) -> Decimal? {
         for wort in schlagworte {
-            guard let label = frag.first(where: { f in
-                let l = f.text.lowercased()
-                // Kurze, mehrdeutige Steuerworte nur an Wortgrenzen (sonst matcht „Sch**ust**er"/
-                // „pri**vat**"); zusätzlich USt-IdNr./VAT-ID ausschließen (kein Steuerbetrag).
-                if wort == "ust" || wort == "vat" {
-                    guard l.range(of: "\\b" + wort + "\\b", options: .regularExpression) != nil else { return false }
-                    for verbot in ["ustid", "ust-id", "ust id", "idnr", "id-nr", "vatid", "vat id"] where l.contains(verbot) {
-                        return false
+            guard
+                let label = frag.first(where: { f in
+                    let l = f.text.lowercased()
+                    // Kurze, mehrdeutige Steuerworte nur an Wortgrenzen (sonst matcht „Sch**ust**er"/
+                    // „pri**vat**"); zusätzlich USt-IdNr./VAT-ID ausschließen (kein Steuerbetrag).
+                    if wort == "ust" || wort == "vat" {
+                        guard l.range(of: "\\b" + wort + "\\b", options: .regularExpression) != nil else {
+                            return false
+                        }
+                        for verbot in ["ustid", "ust-id", "ust id", "idnr", "id-nr", "vatid", "vat id"]
+                        where l.contains(verbot) {
+                            return false
+                        }
+                        return true
                     }
-                    return true
-                }
-                return l.contains(wort)
-            }) else { continue }
+                    return l.contains(wort)
+                })
+            else { continue }
             let tol = max(label.box.height, 0.001) * 0.8
-            let kandidaten = frag
+            let kandidaten =
+                frag
                 .filter { abs($0.box.midY - label.box.midY) <= tol && $0.box.minX >= label.box.minX - 0.01 }
                 .sorted { $0.box.minX < $1.box.minX }
             for f in kandidaten.reversed() { if let b = betraege(in: f.text).max() { return b } }
@@ -175,13 +188,16 @@ enum BelegOCR {
     /// Empfänger über Geometrie: erste nicht-numerische Zeile **links unterhalb** der Absenderzeile
     /// („•"); blendet die rechte Absender-Kontaktspalte über die x-Position aus.
     static func empfaenger(_ frag: [TextFragment]) -> String? {
-        guard let sender = frag.first(where: { f in
-            let l = f.text.lowercased()
-            return f.text.contains("•") && !l.contains("iban") && !l.contains("bic") && !l.contains("zahlungsinfo")
-        }) else { return nil }
-        let kandidaten = frag
+        guard
+            let sender = frag.first(where: { f in
+                let l = f.text.lowercased()
+                return f.text.contains("•") && !l.contains("iban") && !l.contains("bic") && !l.contains("zahlungsinfo")
+            })
+        else { return nil }
+        let kandidaten =
+            frag
             .filter { $0.box.midY < sender.box.midY - 0.001 && abs($0.box.minX - sender.box.minX) <= 0.12 }
-            .sorted { $0.box.midY > $1.box.midY }   // oben zuerst
+            .sorted { $0.box.midY > $1.box.midY }  // oben zuerst
         for f in kandidaten {
             let t = f.text.trimmingCharacters(in: .whitespaces)
             if let c = t.first, !c.isNumber, t.count >= 2 { return t }
@@ -195,7 +211,11 @@ enum BelegOCR {
         let zeilen = zeilen(aus: frag)
         var d = extrahiere(aus: zeilen)
         if let v = betragRechtsVomLabel(["mwst", "mehrwert", "umsatzsteuer", "ust", "vat"], frag) { d.vst = v }
-        if let b = betragRechtsVomLabel(["amount due", "gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag) { d.brutto = b }
+        if let b = betragRechtsVomLabel(
+            ["amount due", "gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total", "brutto"], frag)
+        {
+            d.brutto = b
+        }
         d.steuerart = steuerart(text: zeilen.joined(separator: "\n").lowercased(), vst: d.vst)
         return d
     }
@@ -208,15 +228,18 @@ enum BelegOCR {
         d.datum = rechnungsdatum(in: zeilen) ?? ersteDatum(in: zeilen)
         d.rechnungsnummer = rechnungsnummer(in: zeilen)
         d.kunde = empfaenger(frag) ?? kunde(in: zeilen)
-        d.rnNetto = betragRechtsVomLabel(["summe netto", "netto", "zwischensumme"], frag)
+        d.rnNetto =
+            betragRechtsVomLabel(["summe netto", "netto", "zwischensumme"], frag)
             ?? betragNahe(["summe netto", "netto", "zwischensumme"], in: zeilen)
-        let gesamt = betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], frag)
+        let gesamt =
+            betragRechtsVomLabel(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], frag)
             ?? betragNahe(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], in: zeilen)
             ?? groessterBetrag(in: zeilen)
         if let netto = d.rnNetto, let g = gesamt, g > netto {
             d.ust = g - netto
         } else {
-            d.ust = betragRechtsVomLabel(["umsatzsteuer", "mwst", "mehrwert", "ust", "vat"], frag)
+            d.ust =
+                betragRechtsVomLabel(["umsatzsteuer", "mwst", "mehrwert", "ust", "vat"], frag)
                 ?? betragNahe(["umsatzsteuer", "mwst", "mehrwert", "vat"], in: zeilen)
             if d.rnNetto == nil, let g = gesamt, let u = d.ust, g > u { d.rnNetto = g - u }
         }
@@ -230,7 +253,10 @@ enum BelegOCR {
         let low = zeilen.joined(separator: "\n").lowercased()
         d.datum = ersteDatum(in: zeilen)
         d.vst = betragNahe(["mwst", "mehrwert", "umsatzsteuer", "ust", "vat"], in: zeilen)
-        d.brutto = betragNahe(["gesamtbetrag", "rechnungsbetrag", "gesamt", "summe", "total", "zu zahlen", "amount due", "brutto"], in: zeilen)
+        d.brutto =
+            betragNahe(
+                ["gesamtbetrag", "rechnungsbetrag", "gesamt", "summe", "total", "zu zahlen", "amount due", "brutto"],
+                in: zeilen)
             ?? groessterBetrag(in: zeilen)
         d.anbieter = anbieter(in: zeilen)
         d.steuerart = steuerart(text: low, vst: d.vst)
@@ -246,7 +272,8 @@ enum BelegOCR {
         d.rechnungsnummer = rechnungsnummer(in: zeilen)
         d.kunde = kunde(in: zeilen)
         d.rnNetto = betragNahe(["summe netto", "netto", "zwischensumme"], in: zeilen)
-        let gesamt = betragNahe(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], in: zeilen)
+        let gesamt =
+            betragNahe(["gesamtbetrag", "rechnungsbetrag", "zu zahlen", "total"], in: zeilen)
             ?? groessterBetrag(in: zeilen)
         // USt am robustesten als Differenz Brutto − Netto (umgeht „USt." vs. „UStID")
         if let netto = d.rnNetto, let g = gesamt, g > netto {
@@ -271,8 +298,10 @@ enum BelegOCR {
             if let r = z.range(of: #"#\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#, options: .regularExpression) {
                 return String(z[r]).replacingOccurrences(of: "#", with: "").trimmingCharacters(in: .whitespaces)
             }
-            if let r = z.range(of: #"(?:nr\.?|nummer)\s*:?\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#,
-                               options: [.regularExpression, .caseInsensitive]) {
+            if let r = z.range(
+                of: #"(?:nr\.?|nummer)\s*:?\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#,
+                options: [.regularExpression, .caseInsensitive])
+            {
                 let s = String(z[r])
                 if let t = s.range(of: #"[A-Za-z0-9\-/]+$"#, options: .regularExpression) { return String(s[t]) }
             }
@@ -299,21 +328,25 @@ enum BelegOCR {
 
     /// Steuerart heuristisch: Reverse-Charge-Hinweise → §13b; sonst MwSt/USt-Hinweise → inland19.
     static func steuerart(text low: String, vst: Decimal?) -> Steuerart {
-        let reverse = ["reverse charge", "reverse-charge", "reverse charged", "§13b", "13b",
-                       "steuerschuldnerschaft des leistungsempfängers", "vat reverse"]
+        let reverse = [
+            "reverse charge", "reverse-charge", "reverse charged", "§13b", "13b",
+            "steuerschuldnerschaft des leistungsempfängers", "vat reverse",
+        ]
         if reverse.contains(where: { low.contains($0) }) { return .reverseCharge }
         let hat19 = low.contains("19 %") || low.contains("19%")
-        let hat7  = low.contains("7 %")  || low.contains("7%")
+        let hat7 = low.contains("7 %") || low.contains("7%")
         let vatHinweis = ["mwst", "mehrwert", "umsatzsteuer", "ust"]
         if (vst ?? 0) > 0 || hat19 || hat7 || vatHinweis.contains(where: { low.contains($0) }) {
             // Eindeutiger 7-%-Hinweis (ohne 19 %) → ermäßigt; sonst Regelsatz 19 %.
             return (hat7 && !hat19) ? .inland7 : .inland19
         }
-        return .reverseCharge   // kein VAT-Hinweis → vermutlich Auslands-/RC-Leistung
+        return .reverseCharge  // kein VAT-Hinweis → vermutlich Auslands-/RC-Leistung
     }
 
-    static let bekannteAnbieter = ["Figma", "Anthropic", "OpenAI", "DomainFactory", "GitHub",
-                                   "Apple", "Amazon", "Microsoft", "Google", "Adobe", "JACOB", "büroshop24"]
+    static let bekannteAnbieter = [
+        "Figma", "Anthropic", "OpenAI", "DomainFactory", "GitHub",
+        "Apple", "Amazon", "Microsoft", "Google", "Adobe", "JACOB", "büroshop24",
+    ]
 
     static func anbieter(in zeilen: [String]) -> String? {
         let text = zeilen.joined(separator: " ")
@@ -328,24 +361,36 @@ enum BelegOCR {
 
     static func ersteDatum(in zeilen: [String]) -> Date? {
         // Numerische Formate (de_DE genügt – reine Ziffern).
-        let numerisch = [("dd.MM.yyyy", #"\d{1,2}\.\d{1,2}\.\d{4}"#),
-                         ("dd.MM.yy", #"\d{1,2}\.\d{1,2}\.\d{2}\b"#),
-                         ("yyyy-MM-dd", #"\d{4}-\d{2}-\d{2}"#)]
+        let numerisch = [
+            ("dd.MM.yyyy", #"\d{1,2}\.\d{1,2}\.\d{4}"#),
+            ("dd.MM.yy", #"\d{1,2}\.\d{1,2}\.\d{2}\b"#),
+            ("yyyy-MM-dd", #"\d{4}-\d{2}-\d{2}"#),
+        ]
         // Monatsnamen: englische Auslandsrechnungen (Figma/Anthropic) „June 4, 2025"/„Jun 4, 2025",
         // dt. „4. Juni 2025". Je Regex-Treffer werden die Format/Locale-Kombis der Reihe nach versucht.
         let benannt: [(pat: String, fmts: [(fmt: String, loc: String)])] = [
-            (#"[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{1,2},?\s+\d{4}"#,
-             [("MMMM d, yyyy", "en_US_POSIX"), ("MMM d, yyyy", "en_US_POSIX"),
-              ("MMMM d yyyy", "en_US_POSIX"), ("MMM d yyyy", "en_US_POSIX")]),
-            (#"\d{1,2}\.?\s+[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{4}"#,
-             [("d MMMM yyyy", "en_US_POSIX"), ("d MMM yyyy", "en_US_POSIX"),
-              ("d. MMMM yyyy", "de_DE"), ("d MMMM yyyy", "de_DE")]),
+            (
+                #"[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{1,2},?\s+\d{4}"#,
+                [
+                    ("MMMM d, yyyy", "en_US_POSIX"), ("MMM d, yyyy", "en_US_POSIX"),
+                    ("MMMM d yyyy", "en_US_POSIX"), ("MMM d yyyy", "en_US_POSIX"),
+                ]
+            ),
+            (
+                #"\d{1,2}\.?\s+[A-Za-zäöüÄÖÜ]{3,9}\.?\s+\d{4}"#,
+                [
+                    ("d MMMM yyyy", "en_US_POSIX"), ("d MMM yyyy", "en_US_POSIX"),
+                    ("d. MMMM yyyy", "de_DE"), ("d MMMM yyyy", "de_DE"),
+                ]
+            ),
         ]
-        let df = DateFormatter(); df.calendar = appKalender
+        let df = DateFormatter()
+        df.calendar = appKalender
         for z in zeilen {
             for (fmt, pat) in numerisch {
                 if let r = z.range(of: pat, options: .regularExpression) {
-                    df.locale = Locale(identifier: "de_DE"); df.dateFormat = fmt
+                    df.locale = Locale(identifier: "de_DE")
+                    df.dateFormat = fmt
                     if let d = df.date(from: String(z[r])) { return d }
                 }
             }
@@ -353,7 +398,8 @@ enum BelegOCR {
                 guard let r = z.range(of: pat, options: [.regularExpression, .caseInsensitive]) else { continue }
                 let s = String(z[r])
                 for (fmt, loc) in fmts {
-                    df.locale = Locale(identifier: loc); df.dateFormat = fmt
+                    df.locale = Locale(identifier: loc)
+                    df.dateFormat = fmt
                     if let d = df.date(from: s) { return d }
                 }
             }
@@ -382,7 +428,8 @@ enum BelegOCR {
     /// in einem Datum) fälschlich als gruppierter Tausenderbetrag zerfällt.
     static func betraege(in zeile: String) -> [Decimal] {
         // Exotische Tausender-Trenner (NBSP, schmale Leerzeichen aus PDF-Layouts) auf ASCII-Space.
-        let z = zeile
+        let z =
+            zeile
             .replacingOccurrences(of: "\u{00A0}", with: " ")
             .replacingOccurrences(of: "\u{202F}", with: " ")
             .replacingOccurrences(of: "\u{2009}", with: " ")
@@ -408,7 +455,8 @@ enum BelegOCR {
         }
         let nachkomma = t.distance(from: t.index(after: letzter), to: t.endIndex)
         if nachkomma == 1 || nachkomma == 2 {
-            let vor = String(t[..<letzter]).replacingOccurrences(of: ",", with: "").replacingOccurrences(of: ".", with: "")
+            let vor = String(t[..<letzter]).replacingOccurrences(of: ",", with: "").replacingOccurrences(
+                of: ".", with: "")
             let dez = String(t[t.index(after: letzter)...])
             return Decimal(string: vor + "." + dez, locale: Locale(identifier: "en_US_POSIX"))
         }

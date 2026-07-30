@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import Charts
+import SwiftData
+import SwiftUI
 
 struct DashboardView: View {
     @Query private var einnahmen: [Income]
@@ -18,9 +18,27 @@ struct DashboardView: View {
     private enum ChartMetrik: String, CaseIterable, Identifiable {
         case gewinn, frei, ruecklage
         var id: String { rawValue }
-        var kurz: String { switch self { case .gewinn: "Gewinn"; case .frei: "Frei"; case .ruecklage: "Rücklage" } }
-        var lang: String { switch self { case .gewinn: "Betrieblicher Gewinn"; case .frei: "Frei verfügbar"; case .ruecklage: "Steuerrücklage" } }
-        var farbe: Color { switch self { case .gewinn: Stil.gewinn; case .frei: Stil.einnahmen; case .ruecklage: Stil.steuer } }
+        var kurz: String {
+            switch self {
+            case .gewinn: "Gewinn"
+            case .frei: "Frei"
+            case .ruecklage: "Rücklage"
+            }
+        }
+        var lang: String {
+            switch self {
+            case .gewinn: "Betrieblicher Gewinn"
+            case .frei: "Frei verfügbar"
+            case .ruecklage: "Steuerrücklage"
+            }
+        }
+        var farbe: Color {
+            switch self {
+            case .gewinn: Stil.gewinn
+            case .frei: Stil.einnahmen
+            case .ruecklage: Stil.steuer
+            }
+        }
     }
 
     private var heute: Date { Date() }
@@ -29,7 +47,9 @@ struct DashboardView: View {
     private var quartal: Int { (monat - 1) / 3 + 1 }
     /// USt-VA-Rhythmus des laufenden Jahres – steuert, ob die USt-Zahllast als Monat oder Quartal gezeigt wird.
     private var rhythmus: UStVARhythmus { (jahre.first { $0.jahr == jahr })?.ustvaRhythmus ?? .vierteljaehrlich }
-    private var ustvaPeriode: Periode { rhythmus == .monatlich ? Periode.monat(jahr, monat) : Periode.quartal(jahr, quartal) }
+    private var ustvaPeriode: Periode {
+        rhythmus == .monatlich ? Periode.monat(jahr, monat) : Periode.quartal(jahr, quartal)
+    }
     private var ustvaLabel: String { rhythmus == .monatlich ? monatsName(monat) : "Q\(quartal)" }
     /// Das Jahr ist **Parameter**, nicht das laufende: Der Trend-Chart zeigt wahlweise ein
     /// früheres Jahr, und die privaten Fixkosten sind datierte Buchungen – ohne das Jahr zöge
@@ -53,8 +73,9 @@ struct DashboardView: View {
             fixkostenPrivat: fixkostenPrivat(jahr: jahr, m),
             privatVariabel: lm + an + einmalig,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
-        return Mon(rn: a.rn, gewinn: a.betrieblicherGewinn, steuerRuecklage: a.steuerRuecklage,
-                   frei: a.verfuegbar)
+        return Mon(
+            rn: a.rn, gewinn: a.betrieblicherGewinn, steuerRuecklage: a.steuerRuecklage,
+            frei: a.verfuegbar)
     }
 
     private var offene: [Income] { einnahmen.filter { $0.status == .offen } }
@@ -70,13 +91,18 @@ struct DashboardView: View {
     private func insights(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> [String] {
         var r: [String] = []
         if akt.frei < 0 {
-            r.append("Der laufende Monat ist nach allen Ausgaben negativ (\(akt.frei.euro)) – Einnahmen oder Ausgaben prüfen.")
+            r.append(
+                "Der laufende Monat ist nach allen Ausgaben negativ (\(akt.frei.euro)) – Einnahmen oder Ausgaben prüfen."
+            )
         }
         if !offene.isEmpty {
-            r.append("\(offene.count) offene Rechnung(en) über \(offeneSumme.euro) – Zahlungseingänge im Blick behalten.")
+            r.append(
+                "\(offene.count) offene Rechnung(en) über \(offeneSumme.euro) – Zahlungseingänge im Blick behalten.")
         }
         if ustVA > 0 {
-            r.append("USt-Zahllast \(ustvaLabel) liegt aktuell bei \(ustVA.euro) (fällig nach \(rhythmus == .monatlich ? "Monatsende" : "Quartalsende")).")
+            r.append(
+                "USt-Zahllast \(ustvaLabel) liegt aktuell bei \(ustVA.euro) (fällig nach \(rhythmus == .monatlich ? "Monatsende" : "Quartalsende"))."
+            )
         }
         if let v = vormonat, akt.gewinn > v.gewinn {
             r.append("Betrieblicher Gewinn über dem Vormonat (\(akt.gewinn.euro) vs. \(v.gewinn.euro)).")
@@ -87,13 +113,20 @@ struct DashboardView: View {
 
     private func chartDaten(einP: [EinnahmePosten], ausP: [AusgabePosten]) -> [(name: String, wert: Double)] {
         (1...12).compactMap { m in
-            guard !istZukunftsmonat(m, jahr: chartJahr) else { return nil }   // keine Balken für künftige Monate
+            guard !istZukunftsmonat(m, jahr: chartJahr) else { return nil }  // keine Balken für künftige Monate
             let w = werteFuer(jahr: chartJahr, monat: m, einP: einP, ausP: ausP)
-            let d: Decimal = switch chartMetrik { case .gewinn: w.gewinn; case .frei: w.frei; case .ruecklage: w.steuerRuecklage }
+            let d: Decimal =
+                switch chartMetrik {
+                case .gewinn: w.gewinn
+                case .frei: w.frei
+                case .ruecklage: w.steuerRuecklage
+                }
             return (name: kurzMonat(m), wert: (d as NSDecimalNumber).doubleValue)
         }
     }
-    private func kompakt(_ d: Double) -> String { Int(d.rounded()).formatted(.number.locale(Locale(identifier: "de_DE"))) }
+    private func kompakt(_ d: Double) -> String {
+        Int(d.rounded()).formatted(.number.locale(Locale(identifier: "de_DE")))
+    }
     /// Signierte Quadratwurzel: staucht Ausreißer (Mittelweg linear↔log), behält das Vorzeichen.
     private func wurzel(_ w: Double) -> Double { copysign(sqrt(abs(w)), w) }
     /// Y-Bereich mit Kopf-/Fußraum, damit die Wert-Labels über den Balken Platz haben.
@@ -120,13 +153,27 @@ struct DashboardView: View {
         ContentUnavailableView {
             Label("Noch keine Daten", systemImage: "tray")
         } description: {
-            Text("Erfasse deine erste Einnahme oder importiere einen Kontoauszug – danach zeigt die Übersicht Umsatz, Rücklagen und Trends.")
+            Text(
+                "Erfasse deine erste Einnahme oder importiere einen Kontoauszug – danach zeigt die Übersicht Umsatz, Rücklagen und Trends."
+            )
         } actions: {
-            Button { nav.modul = .einnahmen } label: { Label("Einnahme erfassen", systemImage: "plus") }
-                .buttonStyle(.borderedProminent)
-            Button { nav.modul = .kontoauszug } label: { Label("Kontoauszug importieren", systemImage: "tray.and.arrow.down") }
-            Button { nav.modul = .einstellungen } label: { Label("Einstellungen öffnen", systemImage: "gearshape") }
-                .buttonStyle(.link)
+            Button {
+                nav.modul = .einnahmen
+            } label: {
+                Label("Einnahme erfassen", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            Button {
+                nav.modul = .kontoauszug
+            } label: {
+                Label("Kontoauszug importieren", systemImage: "tray.and.arrow.down")
+            }
+            Button {
+                nav.modul = .einstellungen
+            } label: {
+                Label("Einstellungen öffnen", systemImage: "gearshape")
+            }
+            .buttonStyle(.link)
         }
     }
 
@@ -204,8 +251,8 @@ struct DashboardView: View {
                         }
                 }
                 .chartXScale(domain: (1...12).map { kurzMonat($0) })
-                .chartYScale(domain: yBereich(daten))   // Kopfraum für die Wert-Labels über den Balken
-                .chartYAxis(.hidden)   // Höhe per Quadratwurzel gestaucht; exakte Werte stehen an den Balken
+                .chartYScale(domain: yBereich(daten))  // Kopfraum für die Wert-Labels über den Balken
+                .chartYAxis(.hidden)  // Höhe per Quadratwurzel gestaucht; exakte Werte stehen an den Balken
                 .frame(height: 240)
             }
         }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+
 @testable import Kontor
 
 // MARK: - Geteilte Test-Infrastruktur
@@ -38,9 +39,9 @@ func testContainer() throws -> ModelContainer {
     TestAblage.aktiviere()
     return try ModelContainer(
         for: YearSettings.self, ExpenseEntry.self, Vorlage.self,
-            Income.self, MonthlyTask.self,
-            GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
-            ZuordnungsRegel.self, ImportBuchung.self,
+        Income.self, MonthlyTask.self,
+        GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
+        ZuordnungsRegel.self, ImportBuchung.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true))
 }
 

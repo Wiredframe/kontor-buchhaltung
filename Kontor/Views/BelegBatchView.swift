@@ -1,7 +1,7 @@
-import SwiftUI
-import SwiftData
 import AppKit
 import PDFKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 // MARK: - Batch-Beleg-Erfassung
@@ -59,7 +59,7 @@ final class BelegEntwurf: Identifiable {
     var kunde = ""
     var rnNetto: Decimal = 0
     var ust: Decimal = 0
-    var satz: UStSatz = .satz19   // OCR erkennt den Satz nicht → Default Regelsatz, im Editor änderbar
+    var satz: UStSatz = .satz19  // OCR erkennt den Satz nicht → Default Regelsatz, im Editor änderbar
 
     // Ausgabe
     var bezeichnung = ""
@@ -136,19 +136,36 @@ final class BelegEntwurf: Identifiable {
         case .einnahme:
             let inc = income ?? Income(kunde: "", rnNetto: 0, ust: 0, rechnungsdatum: datum, status: .offen)
             inc.kunde = kunde.isEmpty ? titelFallback : kunde
-            inc.rnNetto = rnNetto; inc.ust = ust; inc.satz = satz; inc.rechnungsdatum = datum
-            inc.rechnungsnummer = rnOpt; inc.belegPfad = belegPfad
-            if income == nil { context.insert(inc); income = inc }
+            inc.rnNetto = rnNetto
+            inc.ust = ust
+            inc.satz = satz
+            inc.rechnungsdatum = datum
+            inc.rechnungsnummer = rnOpt
+            inc.belegPfad = belegPfad
+            if income == nil {
+                context.insert(inc)
+                income = inc
+            }
         case .ausgabe:
-            let ex = ausgabe ?? ExpenseEntry(datum: datum, bezeichnung: "", anbieter: "",
-                                             brutto: 0, vst: 0, steuerart: steuerart)
+            let ex =
+                ausgabe
+                ?? ExpenseEntry(
+                    datum: datum, bezeichnung: "", anbieter: "",
+                    brutto: 0, vst: 0, steuerart: steuerart)
             ex.datum = datum
             ex.bezeichnung = bezeichnung.isEmpty ? titelFallback : bezeichnung
-            ex.anbieter = anbieter; ex.brutto = brutto
-            ex.vst = steuerart == .reverseCharge ? 0 : vst; ex.steuerart = steuerart
-            ex.betrieblich = betrieblich; ex.art = art
-            ex.rechnungsnummer = rnOpt; ex.belegPfad = belegPfad
-            if ausgabe == nil { context.insert(ex); ausgabe = ex }
+            ex.anbieter = anbieter
+            ex.brutto = brutto
+            ex.vst = steuerart == .reverseCharge ? 0 : vst
+            ex.steuerart = steuerart
+            ex.betrieblich = betrieblich
+            ex.art = art
+            ex.rechnungsnummer = rnOpt
+            ex.belegPfad = belegPfad
+            if ausgabe == nil {
+                context.insert(ex)
+                ausgabe = ex
+            }
         }
     }
 
@@ -292,7 +309,7 @@ struct BelegBatchView: View {
                 group.addTask {
                     switch modus {
                     case .einnahme: return (id, await BelegOCR.analysiereEinnahme(url), nil)
-                    case .ausgabe:  return (id, nil, await BelegOCR.analysiere(url))
+                    case .ausgabe: return (id, nil, await BelegOCR.analysiere(url))
                     }
                 }
             }
@@ -309,11 +326,13 @@ struct BelegBatchView: View {
     private func findeDublette(_ e: BelegEntwurf) -> PersistentIdentifier? {
         switch modus {
         case .einnahme:
-            return BelegDublette.finde(rechnungsnummer: e.rechnungsnummer, brutto: e.bruttoEinnahme, datum: e.datum,
+            return BelegDublette.finde(
+                rechnungsnummer: e.rechnungsnummer, brutto: e.bruttoEinnahme, datum: e.datum,
                 in: einnahmen, rechnungsnummerVon: { $0.rechnungsnummer },
                 bruttoVon: { $0.brutto }, datumVon: { $0.rechnungsdatum })?.persistentModelID
         case .ausgabe:
-            return BelegDublette.finde(rechnungsnummer: e.rechnungsnummer, brutto: e.brutto, datum: e.datum,
+            return BelegDublette.finde(
+                rechnungsnummer: e.rechnungsnummer, brutto: e.brutto, datum: e.datum,
                 in: ausgaben, rechnungsnummerVon: { $0.rechnungsnummer },
                 bruttoVon: { $0.brutto }, datumVon: { $0.datum })?.persistentModelID
         }
@@ -364,8 +383,10 @@ struct BelegBatchView: View {
 
     private func weiter(nach e: BelegEntwurf) {
         if let idx = entwuerfe.firstIndex(where: { $0.id == e.id }),
-           let next = entwuerfe[(idx + 1)...].first(where: { $0.status == .laeuft || $0.status == .bereit }) {
-            aktiv = next.id; return
+            let next = entwuerfe[(idx + 1)...].first(where: { $0.status == .laeuft || $0.status == .bereit })
+        {
+            aktiv = next.id
+            return
         }
         aktiv = entwuerfe.first { $0.status == .laeuft || $0.status == .bereit }?.id
     }
@@ -394,8 +415,11 @@ private struct BelegStripZeile: View {
     @ViewBuilder private var statusLabel: some View {
         switch entwurf.status {
         case .laeuft:
-            HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("liest …") }
-                .font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text("liest …")
+            }
+            .font(.caption2).foregroundStyle(.secondary)
         case .bereit:
             Text("bereit").font(.caption2).foregroundStyle(.secondary)
         case .uebernommen:
@@ -438,7 +462,7 @@ private struct BelegFormular: View {
 
             switch modus {
             case .einnahme: einnahmeFelder
-            case .ausgabe:  ausgabeFelder
+            case .ausgabe: ausgabeFelder
             }
         }
         .formStyle(.grouped)

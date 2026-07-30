@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import Kontor
 
 /// Transport-Schicht des MCP-Servers: HTTP-Parser und Token-Vergleich.
@@ -16,7 +17,8 @@ struct MCPTransportTests {
     // MARK: - HTTP-Parser
 
     @Test func vollstaendigeAnfrageWirdGeparst() throws {
-        let a = try #require(anfrage("POST /mcp HTTP/1.1\r\nAuthorization: Bearer geheim\r\nContent-Length: 2\r\n\r\n{}"))
+        let a = try #require(
+            anfrage("POST /mcp HTTP/1.1\r\nAuthorization: Bearer geheim\r\nContent-Length: 2\r\n\r\n{}"))
         #expect(a.methode == "POST")
         #expect(a.pfad == "/mcp")
         #expect(a.authorization == "Bearer geheim")
@@ -69,8 +71,8 @@ struct MCPTransportTests {
         #expect(MCPServer.sicherGleich("geheim", "geheiM") == false)
         #expect(MCPServer.sicherGleich("geheim", "geheim ") == false)
         #expect(MCPServer.sicherGleich("geheim", "") == false)
-        #expect(MCPServer.sicherGleich("", "") )
-        #expect(MCPServer.sicherGleich("geheim", "geheimX") == false)   // Präfix reicht nicht
+        #expect(MCPServer.sicherGleich("", ""))
+        #expect(MCPServer.sicherGleich("geheim", "geheimX") == false)  // Präfix reicht nicht
         #expect(MCPServer.sicherGleich("geheimX", "geheim") == false)
     }
 

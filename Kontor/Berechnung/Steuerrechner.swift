@@ -9,15 +9,15 @@ import Foundation
 enum Steuer {
 
     static let satz19 = dez("0.19")
-    static let satz7  = dez("0.07")
+    static let satz7 = dez("0.07")
 
     // MARK: - Pro Ausgabe / Einnahme
 
     /// Vorschlag für die abziehbare Vorsteuer einer Ausgabe.
     static func vorsteuerVorschlag(brutto: Decimal, steuerart: Steuerart) -> Decimal {
         switch steuerart {
-        case .inland19:                   (brutto - brutto / dez("1.19")).gerundet()
-        case .inland7:                    (brutto - brutto / dez("1.07")).gerundet()
+        case .inland19: (brutto - brutto / dez("1.19")).gerundet()
+        case .inland7: (brutto - brutto / dez("1.07")).gerundet()
         case .reverseCharge, .steuerfrei: 0
         }
     }
@@ -77,7 +77,8 @@ enum Steuer {
     /// Für die **UStVA** ist `ausfallNetto` maßgeblich: das Formular kennt keine
     /// §17-Zeile, dort mindert der Ausfall die Bemessungsgrundlage KZ 81/86.
     static func ustKorrekturAusfall(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
-        let summe = einnahmen
+        let summe =
+            einnahmen
             .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
             .reduce(Decimal(0)) { $0 + $1.ust }
         return -summe
@@ -87,13 +88,18 @@ enum Steuer {
     /// in der Periode liegt. Mindert dort KZ 81 bzw. KZ 86.
     static func ausfallNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
         einnahmen
-            .filter { $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
-                      && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
+            .filter {
+                $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
+                    && ($0.ausfalldatum.map(periode.enthaelt) ?? false)
+            }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
     }
 
     /// Jahr+Monat als hashbarer Schlüssel – zum Gruppieren der Ausfälle nach Rechnungsmonat.
-    private struct JahrMonat: Hashable { var jahr: Int; var monat: Int }
+    private struct JahrMonat: Hashable {
+        var jahr: Int
+        var monat: Int
+    }
 
     /// ESt-Rücklagen-Auflösung (negativ) für Forderungsausfälle: Die im **Rechnungsmonat**
     /// gebildete Rücklage wird im Ausfallmonat **anteilig** wieder aufgelöst, da ohne Zufluss
@@ -109,25 +115,30 @@ enum Steuer {
     /// Die Bildungsgrößen (Ausgaben, KSK, Satz) stammen aus dem Rechnungsmonat, der in einem
     /// **Vorjahr** liegen kann. Gerundet wird **einmal je Rechnungsmonat** – dieselbe Konvention
     /// wie bei KZ 81/86 (erst summieren, dann runden).
-    static func estAusfallKorrektur(_ einnahmen: [EinnahmePosten], in periode: Periode,
-                                    ausgaben: [AusgabePosten],
-                                    kskFuer: (Int, Int) -> Decimal,
-                                    satzFuer: (Int, Int) -> Decimal) -> Decimal {
-        let ausgefallen = einnahmen
+    static func estAusfallKorrektur(
+        _ einnahmen: [EinnahmePosten], in periode: Periode,
+        ausgaben: [AusgabePosten],
+        kskFuer: (Int, Int) -> Decimal,
+        satzFuer: (Int, Int) -> Decimal
+    ) -> Decimal {
+        let ausgefallen =
+            einnahmen
             .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
         guard !ausgefallen.isEmpty else { return 0 }
 
         let nachRechnungsmonat = Dictionary(grouping: ausgefallen) {
-            JahrMonat(jahr: appKalender.component(.year, from: $0.rechnungsdatum),
-                      monat: appKalender.component(.month, from: $0.rechnungsdatum))
+            JahrMonat(
+                jahr: appKalender.component(.year, from: $0.rechnungsdatum),
+                monat: appKalender.component(.month, from: $0.rechnungsdatum))
         }
 
         // Je Rechnungsmonat einmal die Bildung nachschlagen, einmal runden, exakt aufsummieren –
         // dadurch ist das Ergebnis unabhängig von der Iterationsreihenfolge des Dictionaries.
         let summe = nachRechnungsmonat.reduce(Decimal(0)) { teil, eintrag in
             let (jm, posten) = eintrag
-            let gebildet = estGebildet(jahr: jm.jahr, monat: jm.monat, einnahmen: einnahmen,
-                                       ausgaben: ausgaben, kskFuer: kskFuer, satzFuer: satzFuer)
+            let gebildet = estGebildet(
+                jahr: jm.jahr, monat: jm.monat, einnahmen: einnahmen,
+                ausgaben: ausgaben, kskFuer: kskFuer, satzFuer: satzFuer)
             // Ohne positiven Soll-Umsatz gibt es keinen Anteil zu bilden. Der Guard ist Pflicht:
             // Decimal-Division durch 0 trappt nicht, sondern liefert NaN – das liefe still als
             // „NaN €" durch Rücklage und Jahres-ESt und wäre schlimmer als ein Absturz.
@@ -168,9 +179,11 @@ enum Steuer {
     /// deshalb exakt auf – vorher stand ihr die je Beleg gespeicherte USt gegenüber.
     static func ustva(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], periode: Periode) -> UStVAErgebnis {
         let rcUSt = reverseChargeUSt(ausgaben, in: periode)
-        let netto19 = umsatzNetto(einnahmen, satz: .satz19, in: periode)
+        let netto19 =
+            umsatzNetto(einnahmen, satz: .satz19, in: periode)
             - ausfallNetto(einnahmen, satz: .satz19, in: periode)
-        let netto7  = umsatzNetto(einnahmen, satz: .satz7, in: periode)
+        let netto7 =
+            umsatzNetto(einnahmen, satz: .satz7, in: periode)
             - ausfallNetto(einnahmen, satz: .satz7, in: periode)
         return UStVAErgebnis(
             kz81: netto19,
@@ -190,7 +203,8 @@ enum Steuer {
     /// (ohne) bzw. 10.2. (mit **Dauerfristverlängerung**). Eine Zahlung in diesem Fenster zählt zum
     /// **Vorjahr**. `rhythmus`/`dauerfrist` kommen aus den `YearSettings` des Vorjahres.
     static func ustVzZuordnung(zahlMonat: Int, zahlJahr: Int, rhythmus: UStVARhythmus, dauerfrist: Bool)
-        -> (jahr: Int, notiz: String) {
+        -> (jahr: Int, notiz: String)
+    {
         let faelligMonat = dauerfrist ? 2 : 1
         guard zahlMonat <= faelligMonat else { return (zahlJahr, "") }
         let jahr = zahlJahr - 1
@@ -203,7 +217,8 @@ enum Steuer {
     /// EÜR-Gewinn (Zuflussprinzip): Σ bezahlter Netto-Einnahmen − Σ betrieblicher Netto-Ausgaben im Jahr.
     static func euerGewinn(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], jahr: Int) -> Decimal {
         let p = Periode.jahr(jahr)
-        let einnahmenSumme = einnahmen
+        let einnahmenSumme =
+            einnahmen
             .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
         return einnahmenSumme - betrieblichNetto(ausgaben, in: p)
@@ -224,15 +239,17 @@ enum Steuer {
         switch jahr {
         case ...2024: return Decimal(11784)
         case 2025: return Decimal(12096)
-        default: return Decimal(12348)   // 2026 und (mangels neuerer Werte) spätere Jahre
+        default: return Decimal(12348)  // 2026 und (mangels neuerer Werte) spätere Jahre
         }
     }
 
     /// Jahresbasierte, realistischere ESt-Schätzung: `max(0, Gewinn − KSK − Grundfreibetrag) × Satz`.
     /// Im Gegensatz zur pauschalen Monatsrücklage berücksichtigt sie den steuerfreien
     /// Grundfreibetrag. Bewusst kein §32a-Tarif: grobe Jahres-Orientierung, kein Hochrechnen.
-    static func estVoraussichtlich(gewinn: Decimal, ksk: Decimal,
-                                   grundfreibetrag: Decimal, satz: Decimal) -> Decimal {
+    static func estVoraussichtlich(
+        gewinn: Decimal, ksk: Decimal,
+        grundfreibetrag: Decimal, satz: Decimal
+    ) -> Decimal {
         estPauschal(basis: gewinn - grundfreibetrag, ksk: ksk, satz: satz)
     }
 
@@ -241,14 +258,17 @@ enum Steuer {
     /// **Einzige Quelle** für beide Richtungen: die Bildung (`monatsauswertung`) und die
     /// Auflösung bei Forderungsausfall (`estAusfallKorrektur`) lesen hier – vorher war die
     /// Formel an zwei Stellen unabhängig codiert und driftete auseinander.
-    static func estGebildet(jahr: Int, monat: Int,
-                            einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten],
-                            kskFuer: (Int, Int) -> Decimal,
-                            satzFuer: (Int, Int) -> Decimal) -> (est: Decimal, rn: Decimal) {
+    static func estGebildet(
+        jahr: Int, monat: Int,
+        einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten],
+        kskFuer: (Int, Int) -> Decimal,
+        satzFuer: (Int, Int) -> Decimal
+    ) -> (est: Decimal, rn: Decimal) {
         let p = Periode.monat(jahr, monat)
         let rn = rnSoll(einnahmen, in: p)
-        let est = estPauschal(basis: rn - betrieblichNetto(ausgaben, in: p),
-                              ksk: kskFuer(jahr, monat), satz: satzFuer(jahr, monat))
+        let est = estPauschal(
+            basis: rn - betrieblichNetto(ausgaben, in: p),
+            ksk: kskFuer(jahr, monat), satz: satzFuer(jahr, monat))
         return (est, rn)
     }
 
@@ -259,8 +279,10 @@ enum Steuer {
     ///
     /// Für einen konkreten Monat liefert `MonatsAuswertung.steuerRuecklage` dasselbe aus den
     /// Aggregaten; diese Funktion bleibt für die reine Formel-Arithmetik.
-    static func steuerRuecklage(ust: Decimal, vorsteuer: Decimal, ustKorrektur: Decimal,
-                                ksk: Decimal, estAnteil: Decimal) -> Decimal {
+    static func steuerRuecklage(
+        ust: Decimal, vorsteuer: Decimal, ustKorrektur: Decimal,
+        ksk: Decimal, estAnteil: Decimal
+    ) -> Decimal {
         (ust - vorsteuer + ustKorrektur) + ksk + estAnteil
     }
 

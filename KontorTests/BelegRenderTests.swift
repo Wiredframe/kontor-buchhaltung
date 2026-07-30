@@ -1,8 +1,9 @@
-import Testing
-import Foundation
 import CoreGraphics
+import Foundation
 import ImageIO
+import Testing
 import UniformTypeIdentifiers
+
 @testable import Kontor
 
 /// Der PDF-/Bild-Render-Pfad der OCR. Bisher komplett ungetestet: Alle bestehenden
@@ -35,8 +36,8 @@ struct BelegRenderTests {
         let bilder = BelegOCR.bilder(von: url)
         #expect(bilder.count == 1)
         let bild = try #require(bilder.first)
-        #expect(bild.width == 500)      // 200 × 2,5
-        #expect(bild.height == 250)     // 100 × 2,5
+        #expect(bild.width == 500)  // 200 × 2,5
+        #expect(bild.height == 250)  // 100 × 2,5
     }
 
     /// Mehrseitige PDFs: höchstens `maxSeiten` (Summen stehen oft erst auf Seite 2).
@@ -73,13 +74,16 @@ struct BelegRenderTests {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("kontor-test-\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: url) }
-        let ctx = try #require(CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8,
-                                         bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-                                         bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        let ctx = try #require(
+            CGContext(
+                data: nil, width: 40, height: 20, bitsPerComponent: 8,
+                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
         ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
         ctx.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
         let bild = try #require(ctx.makeImage())
-        let ziel = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
+        let ziel = try #require(
+            CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
         CGImageDestinationAddImage(ziel, bild, nil)
         #expect(CGImageDestinationFinalize(ziel))
 

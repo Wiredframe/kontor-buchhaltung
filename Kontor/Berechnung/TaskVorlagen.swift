@@ -46,7 +46,10 @@ enum TaskVorlagen {
                 return d
             }
             monat += 1
-            if monat > 12 { monat = 1; jahr += 1 }
+            if monat > 12 {
+                monat = 1
+                jahr += 1
+            }
         }
         return start
     }
@@ -74,10 +77,13 @@ enum TaskVorlagen {
         }
         guard !schonOffen else { return }
         let ab = appKalender.date(byAdding: .day, value: 1, to: task.monat) ?? task.monat
-        let next = naechsteFaelligkeit(intervall: task.intervall, faelligTag: task.faelligTag,
-                                       monate: task.quartalsMonate, ab: ab)
-        context.insert(MonthlyTask(titel: task.titel, monat: next, intervall: task.intervall,
-                                   faelligTag: task.faelligTag, quartalsMonate: task.quartalsMonate))
+        let next = naechsteFaelligkeit(
+            intervall: task.intervall, faelligTag: task.faelligTag,
+            monate: task.quartalsMonate, ab: ab)
+        context.insert(
+            MonthlyTask(
+                titel: task.titel, monat: next, intervall: task.intervall,
+                faelligTag: task.faelligTag, quartalsMonate: task.quartalsMonate))
         try? context.save()
     }
 }

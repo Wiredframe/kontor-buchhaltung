@@ -94,7 +94,7 @@ enum Belege {
         defer { try? FileManager.default.removeItem(at: temp) }
 
         for p in pfade {
-            guard !p.contains("..") else { continue }   // keine Traversal in die ZIP-Struktur
+            guard !p.contains("..") else { continue }  // keine Traversal in die ZIP-Struktur
             let src = url(fuer: p)
             guard FileManager.default.fileExists(atPath: src.path) else { continue }
             // Unterordner (Jahr) im ZIP erhalten

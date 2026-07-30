@@ -1,6 +1,7 @@
-import Testing
 import Foundation
 import Security
+import Testing
+
 @testable import Kontor
 
 /// Die Token-Quelle des MCP-Servers – bisher zu 0 % gedeckt.
@@ -14,13 +15,15 @@ struct SchlusselbundTests {
 
     /// Der Normalfall: Token liegt in der Keychain → verwenden, nichts schreiben.
     @Test func vorhandenesTokenWirdVerwendetUndNichtNeuGeschrieben() {
-        #expect(MCPServer.tokenPlan(keychain: .gefunden("ALT-TOKEN"), klartext: nil, neuesToken: neu)
+        #expect(
+            MCPServer.tokenPlan(keychain: .gefunden("ALT-TOKEN"), klartext: nil, neuesToken: neu)
                 == .verwende("ALT-TOKEN"))
     }
 
     /// Ein vorhandenes Token gewinnt auch gegen eine liegengebliebene Klartext-Kopie.
     @Test func keychainSchlaegtKlartextKopie() {
-        #expect(MCPServer.tokenPlan(keychain: .gefunden("ALT-TOKEN"), klartext: "KLARTEXT", neuesToken: neu)
+        #expect(
+            MCPServer.tokenPlan(keychain: .gefunden("ALT-TOKEN"), klartext: "KLARTEXT", neuesToken: neu)
                 == .verwende("ALT-TOKEN"))
     }
 
@@ -28,8 +31,10 @@ struct SchlusselbundTests {
     /// Vorher wurde hier ein neues erzeugt und per SecItemUpdate über das bestehende
     /// geschrieben – der konfigurierte MCP-Client bekam ab dann 401, ohne dass irgendwo etwas
     /// fehlschlug. Entscheidend ist: **niemals `.speichere`** in diesem Fall.
-    @Test(arguments: [errSecInteractionNotAllowed, errSecMissingEntitlement,
-                      errSecAuthFailed, errSecNotAvailable, OSStatus(-25308)])
+    @Test(arguments: [
+        errSecInteractionNotAllowed, errSecMissingEntitlement,
+        errSecAuthFailed, errSecNotAvailable, OSStatus(-25308),
+    ])
     func nichtVerfuegbarerSchluesselbundSchreibtNichts(_ status: OSStatus) {
         let plan = MCPServer.tokenPlan(keychain: .nichtVerfuegbar(status), klartext: nil, neuesToken: neu)
         #expect(plan == .verwende("NEU-TOKEN"))
@@ -39,20 +44,24 @@ struct SchlusselbundTests {
     /// Ist die Keychain weg, aber eine Klartext-Kopie da (unsignierter Dev-Build), gilt die –
     /// und wird ebenfalls nicht in die Keychain zurückgeschrieben.
     @Test func nichtVerfuegbarNutztKlartextKopieOhneZuSchreiben() {
-        #expect(MCPServer.tokenPlan(keychain: .nichtVerfuegbar(errSecNotAvailable),
-                                    klartext: "KLARTEXT", neuesToken: neu)
+        #expect(
+            MCPServer.tokenPlan(
+                keychain: .nichtVerfuegbar(errSecNotAvailable),
+                klartext: "KLARTEXT", neuesToken: neu)
                 == .verwende("KLARTEXT"))
     }
 
     /// Gibt es wirklich keines, ist Anlegen richtig.
     @Test func nichtVorhandenLegtNeuesAn() {
-        #expect(MCPServer.tokenPlan(keychain: .nichtVorhanden, klartext: nil, neuesToken: neu)
+        #expect(
+            MCPServer.tokenPlan(keychain: .nichtVorhanden, klartext: nil, neuesToken: neu)
                 == .speichere("NEU-TOKEN"))
     }
 
     /// Migration: Klartext-Kopie aus einer älteren Version wandert in die Keychain.
     @Test func nichtVorhandenMigriertDieKlartextKopie() {
-        #expect(MCPServer.tokenPlan(keychain: .nichtVorhanden, klartext: "KLARTEXT", neuesToken: neu)
+        #expect(
+            MCPServer.tokenPlan(keychain: .nichtVorhanden, klartext: "KLARTEXT", neuesToken: neu)
                 == .speichere("KLARTEXT"))
     }
 

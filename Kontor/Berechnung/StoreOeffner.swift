@@ -68,12 +68,13 @@ enum StoreOeffner {
     }
 
     private static func nurImSpeicher() throws -> ModelContainer {
-        try ModelContainer(for: Schema([
-            YearSettings.self, ExpenseEntry.self, Vorlage.self,
-            Income.self, MonthlyTask.self,
-            GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
-            ZuordnungsRegel.self, ImportBuchung.self,
-        ]), configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        try ModelContainer(
+            for: Schema([
+                YearSettings.self, ExpenseEntry.self, Vorlage.self,
+                Income.self, MonthlyTask.self,
+                GroceryEntry.self, PurchaseEntry.self, TaxPayment.self,
+                ZuordnungsRegel.self, ImportBuchung.self,
+            ]), configurations: ModelConfiguration(isStoredInMemoryOnly: true))
     }
 
     /// Verschiebt `default.store{,-wal,-shm}` nach `.defekt-<stamp>`. Liefert `true`, wenn danach
@@ -85,11 +86,15 @@ enum StoreOeffner {
         if let datei {
             ziel = datei
         } else {
-            guard let dir = try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask,
-                                        appropriateFor: nil, create: false) else { return false }
+            guard
+                let dir = try? fm.url(
+                    for: .applicationSupportDirectory, in: .userDomainMask,
+                    appropriateFor: nil, create: false)
+            else { return false }
             ziel = dir.appendingPathComponent("default.store")
         }
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd-HHmmss"
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd-HHmmss"
         let stamp = df.string(from: Date())
 
         var alleWeg = true

@@ -23,15 +23,17 @@ struct OnboardingView: View {
             .padding(.top, 8)
 
             HStack(spacing: 16) {
-                wahlKarte(symbol: "doc",
-                          titel: "Leer starten",
-                          text: "Beginne mit einer leeren Datenbank und erfasse alles selbst.",
-                          aktion: aufLeer)
-                wahlKarte(symbol: "wand.and.stars",
-                          titel: "Mit Demodaten",
-                          text: "Beispiel einer UI/UX-Designerin in Berlin – zum risikofreien Ausprobieren.",
-                          hervorgehoben: true,
-                          aktion: aufDemodaten)
+                wahlKarte(
+                    symbol: "doc",
+                    titel: "Leer starten",
+                    text: "Beginne mit einer leeren Datenbank und erfasse alles selbst.",
+                    aktion: aufLeer)
+                wahlKarte(
+                    symbol: "wand.and.stars",
+                    titel: "Mit Demodaten",
+                    text: "Beispiel einer UI/UX-Designerin in Berlin – zum risikofreien Ausprobieren.",
+                    hervorgehoben: true,
+                    aktion: aufDemodaten)
             }
 
             Text("Demodaten sind frei erfunden und lassen sich jederzeit wieder löschen.")
@@ -42,8 +44,10 @@ struct OnboardingView: View {
         .frame(width: 560)
     }
 
-    private func wahlKarte(symbol: String, titel: String, text: String,
-                           hervorgehoben: Bool = false, aktion: @escaping () -> Void) -> some View {
+    private func wahlKarte(
+        symbol: String, titel: String, text: String,
+        hervorgehoben: Bool = false, aktion: @escaping () -> Void
+    ) -> some View {
         Button(action: aktion) {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: symbol)

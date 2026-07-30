@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import Foundation
+import SwiftData
+import SwiftUI
 
 /// Einstiegspunkt der App.
 @main
@@ -23,7 +23,7 @@ struct KontorApp: App {
         ArtNachtrag.nachtragen(c.mainContext)
         switch zustand {
         case .normal:
-            Backup.autoSichern(c.mainContext)   // tägliches Sicherheitsnetz
+            Backup.autoSichern(c.mainContext)  // tägliches Sicherheitsnetz
         case .beiseitegelegt, .nurImSpeicher:
             // Kein Auto-Backup auf einem Ersatz-Store: Das überschriebe das Sicherheitsnetz des
             // Tages mit leeren Daten. Die UI meldet den Zustand.

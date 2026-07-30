@@ -35,7 +35,7 @@ enum ArtNachtrag {
         "disney", "youtube", "zattoo", "netflix", "spotify", "audible", "prime video",
         "anthropic", "claude", "chatgpt", "openai", "figma", "github", "copilot",
         "microsoft 365", "office 365", "m365", "adobe", "notion", "dropbox", "icloud+",
-        "google one", "midjourney"
+        "google one", "midjourney",
     ]
 
     private static func istAbo(_ e: ExpenseEntry) -> Bool {
@@ -48,9 +48,13 @@ enum ArtNachtrag {
         let offen = alle.filter { $0.art == nil }
         guard !offen.isEmpty else { return }
         for e in offen {
-            if istAbo(e) { e.art = .subscription }
-            else if !e.betrieblich { e.art = .fixkosten }
-            else { e.art = .betriebsausgabe }
+            if istAbo(e) {
+                e.art = .subscription
+            } else if !e.betrieblich {
+                e.art = .fixkosten
+            } else {
+                e.art = .betriebsausgabe
+            }
         }
         try? ctx.save()
     }

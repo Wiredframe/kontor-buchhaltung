@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Eine Bankzeile im Import-Triage-Zustand (Vorschlag + gewählte Zuordnung + Status).
@@ -9,10 +9,10 @@ final class ImportZeile: Identifiable {
     let id = UUID()
     let buchung: Bankbuchung
     var zuordnung: Zuordnung
-    var zielId: PersistentIdentifier?      // vorhandener Datensatz (Match/Dublette) – nil = neu
+    var zielId: PersistentIdentifier?  // vorhandener Datensatz (Match/Dublette) – nil = neu
     var bereitsImportiert: Bool
     var erledigt: Bool
-    var ergebnis: String?                  // Ergebnis-/Skip-Text nach dem Buchen
+    var ergebnis: String?  // Ergebnis-/Skip-Text nach dem Buchen
 
     init(_ b: Bankbuchung, zuordnung: Zuordnung, bereitsImportiert: Bool) {
         self.buchung = b
@@ -25,9 +25,9 @@ final class ImportZeile: Identifiable {
     /// Wird diese Zeile als betriebliche Ausgabe gebucht (→ Steuerart relevant)?
     var buchtBetrieb: Bool {
         switch zuordnung.kategorie {
-        case .betriebsausgabe:          true
+        case .betriebsausgabe: true
         case .fixkosten, .subscription: zuordnung.betrieblich
-        default:                        false
+        default: false
         }
     }
 }
@@ -50,9 +50,12 @@ struct ImportView: View {
             VStack(spacing: 16) {
                 kopf
                 ForEach(sichtbar) { zeile in
-                    ImportZeileRow(zeile: zeile,
-                                   buchen: { anwenden(zeile, $0) },
-                                   zielNeuBerechnen: { zeile.zielId = ImportAnwendung.ziel(zeile.buchung, zeile.zuordnung, context) })
+                    ImportZeileRow(
+                        zeile: zeile,
+                        buchen: { anwenden(zeile, $0) },
+                        zielNeuBerechnen: {
+                            zeile.zielId = ImportAnwendung.ziel(zeile.buchung, zeile.zuordnung, context)
+                        })
                 }
             }
             .padding(20)
@@ -64,7 +67,11 @@ struct ImportView: View {
     private var kopf: some View {
         Panel(titel: "Sparkasse-Kontoauszug (CSV-CAMT V8)") {
             HStack(spacing: 12) {
-                Button { waehleCSV() } label: { Label("CSV wählen …", systemImage: "doc.badge.plus") }
+                Button {
+                    waehleCSV()
+                } label: {
+                    Label("CSV wählen …", systemImage: "doc.badge.plus")
+                }
                 if let dateiName { Text(dateiName).font(.callout).foregroundStyle(.secondary).lineLimit(1) }
                 Spacer()
                 if !zeilen.isEmpty {
@@ -74,21 +81,34 @@ struct ImportView: View {
             if !zeilen.isEmpty {
                 HStack(spacing: 12) {
                     if offeneAnzahl > 0 {
-                        Button { bucheAlleOhneTreffer() } label: { Label("Alle ohne Treffer buchen", systemImage: "checklist.checked") }
+                        Button {
+                            bucheAlleOhneTreffer()
+                        } label: {
+                            Label("Alle ohne Treffer buchen", systemImage: "checklist.checked")
+                        }
                     }
                     Toggle("Erledigte zeigen", isOn: $zeigeErledigte).toggleStyle(.switch).controlSize(.small)
                     if zeigeErledigte && erledigteAnzahl > 0 {
-                        Button { alleErneutZuordnen() } label: { Label("Alle erneut zuordnen", systemImage: "arrow.uturn.backward") }
-                            .controlSize(.small)
-                            .help("Alle erledigten/„schon importierten“ Buchungen wieder zur Zuordnung öffnen – z. B. um einen bereits importierten Auszug erneut durchzugehen. Erneutes Buchen überschreibt den bestehenden Eintrag (keine Dubletten).")
+                        Button {
+                            alleErneutZuordnen()
+                        } label: {
+                            Label("Alle erneut zuordnen", systemImage: "arrow.uturn.backward")
+                        }
+                        .controlSize(.small)
+                        .help(
+                            "Alle erledigten/„schon importierten“ Buchungen wieder zur Zuordnung öffnen – z. B. um einen bereits importierten Auszug erneut durchzugehen. Erneutes Buchen überschreibt den bestehenden Eintrag (keine Dubletten)."
+                        )
                     }
                     Spacer()
                 }
             }
-            if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
-            else if zeilen.isEmpty {
-                Text("Export in der Sparkasse: Exportieren → Excel (CSV-CAMT V8). Jede Bewegung wird hier einzeln zugeordnet; Zuordnungen werden gelernt.")
-                    .font(.caption).foregroundStyle(.secondary)
+            if let status {
+                Text(status).font(.caption).foregroundStyle(.secondary)
+            } else if zeilen.isEmpty {
+                Text(
+                    "Export in der Sparkasse: Exportieren → Excel (CSV-CAMT V8). Jede Bewegung wird hier einzeln zugeordnet; Zuordnungen werden gelernt."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -97,21 +117,28 @@ struct ImportView: View {
 
     private func waehleCSV() {
         let panel = NSOpenPanel()
-        panel.canChooseFiles = true; panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
         panel.allowedContentTypes = [.commaSeparatedText, .plainText, .text]
         panel.message = "Sparkasse-Export im Format CSV-CAMT V8 wählen"
         panel.prompt = "Importieren"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url) else { status = "Datei nicht lesbar."; NSSound.beep(); return }
+        guard let data = try? Data(contentsOf: url) else {
+            status = "Datei nicht lesbar."
+            NSSound.beep()
+            return
+        }
         let ergebnis = Bankimport.lies(data)
         // Ein nicht verstandener Kopf sah bisher aus wie „keine Buchungen drin" – der Nutzer
         // konnte die falsche Datei nicht von einem leeren Auszug unterscheiden.
         guard ergebnis.kopfErkannt else {
-            status = "Diese Datei sieht nicht nach einem Sparkasse-Export im Format CSV-CAMT V8 aus – "
+            status =
+                "Diese Datei sieht nicht nach einem Sparkasse-Export im Format CSV-CAMT V8 aus – "
                 + "die Spalten „Betrag“ und „Buchungstag“ fehlen. Es wurde nichts geladen."
-            NSSound.beep(); return
+            NSSound.beep()
+            return
         }
         lade(ergebnis, name: url.lastPathComponent)
     }
@@ -122,11 +149,13 @@ struct ImportView: View {
 
     private func lade(_ buchungen: [Bankbuchung], name: String, verworfen: Int = 0) {
         let regeln = (try? context.fetch(FetchDescriptor<ZuordnungsRegel>())) ?? []
-        zeilen = buchungen
+        zeilen =
+            buchungen
             .sorted { $0.buchungstag > $1.buchungstag }
             .map { b in
                 let z = ImportVorschlag.fuer(b, regeln: regeln)
-                let zeile = ImportZeile(b, zuordnung: z, bereitsImportiert: ImportAnwendung.schonVerarbeitet(b, context))
+                let zeile = ImportZeile(
+                    b, zuordnung: z, bereitsImportiert: ImportAnwendung.schonVerarbeitet(b, context))
                 zeile.zielId = ImportAnwendung.ziel(b, z, context)
                 return zeile
             }
@@ -134,15 +163,18 @@ struct ImportView: View {
         let neu = zeilen.filter { !$0.bereitsImportiert }.count
         // Verworfene Zeilen (unlesbarer Betrag/Datum) gehören sichtbar gemacht: stillschweigend
         // übersprungen sähe eine teilkorrupte CSV aus wie eine vollständig importierte.
-        let hinweis = verworfen > 0
+        let hinweis =
+            verworfen > 0
             ? " · \(verworfen) Zeile\(verworfen == 1 ? "" : "n") übersprungen (Betrag/Datum unlesbar)"
             : ""
         if neu == 0 && !zeilen.isEmpty {
-            zeigeErledigte = true   // komplett importierter Auszug → Zeilen direkt sichtbar machen
-            status = "\(buchungen.count) Buchungen – alle schon importiert.\(hinweis) „Alle erneut zuordnen“ (oder „Neu zuordnen“ je Zeile), um sie noch einmal durchzugehen."
+            zeigeErledigte = true  // komplett importierter Auszug → Zeilen direkt sichtbar machen
+            status =
+                "\(buchungen.count) Buchungen – alle schon importiert.\(hinweis) „Alle erneut zuordnen“ (oder „Neu zuordnen“ je Zeile), um sie noch einmal durchzugehen."
         } else {
             zeigeErledigte = false
-            status = "\(buchungen.count) Buchungen geladen · \(neu) neu · \(buchungen.count - neu) schon importiert\(hinweis)."
+            status =
+                "\(buchungen.count) Buchungen geladen · \(neu) neu · \(buchungen.count - neu) schon importiert\(hinweis)."
         }
         if verworfen > 0 { NSSound.beep() }
     }
@@ -151,7 +183,10 @@ struct ImportView: View {
     /// bereits importierten Auszug erneut durchzugehen (Re-Import). Erneutes Buchen trifft über
     /// `ImportAnwendung.ziel` den bestehenden Datensatz (Überschreiben) → keine Dubletten.
     private func alleErneutZuordnen() {
-        for zeile in zeilen where zeile.erledigt { zeile.erledigt = false; zeile.ergebnis = nil }
+        for zeile in zeilen where zeile.erledigt {
+            zeile.erledigt = false
+            zeile.ergebnis = nil
+        }
         status = "\(zeilen.count) Buchungen zur erneuten Zuordnung geöffnet."
     }
 
@@ -160,7 +195,8 @@ struct ImportView: View {
             zeile.ergebnis = try ImportAnwendung.anwenden(zeile.buchung, zeile.zuordnung, aktion: aktion, context)
             zeile.erledigt = true
         } catch {
-            status = "Fehler: \(error.localizedDescription)"; NSSound.beep()
+            status = "Fehler: \(error.localizedDescription)"
+            NSSound.beep()
         }
     }
 
@@ -184,8 +220,10 @@ private struct ImportZeileRow: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(zeile.buchung.anzeigename).font(.callout).fontWeight(.medium).lineLimit(1)
-                Text("\(zeile.buchung.buchungstag.formatted(date: .numeric, time: .omitted)) · \(zeile.buchung.buchungstext)")
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text(
+                    "\(zeile.buchung.buchungstag.formatted(date: .numeric, time: .omitted)) · \(zeile.buchung.buchungstext)"
+                )
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -199,9 +237,12 @@ private struct ImportZeileRow: View {
                     Label(zeile.ergebnis ?? "erledigt", systemImage: "checkmark.circle.fill")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
-                    Button("Neu zuordnen") { zeile.erledigt = false; zeile.ergebnis = nil }
-                        .controlSize(.small)
-                        .help("Diese Buchung erneut zuordnen (z. B. zuvor ignoriert)")
+                    Button("Neu zuordnen") {
+                        zeile.erledigt = false
+                        zeile.ergebnis = nil
+                    }
+                    .controlSize(.small)
+                    .help("Diese Buchung erneut zuordnen (z. B. zuvor ignoriert)")
                 }
                 .frame(width: 360, alignment: .leading)
             } else {
@@ -219,13 +260,14 @@ private struct ImportZeileRow: View {
         }
         .labelsHidden().frame(width: 150)
         .onChange(of: zeile.zuordnung.kategorie) { _, _ in
-            zeile.zuordnung = zeile.zuordnung.normalisiert   // z. B. Wechsel auf Betriebsausgabe → betrieblich
+            zeile.zuordnung = zeile.zuordnung.normalisiert  // z. B. Wechsel auf Betriebsausgabe → betrieblich
             zielNeuBerechnen()
         }
 
         if zeile.zuordnung.kategorie == .fixkosten || zeile.zuordnung.kategorie == .subscription {
             Picker("", selection: $zeile.zuordnung.betrieblich) {
-                Text("privat").tag(false); Text("betr.").tag(true)
+                Text("privat").tag(false)
+                Text("betr.").tag(true)
             }
             .pickerStyle(.segmented).labelsHidden().frame(width: 104)
         }

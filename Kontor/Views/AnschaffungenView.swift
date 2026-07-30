@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct AnschaffungenView: View {
@@ -16,7 +16,9 @@ struct AnschaffungenView: View {
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
 
     private var gefiltert: [PurchaseEntry] {
-        alle.filter { zeit.filter.enthaelt($0.datum) && (suche.isEmpty || $0.bezeichnung.localizedCaseInsensitiveContains(suche)) }
+        alle.filter {
+            zeit.filter.enthaelt($0.datum) && (suche.isEmpty || $0.bezeichnung.localizedCaseInsensitiveContains(suche))
+        }
     }
     private var anzeige: [PurchaseEntry] { gefiltert.sorted(using: sortOrder) }
     private var ausgewaehlt: PurchaseEntry? { selection.count == 1 ? alle.first { $0.id == selection.first } : nil }
@@ -35,10 +37,14 @@ struct AnschaffungenView: View {
             Divider()
 
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Datum", value: \.datum) { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
-                    .width(min: 96, ideal: 110)
-                TableColumn("Bezeichnung", value: \.bezeichnung) { Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1) }
-                    .width(min: 180, ideal: 280)
+                TableColumn("Datum", value: \.datum) {
+                    Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1)
+                }
+                .width(min: 96, ideal: 110)
+                TableColumn("Bezeichnung", value: \.bezeichnung) {
+                    Text($0.bezeichnung.isEmpty ? "—" : $0.bezeichnung).lineLimit(1)
+                }
+                .width(min: 180, ideal: 280)
                 TableColumn("Preis", value: \.preis) { Text($0.preis.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 90, ideal: 100)
             }
@@ -53,16 +59,20 @@ struct AnschaffungenView: View {
             .dropDestination(for: URL.self) { urls, _ in
                 for url in urls { verarbeiteBeleg(url) }
                 return !urls.isEmpty
-            } isTargeted: { zielAktiv = $0 }
+            } isTargeted: {
+                zielAktiv = $0
+            }
             .overlay {
                 if zielAktiv {
                     RoundedRectangle(cornerRadius: 16)
                         .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [8]))
                         .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
                         .overlay {
-                            Label("Beleg ablegen – Bezeichnung, Preis und Datum werden per Texterkennung vorausgefüllt",
-                                  systemImage: "doc.viewfinder")
-                                .font(.headline).foregroundStyle(Color.accentColor)
+                            Label(
+                                "Beleg ablegen – Bezeichnung, Preis und Datum werden per Texterkennung vorausgefüllt",
+                                systemImage: "doc.viewfinder"
+                            )
+                            .font(.headline).foregroundStyle(Color.accentColor)
                         }
                         .padding(10).allowsHitTesting(false)
                 }
@@ -72,9 +82,17 @@ struct AnschaffungenView: View {
         .searchable(text: $suche, prompt: "Bezeichnung suchen")
         .toolbar {
             ToolbarItemGroup {
-                Button { neu() } label: { Label("Neu", systemImage: "plus") }
-                Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
-                    .help("Inspector-Seitenleiste ein-/ausblenden")
+                Button {
+                    neu()
+                } label: {
+                    Label("Neu", systemImage: "plus")
+                }
+                Button {
+                    zeigeInspektor.toggle()
+                } label: {
+                    Label("Details", systemImage: "sidebar.trailing")
+                }
+                .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -91,8 +109,7 @@ struct AnschaffungenView: View {
         }
         .inspector(isPresented: $zeigeInspektor) {
             Group {
-                if let e = ausgewaehlt { AnschaffungInspektor(eintrag: e) }
-                else { LeereInspektorView() }
+                if let e = ausgewaehlt { AnschaffungInspektor(eintrag: e) } else { LeereInspektorView() }
             }
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
@@ -100,9 +117,12 @@ struct AnschaffungenView: View {
 
     private func neu() {
         let e = PurchaseEntry(datum: Date(), bezeichnung: "", preis: 0)
-        context.insert(e); try? context.save()
-        suche = ""; if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
-        selection = [e.id]; zeigeInspektor = true
+        context.insert(e)
+        try? context.save()
+        suche = ""
+        if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
+        selection = [e.id]
+        zeigeInspektor = true
     }
     private func duplizieren(_ ids: Set<PurchaseEntry.ID>) {
         for e in alle where ids.contains(e.id) {
@@ -124,11 +144,12 @@ struct AnschaffungenView: View {
     private func nachAusgaben(_ ids: Set<PurchaseEntry.ID>) {
         selection.subtract(ids)
         for e in alle where ids.contains(e.id) {
-            context.insert(ExpenseEntry(
-                datum: e.datum, bezeichnung: e.bezeichnung, anbieter: "",
-                brutto: e.preis, vst: 0, steuerart: .steuerfrei,
-                betrieblich: false,
-                belegPfad: e.belegPfad, art: .betriebsausgabe))
+            context.insert(
+                ExpenseEntry(
+                    datum: e.datum, bezeichnung: e.bezeichnung, anbieter: "",
+                    brutto: e.preis, vst: 0, steuerart: .steuerfrei,
+                    betrieblich: false,
+                    belegPfad: e.belegPfad, art: .betriebsausgabe))
             context.delete(e)
         }
         try? context.save()
@@ -146,7 +167,7 @@ struct AnschaffungenView: View {
                     preis: daten.brutto ?? 0,
                     belegPfad: pfad)
                 context.insert(e)
-                try? context.save()        // ID permanent → Auswahl bleibt gültig
+                try? context.save()  // ID permanent → Auswahl bleibt gültig
                 selection = [e.id]
                 zeigeInspektor = true
             }
@@ -178,7 +199,8 @@ struct AnschaffungInspektor: View {
                     }
                 } else {
                     BelegDropArea { url in
-                        eintrag.belegPfad = Belege.speichere(url, jahr: appKalender.component(.year, from: eintrag.datum))
+                        eintrag.belegPfad = Belege.speichere(
+                            url, jahr: appKalender.component(.year, from: eintrag.datum))
                     }
                 }
             }

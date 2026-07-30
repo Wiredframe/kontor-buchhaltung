@@ -9,9 +9,11 @@ enum Schlusselbund {
     private static let service = "de.wiredframe.Kontor"
 
     private static func basis(_ konto: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service,
-         kSecAttrAccount as String: konto]
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: konto,
+        ]
     }
 
     /// Ergebnis eines Lesezugriffs.
@@ -38,7 +40,7 @@ enum Schlusselbund {
         switch status {
         case errSecSuccess:
             guard let data = ergebnis as? Data, let s = String(data: data, encoding: .utf8) else {
-                return .nichtVerfuegbar(status)   // Eintrag da, aber unlesbar → nicht überschreiben
+                return .nichtVerfuegbar(status)  // Eintrag da, aber unlesbar → nicht überschreiben
             }
             return .gefunden(s)
         case errSecItemNotFound:
@@ -65,10 +67,13 @@ enum Schlusselbund {
             // `kSecAttrAccessible` mit aktualisieren: Beim Add wird es gesetzt, beim Update stand
             // es früher nicht dabei – ein Eintrag aus einer älteren Version behielte sonst für
             // immer sein altes Zugriffs-Attribut.
-            return SecItemUpdate(query as CFDictionary,
-                                 [kSecValueData as String: daten,
-                                  kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock]
-                                 as CFDictionary) == errSecSuccess
+            return SecItemUpdate(
+                query as CFDictionary,
+                [
+                    kSecValueData as String: daten,
+                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+                ]
+                    as CFDictionary) == errSecSuccess
         }
         // Nur bei „gibt es wirklich nicht" anlegen. Ein anderer Fehler (Keychain gesperrt) heißt
         // nicht, dass der Platz frei ist – hier blind zu schreiben hieße raten.
@@ -84,4 +89,3 @@ enum Schlusselbund {
         SecItemDelete(basis(konto) as CFDictionary)
     }
 }
-

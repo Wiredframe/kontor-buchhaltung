@@ -3,8 +3,8 @@ import SwiftUI
 /// Filter-Wunsch für einen Querlink in die Ausgaben-View (Art + Sparte). Der Zeitraum
 /// läuft über den geteilten `Zeitkontext`; `nil` heißt jeweils „nicht einschränken".
 struct AusgabenZiel: Equatable {
-    var art: AusgabeArt?       // nil = alle Arten
-    var betrieblich: Bool?     // nil = alle Sparten
+    var art: AusgabeArt?  // nil = alle Arten
+    var betrieblich: Bool?  // nil = alle Sparten
 }
 
 /// Geteilter Navigationszustand: welches Modul ist in der Sidebar gewählt.
@@ -16,8 +16,10 @@ final class Navigation {
     var ausgabenZiel: AusgabenZiel?
 
     /// Springt in die Ausgaben-View und filtert sie auf Monat + Art + Sparte vor.
-    func zeigeAusgaben(jahr: Int, monat: Int, art: AusgabeArt? = nil,
-                       betrieblich: Bool? = nil, zeit: Zeitkontext) {
+    func zeigeAusgaben(
+        jahr: Int, monat: Int, art: AusgabeArt? = nil,
+        betrieblich: Bool? = nil, zeit: Zeitkontext
+    ) {
         zeit.filter.modus = .monat
         zeit.filter.jahr = jahr
         zeit.filter.monat = monat
@@ -50,6 +52,7 @@ final class Zeitkontext {
     var filter = Zeitfilter()
     /// Wählbarer Jahresbereich für die Dropdowns – beim Start aus den Daten abgeleitet.
     var jahre: ClosedRange<Int> = {
-        let h = appKalender.component(.year, from: Date()); return h...(h + 1)
+        let h = appKalender.component(.year, from: Date())
+        return h...(h + 1)
     }()
 }

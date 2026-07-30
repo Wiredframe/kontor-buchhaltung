@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct EinnahmenView: View {
@@ -50,16 +50,21 @@ struct EinnahmenView: View {
                         if e.hatZweitenSatz { Text("7/19").font(.caption2).foregroundStyle(.secondary) }
                     }
                 }
-                    .width(min: 90, ideal: 110)
+                .width(min: 90, ideal: 110)
                 TableColumn("USt", value: \.ustGesamt) { Text($0.ustGesamt.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
                 TableColumn("Brutto", value: \.brutto) { Text($0.brutto.euro).monospacedDigit().lineLimit(1) }
                     .width(min: 80, ideal: 90)
-                TableColumn("Rechnung", value: \.rechnungsdatum) { Text($0.rechnungsdatum, format: .dateTime.day().month().year()).lineLimit(1) }
-                    .width(min: 96, ideal: 106)
+                TableColumn("Rechnung", value: \.rechnungsdatum) {
+                    Text($0.rechnungsdatum, format: .dateTime.day().month().year()).lineLimit(1)
+                }
+                .width(min: 96, ideal: 106)
                 TableColumn("Zahlung", value: \.zahlungsdatumSort) { e in
-                    if let z = e.zahlungsdatum { Text(z, format: .dateTime.day().month().year()).lineLimit(1) }
-                    else { Text("—").foregroundStyle(.secondary) }
+                    if let z = e.zahlungsdatum {
+                        Text(z, format: .dateTime.day().month().year()).lineLimit(1)
+                    } else {
+                        Text("—").foregroundStyle(.secondary)
+                    }
                 }
                 .width(min: 96, ideal: 106)
                 TableColumn("Status", value: \.status.sortRang) { e in
@@ -87,16 +92,20 @@ struct EinnahmenView: View {
                 guard !dok.isEmpty else { return false }
                 batchAuftrag = BelegBatchAuftrag(urls: dok)
                 return true
-            } isTargeted: { zielAktiv = $0 }
+            } isTargeted: {
+                zielAktiv = $0
+            }
             .overlay {
                 if zielAktiv {
                     RoundedRectangle(cornerRadius: 16)
                         .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [8]))
                         .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
                         .overlay {
-                            Label("Ausgangsrechnung ablegen – Kunde, Beträge und Datum werden per Texterkennung vorausgefüllt",
-                                  systemImage: "doc.viewfinder")
-                                .font(.headline).foregroundStyle(Color.accentColor)
+                            Label(
+                                "Ausgangsrechnung ablegen – Kunde, Beträge und Datum werden per Texterkennung vorausgefüllt",
+                                systemImage: "doc.viewfinder"
+                            )
+                            .font(.headline).foregroundStyle(Color.accentColor)
                         }
                         .padding(10).allowsHitTesting(false)
                 }
@@ -106,11 +115,23 @@ struct EinnahmenView: View {
         .searchable(text: $suche, prompt: "Kunde oder Rechnungsnummer suchen")
         .toolbar {
             ToolbarItemGroup {
-                Button { neu() } label: { Label("Neu", systemImage: "plus") }
-                Button { belegeWaehlen() } label: { Label("Belege importieren", systemImage: "doc.viewfinder") }
-                    .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
-                Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
-                    .help("Inspector-Seitenleiste ein-/ausblenden")
+                Button {
+                    neu()
+                } label: {
+                    Label("Neu", systemImage: "plus")
+                }
+                Button {
+                    belegeWaehlen()
+                } label: {
+                    Label("Belege importieren", systemImage: "doc.viewfinder")
+                }
+                .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
+                Button {
+                    zeigeInspektor.toggle()
+                } label: {
+                    Label("Details", systemImage: "sidebar.trailing")
+                }
+                .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -144,7 +165,11 @@ struct EinnahmenView: View {
     }
 
     private func farbe(_ s: InvoiceStatus) -> Color {
-        switch s { case .offen: .orange; case .bezahlt: .secondary; case .ausgefallen: .red }
+        switch s {
+        case .offen: .orange
+        case .bezahlt: .secondary
+        case .ausgefallen: .red
+        }
     }
     private func setzeStatus(_ e: Income, _ s: InvoiceStatus) { e.setze(status: s) }
     private func bezahltHeute(_ ids: Set<Income.ID>) {
@@ -152,9 +177,12 @@ struct EinnahmenView: View {
     }
     private func neu() {
         let e = Income(kunde: "", rnNetto: 0, ust: 0, rechnungsdatum: Date(), status: .offen)
-        context.insert(e); try? context.save()
-        suche = ""; if !zeit.filter.enthaelt(e.rechnungsdatum) { zeit.filter.modus = .alle }
-        selection = [e.id]; zeigeInspektor = true
+        context.insert(e)
+        try? context.save()
+        suche = ""
+        if !zeit.filter.enthaelt(e.rechnungsdatum) { zeit.filter.modus = .alle }
+        selection = [e.id]
+        zeigeInspektor = true
     }
 
     private func belegeWaehlen() {
@@ -166,9 +194,11 @@ struct EinnahmenView: View {
     }
     private func duplizieren(_ ids: Set<Income.ID>) {
         for e in alle where ids.contains(e.id) {
-            context.insert(Income(kunde: e.kunde, rnNetto: e.rnNetto, ust: e.ust,
-                rechnungsdatum: Date(), status: .offen,
-                satz: e.satz, rnNetto2: e.rnNetto2, ust2: e.ust2, satz2: e.satz2))
+            context.insert(
+                Income(
+                    kunde: e.kunde, rnNetto: e.rnNetto, ust: e.ust,
+                    rechnungsdatum: Date(), status: .offen,
+                    satz: e.satz, rnNetto2: e.rnNetto2, ust2: e.ust2, satz2: e.satz2))
         }
     }
     private func loesche(_ ids: Set<Income.ID>) {
@@ -189,19 +219,39 @@ struct EinnahmeInspektor: View {
     @FocusState private var fokus: Bool
 
     private var zahlung: Binding<Date> {
-        Binding { eintrag.zahlungsdatum ?? Date() } set: { eintrag.zahlungsdatum = $0 }
+        Binding {
+            eintrag.zahlungsdatum ?? Date()
+        } set: {
+            eintrag.zahlungsdatum = $0
+        }
     }
     private var ausfall: Binding<Date> {
-        Binding { eintrag.ausfalldatum ?? Date() } set: { eintrag.ausfalldatum = $0 }
+        Binding {
+            eintrag.ausfalldatum ?? Date()
+        } set: {
+            eintrag.ausfalldatum = $0
+        }
     }
     private var rechnungsnummer: Binding<String> {
-        Binding { eintrag.rechnungsnummer ?? "" } set: { eintrag.rechnungsnummer = $0.isEmpty ? nil : $0 }
+        Binding {
+            eintrag.rechnungsnummer ?? ""
+        } set: {
+            eintrag.rechnungsnummer = $0.isEmpty ? nil : $0
+        }
     }
     private var satz: Binding<UStSatz> {
-        Binding { eintrag.satzEffektiv } set: { eintrag.satz = $0 }
+        Binding {
+            eintrag.satzEffektiv
+        } set: {
+            eintrag.satz = $0
+        }
     }
     private var satz2: Binding<UStSatz> {
-        Binding { eintrag.satz2 ?? .satz7 } set: { eintrag.satz2 = $0 }
+        Binding {
+            eintrag.satz2 ?? .satz7
+        } set: {
+            eintrag.satz2 = $0
+        }
     }
 
     var body: some View {
@@ -222,13 +272,17 @@ struct EinnahmeInspektor: View {
                 TextField("2. Netto", value: $eintrag.rnNetto2, format: .currency(code: "EUR"))
                 HStack {
                     TextField("2. USt", value: $eintrag.ust2, format: .currency(code: "EUR"))
-                    Button("aus Netto") { eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7) }
+                    Button("aus Netto") {
+                        eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7)
+                    }
                 }
                 HStack {
                     LabeledContent("Brutto gesamt", value: eintrag.brutto.euro)
                     Spacer()
                     Button("entfernen", role: .destructive) {
-                        eintrag.satz2 = nil; eintrag.rnNetto2 = 0; eintrag.ust2 = 0
+                        eintrag.satz2 = nil
+                        eintrag.rnNetto2 = 0
+                        eintrag.ust2 = 0
                     }
                     .buttonStyle(.borderless).font(.caption)
                 }
@@ -236,7 +290,9 @@ struct EinnahmeInspektor: View {
                 LabeledContent("Brutto", value: eintrag.brutto.euro)
                 Button {
                     eintrag.satz2 = (eintrag.satzEffektiv == .satz19 ? .satz7 : .satz19)
-                } label: { Label("Zweiten Steuersatz hinzufügen", systemImage: "plus.circle") }
+                } label: {
+                    Label("Zweiten Steuersatz hinzufügen", systemImage: "plus.circle")
+                }
                 .buttonStyle(.borderless).font(.caption)
             }
             DatePicker("Rechnungsdatum", selection: $eintrag.rechnungsdatum, displayedComponents: .date)
@@ -266,7 +322,8 @@ struct EinnahmeInspektor: View {
                     }
                 } else {
                     BelegDropArea(hinweis: "Rechnung hierher ziehen oder klicken") { url in
-                        eintrag.belegPfad = Belege.speichere(url, jahr: appKalender.component(.year, from: eintrag.rechnungsdatum))
+                        eintrag.belegPfad = Belege.speichere(
+                            url, jahr: appKalender.component(.year, from: eintrag.rechnungsdatum))
                     }
                 }
             }

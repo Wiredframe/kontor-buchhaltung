@@ -15,7 +15,9 @@ struct Zuordnung: Hashable {
     /// dem alten Default `false` und die Ausgabe landet fälschlich privat, ohne VSt, ohne EÜR.)
     var normalisiert: Zuordnung {
         guard kategorie.immerBetrieblich, !betrieblich else { return self }
-        var z = self; z.betrieblich = true; return z
+        var z = self
+        z.betrieblich = true
+        return z
     }
 }
 
@@ -33,12 +35,14 @@ enum ImportVorschlag {
             } else {
                 kat = r.kategorie
             }
-            return Zuordnung(kategorie: kat, betrieblich: r.betrieblich,
-                             steuerart: r.steuerart, steuerKind: r.steuerKind ?? .ustVz).normalisiert
+            return Zuordnung(
+                kategorie: kat, betrieblich: r.betrieblich,
+                steuerart: r.steuerart, steuerKind: r.steuerKind ?? .ustVz
+            ).normalisiert
         }
         if istEigenerUebertrag(b) { return Zuordnung(kategorie: .ignorieren, betrieblich: false) }
-        if b.istEingang          { return Zuordnung(kategorie: .einnahme, betrieblich: true) }
-        return Zuordnung(kategorie: .anschaffung, betrieblich: false)   // sicherste Annahme: privat
+        if b.istEingang { return Zuordnung(kategorie: .einnahme, betrieblich: true) }
+        return Zuordnung(kategorie: .anschaffung, betrieblich: false)  // sicherste Annahme: privat
     }
 
     /// Eigener Übertrag (Buchungstext „ÜBERTRAG…") → Vorschlag „ignorieren".
@@ -68,36 +72,48 @@ enum ImportAnwendung {
         case .einnahme:
             let incs = (try? ctx.fetch(FetchDescriptor<Income>())) ?? []
             let zweckZiffern = b.verwendungszweck.filter(\.isNumber)
-            if !zweckZiffern.isEmpty, let m = incs.first(where: { inc in
-                guard let nr = inc.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
-                return zweckZiffern.contains(nr)
-            }) { return m.persistentModelID }
+            if !zweckZiffern.isEmpty,
+                let m = incs.first(where: { inc in
+                    guard let nr = inc.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
+                    return zweckZiffern.contains(nr)
+                })
+            {
+                return m.persistentModelID
+            }
             return incs.first { $0.brutto == betrag && $0.status != .bezahlt }?.persistentModelID
         case .lebensmittel:
-            return nahestes((try? ctx.fetch(FetchDescriptor<GroceryEntry>())) ?? [], betrag, b.buchungstag,
-                            betragVon: { $0.betrag }, datumVon: { $0.datum })
+            return nahestes(
+                (try? ctx.fetch(FetchDescriptor<GroceryEntry>())) ?? [], betrag, b.buchungstag,
+                betragVon: { $0.betrag }, datumVon: { $0.datum })
         case .anschaffung:
-            return nahestes((try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
-                            betragVon: { $0.preis }, datumVon: { $0.datum })
+            return nahestes(
+                (try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
+                betragVon: { $0.preis }, datumVon: { $0.datum })
         case .erstattung:
             // Gutschrift = negative Anschaffung; über den negierten Preis matchen (Re-Buchung).
-            return nahestes((try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
-                            betragVon: { -$0.preis }, datumVon: { $0.datum })
+            return nahestes(
+                (try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
+                betragVon: { -$0.preis }, datumVon: { $0.datum })
         case .betriebsausgabe, .fixkosten, .subscription:
             let ausgaben = (try? ctx.fetch(FetchDescriptor<ExpenseEntry>())) ?? []
             // Zuerst über die Rechnungsnummer (z. B. per OCR erfasst) – unabhängig vom Datumsabstand.
             let zweckZiffern = b.verwendungszweck.filter(\.isNumber)
-            if !zweckZiffern.isEmpty, let m = ausgaben.first(where: { e in
-                guard let nr = e.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
-                return zweckZiffern.contains(nr)
-            }) { return m.persistentModelID }
+            if !zweckZiffern.isEmpty,
+                let m = ausgaben.first(where: { e in
+                    guard let nr = e.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
+                    return zweckZiffern.contains(nr)
+                })
+            {
+                return m.persistentModelID
+            }
             // Sonst über Betrag + **enges** Datumsfenster (Default 5 Tage). Bewusst eng: wiederkehrende
             // Kosten (Miete/Subscriptions) haben monatlich denselben Betrag ~30 Tage auseinander – ein
             // weites Fenster matcht den Folgemonat auf den Vormonatseintrag und verschiebt ihn beim
             // Überschreiben in den neuen Monat (der Vormonat verlöre die Ausgabe). Vorab per PDF erfasste
             // Rechnungen werden statt über das Datum über die Rechnungsnummer (oben) erkannt.
-            return nahestes(ausgaben, betrag, b.buchungstag,
-                            betragVon: { $0.brutto }, datumVon: { $0.datum })
+            return nahestes(
+                ausgaben, betrag, b.buchungstag,
+                betragVon: { $0.brutto }, datumVon: { $0.datum })
         case .steuer:
             // Geplanter Termin gleicher Art (Betrag passt oder Termin noch ohne Betrag) – bei
             // mehreren der fälligkeitsnächste (z. B. das passende ESt-VZ-Quartal).
@@ -128,14 +144,16 @@ enum ImportAnwendung {
             }?.persistentModelID
         case .ksk:
             let zahlungen = ((try? ctx.fetch(FetchDescriptor<TaxPayment>())) ?? []).filter { $0.kind == .ksk }
-            return nahestes(zahlungen, betrag, b.buchungstag,
-                            betragVon: { $0.betrag }, datumVon: { $0.bezahltAm ?? $0.faellig })
+            return nahestes(
+                zahlungen, betrag, b.buchungstag,
+                betragVon: { $0.betrag }, datumVon: { $0.bezahltAm ?? $0.faellig })
         case .steuererstattung:
             // Erstattungen liegen als negativer TaxPayment vor → über den Betrag matchen.
             let zahlungen = ((try? ctx.fetch(FetchDescriptor<TaxPayment>())) ?? [])
                 .filter { $0.kind == z.steuerKind && $0.betrag < 0 }
-            return nahestes(zahlungen, betrag, b.buchungstag,
-                            betragVon: { abs($0.betrag) }, datumVon: { $0.bezahltAm ?? $0.faellig })
+            return nahestes(
+                zahlungen, betrag, b.buchungstag,
+                betragVon: { abs($0.betrag) }, datumVon: { $0.bezahltAm ?? $0.faellig })
         case .ignorieren:
             return nil
         }
@@ -150,13 +168,16 @@ enum ImportAnwendung {
     /// ins Vorjahr schrieb: Der geplante Vorjahres-Termin wurde nie getroffen, blieb offen, und
     /// daneben entstand eine zweite Zahlung.
     @MainActor
-    static func steuerzuordnung(kind: SteuerKind, zahlMonat: Int, zahlJahr: Int,
-                                _ ctx: ModelContext) -> (jahr: Int, notiz: String) {
+    static func steuerzuordnung(
+        kind: SteuerKind, zahlMonat: Int, zahlJahr: Int,
+        _ ctx: ModelContext
+    ) -> (jahr: Int, notiz: String) {
         guard kind == .ustVz else { return (jahr: zahlJahr, notiz: "") }
         let vorjahr = ((try? ctx.fetch(FetchDescriptor<YearSettings>())) ?? []).first { $0.jahr == zahlJahr - 1 }
-        return Steuer.ustVzZuordnung(zahlMonat: zahlMonat, zahlJahr: zahlJahr,
-                                     rhythmus: vorjahr?.ustvaRhythmus ?? .vierteljaehrlich,
-                                     dauerfrist: vorjahr?.dauerfristverlaengerung ?? false)
+        return Steuer.ustVzZuordnung(
+            zahlMonat: zahlMonat, zahlJahr: zahlJahr,
+            rhythmus: vorjahr?.ustvaRhythmus ?? .vierteljaehrlich,
+            dauerfrist: vorjahr?.dauerfristverlaengerung ?? false)
     }
 
     @MainActor
@@ -188,27 +209,41 @@ enum ImportAnwendung {
             switch z.kategorie {
             case .lebensmittel:
                 if let g: GroceryEntry = hole(ziel, ctx) {
-                    g.datum = b.buchungstag; g.betrag = betrag; g.ort = name; nachricht = "Lebensmittel aktualisiert"
+                    g.datum = b.buchungstag
+                    g.betrag = betrag
+                    g.ort = name
+                    nachricht = "Lebensmittel aktualisiert"
                 } else {
-                    ctx.insert(GroceryEntry(datum: b.buchungstag, betrag: betrag, ort: name)); nachricht = "Lebensmittel angelegt"
+                    ctx.insert(GroceryEntry(datum: b.buchungstag, betrag: betrag, ort: name))
+                    nachricht = "Lebensmittel angelegt"
                 }
             case .anschaffung:
                 if let p: PurchaseEntry = hole(ziel, ctx) {
-                    p.datum = b.buchungstag; p.preis = betrag; p.bezeichnung = name; nachricht = "Anschaffung aktualisiert"
+                    p.datum = b.buchungstag
+                    p.preis = betrag
+                    p.bezeichnung = name
+                    nachricht = "Anschaffung aktualisiert"
                 } else {
-                    ctx.insert(PurchaseEntry(datum: b.buchungstag, bezeichnung: name, preis: betrag)); nachricht = "Anschaffung angelegt"
+                    ctx.insert(PurchaseEntry(datum: b.buchungstag, bezeichnung: name, preis: betrag))
+                    nachricht = "Anschaffung angelegt"
                 }
             case .erstattung:
                 // Gutschrift = negative Anschaffung → mindert die Einkäufe-Summe.
                 if let p: PurchaseEntry = hole(ziel, ctx) {
-                    p.datum = b.buchungstag; p.preis = -betrag; p.bezeichnung = "Erstattung: \(name)"; nachricht = "Gutschrift aktualisiert"
+                    p.datum = b.buchungstag
+                    p.preis = -betrag
+                    p.bezeichnung = "Erstattung: \(name)"
+                    nachricht = "Gutschrift aktualisiert"
                 } else {
-                    ctx.insert(PurchaseEntry(datum: b.buchungstag, bezeichnung: "Erstattung: \(name)", preis: -betrag)); nachricht = "Gutschrift angelegt"
+                    ctx.insert(PurchaseEntry(datum: b.buchungstag, bezeichnung: "Erstattung: \(name)", preis: -betrag))
+                    nachricht = "Gutschrift angelegt"
                 }
             case .betriebsausgabe, .fixkosten, .subscription:
                 // Art aus der Triage; privat zieht keine Vorsteuer (zählt nur in die Liquidität).
-                let art: AusgabeArt = z.kategorie == .fixkosten ? .fixkosten
-                                    : z.kategorie == .subscription ? .subscription : .betriebsausgabe
+                let art: AusgabeArt =
+                    z.kategorie == .fixkosten
+                    ? .fixkosten
+                    : z.kategorie == .subscription ? .subscription : .betriebsausgabe
                 // **Vorzeichen aus der Bankrichtung.** Ein *Eingang* auf einer Ausgaben-Kategorie ist
                 // eine Erstattung des Händlers (Storno, Gutschrift, Abo gekündigt) und muss die
                 // Ausgabe **mindern**. Vorher machte `abs()` daraus eine zusätzliche Ausgabe: Die
@@ -225,20 +260,30 @@ enum ImportAnwendung {
                     // `datum` bleibt das EÜR-maßgebliche (Abfluss-)Datum = Buchungstag (wie bisher),
                     // `zahlungsdatum` hält den Zahltag zusätzlich fest; eine bereits erfasste
                     // Rechnungsnummer (OCR) wird nicht überschrieben.
-                    e.datum = b.buchungstag; e.zahlungsdatum = b.buchungstag
-                    e.brutto = ausgabeBrutto; e.vst = vst; e.steuerart = z.steuerart
-                    e.bezeichnung = titel; e.anbieter = name; e.betrieblich = z.betrieblich; e.art = art
+                    e.datum = b.buchungstag
+                    e.zahlungsdatum = b.buchungstag
+                    e.brutto = ausgabeBrutto
+                    e.vst = vst
+                    e.steuerart = z.steuerart
+                    e.bezeichnung = titel
+                    e.anbieter = name
+                    e.betrieblich = z.betrieblich
+                    e.art = art
                     nachricht = "Ausgabe aktualisiert"
                 } else {
-                    ctx.insert(ExpenseEntry(datum: b.buchungstag, bezeichnung: titel, anbieter: name,
-                                            brutto: ausgabeBrutto,
-                                            vst: vst, steuerart: z.steuerart,
-                                            betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
+                    ctx.insert(
+                        ExpenseEntry(
+                            datum: b.buchungstag, bezeichnung: titel, anbieter: name,
+                            brutto: ausgabeBrutto,
+                            vst: vst, steuerart: z.steuerart,
+                            betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
                     nachricht = b.istEingang ? "Erstattung angelegt" : "Ausgabe angelegt"
                 }
             case .einnahme:
                 if let inc: Income = hole(ziel, ctx) {
-                    inc.setze(status: .bezahlt); inc.zahlungsdatum = b.buchungstag; nachricht = "Zahlung zugeordnet"
+                    inc.setze(status: .bezahlt)
+                    inc.zahlungsdatum = b.buchungstag
+                    nachricht = "Zahlung zugeordnet"
                 } else {
                     nachricht = "keine passende Rechnung gefunden"
                 }
@@ -249,35 +294,53 @@ enum ImportAnwendung {
                 // ein anderes Jahr, als er vorher gesucht hat, und der geplante Termin bleibt offen.
                 let zo = steuerzuordnung(kind: z.steuerKind, zahlMonat: zMonat, zahlJahr: zJahr, ctx)
                 if let t: TaxPayment = hole(ziel, ctx) {
-                    t.kind = z.steuerKind; t.betrag = betrag; t.bezahlt = true; t.bezahltAm = b.buchungstag; t.jahr = zo.jahr
+                    t.kind = z.steuerKind
+                    t.betrag = betrag
+                    t.bezahlt = true
+                    t.bezahltAm = b.buchungstag
+                    t.jahr = zo.jahr
                     if !zo.notiz.isEmpty, t.bemerkung.isEmpty { t.bemerkung = zo.notiz }
                     nachricht = "Steuerzahlung zugeordnet"
                 } else {
-                    ctx.insert(TaxPayment(kind: z.steuerKind, jahr: zo.jahr, faellig: b.buchungstag, betrag: betrag,
-                                          bezahlt: true, bezahltAm: b.buchungstag, bemerkung: zo.notiz))
+                    ctx.insert(
+                        TaxPayment(
+                            kind: z.steuerKind, jahr: zo.jahr, faellig: b.buchungstag, betrag: betrag,
+                            bezahlt: true, bezahltAm: b.buchungstag, bemerkung: zo.notiz))
                     nachricht = "Steuerzahlung angelegt"
                 }
             case .steuererstattung:
                 // Eingang vom Finanzamt = Erstattung → negativer Betrag (mindert die Steuersumme).
                 let zJahr = appKalender.component(.year, from: b.buchungstag)
                 if let t: TaxPayment = hole(ziel, ctx) {
-                    t.kind = z.steuerKind; t.betrag = -betrag; t.bezahlt = true; t.bezahltAm = b.buchungstag; t.jahr = zJahr
+                    t.kind = z.steuerKind
+                    t.betrag = -betrag
+                    t.bezahlt = true
+                    t.bezahltAm = b.buchungstag
+                    t.jahr = zJahr
                     if t.bemerkung.isEmpty { t.bemerkung = "Erstattung" }
                     nachricht = "Steuererstattung zugeordnet"
                 } else {
-                    ctx.insert(TaxPayment(kind: z.steuerKind, jahr: zJahr, faellig: b.buchungstag, betrag: -betrag,
-                                          bezahlt: true, bezahltAm: b.buchungstag, bemerkung: "Erstattung"))
+                    ctx.insert(
+                        TaxPayment(
+                            kind: z.steuerKind, jahr: zJahr, faellig: b.buchungstag, betrag: -betrag,
+                            bezahlt: true, bezahltAm: b.buchungstag, bemerkung: "Erstattung"))
                     nachricht = "Steuererstattung angelegt"
                 }
             case .ksk:
                 // KSK-Abbuchung als Ist-Zahlung buchen (Betrag = Beleg); Soll bleibt der Beitragssatz.
                 let zJahr = appKalender.component(.year, from: b.buchungstag)
                 if let t: TaxPayment = hole(ziel, ctx) {
-                    t.kind = .ksk; t.betrag = betrag; t.bezahlt = true; t.bezahltAm = b.buchungstag; t.jahr = zJahr
+                    t.kind = .ksk
+                    t.betrag = betrag
+                    t.bezahlt = true
+                    t.bezahltAm = b.buchungstag
+                    t.jahr = zJahr
                     nachricht = "KSK-Zahlung zugeordnet"
                 } else {
-                    ctx.insert(TaxPayment(kind: .ksk, jahr: zJahr, faellig: b.buchungstag, betrag: betrag,
-                                          bezahlt: true, bezahltAm: b.buchungstag, bemerkung: "KSK-Beitrag"))
+                    ctx.insert(
+                        TaxPayment(
+                            kind: .ksk, jahr: zJahr, faellig: b.buchungstag, betrag: betrag,
+                            bezahlt: true, bezahltAm: b.buchungstag, bemerkung: "KSK-Beitrag"))
                     nachricht = "KSK-Zahlung angelegt"
                 }
             case .ignorieren:
@@ -295,11 +358,16 @@ enum ImportAnwendung {
         let key = b.haendlerSchluessel
         guard !key.isEmpty else { return }
         if let r = ((try? ctx.fetch(FetchDescriptor<ZuordnungsRegel>())) ?? []).first(where: { $0.schluessel == key }) {
-            r.kategorie = z.kategorie; r.betrieblich = z.betrieblich
-            r.steuerart = z.steuerart; r.steuerKind = z.steuerKind; r.aktualisiert = Date()
+            r.kategorie = z.kategorie
+            r.betrieblich = z.betrieblich
+            r.steuerart = z.steuerart
+            r.steuerKind = z.steuerKind
+            r.aktualisiert = Date()
         } else {
-            ctx.insert(ZuordnungsRegel(schluessel: key, kategorie: z.kategorie, betrieblich: z.betrieblich,
-                                       steuerart: z.steuerart, steuerKind: z.steuerKind))
+            ctx.insert(
+                ZuordnungsRegel(
+                    schluessel: key, kategorie: z.kategorie, betrieblich: z.betrieblich,
+                    steuerart: z.steuerart, steuerKind: z.steuerKind))
         }
     }
 
@@ -307,10 +375,13 @@ enum ImportAnwendung {
     private static func protokolliere(_ b: Bankbuchung, _ z: Zuordnung, _ ctx: ModelContext) {
         let key = b.dedupSchluessel
         if let p = ((try? ctx.fetch(FetchDescriptor<ImportBuchung>())) ?? []).first(where: { $0.schluessel == key }) {
-            p.kategorie = z.kategorie; p.betrieblich = z.betrieblich
+            p.kategorie = z.kategorie
+            p.betrieblich = z.betrieblich
         } else {
-            ctx.insert(ImportBuchung(schluessel: key, buchungstag: b.buchungstag, betrag: b.betrag,
-                                     gegenpartei: b.gegenpartei, kategorie: z.kategorie, betrieblich: z.betrieblich))
+            ctx.insert(
+                ImportBuchung(
+                    schluessel: key, buchungstag: b.buchungstag, betrag: b.betrag,
+                    gegenpartei: b.gegenpartei, kategorie: z.kategorie, betrieblich: z.betrieblich))
         }
     }
 
@@ -327,10 +398,13 @@ enum ImportAnwendung {
     /// die sich monatlich mit gleichem Betrag ~30 Tage auseinander wiederholen).
     private static func nahestes<T: PersistentModel>(
         _ liste: [T], _ betrag: Decimal, _ datum: Date, toleranzTage: Int = 5,
-        betragVon: (T) -> Decimal, datumVon: (T) -> Date) -> PersistentIdentifier? {
+        betragVon: (T) -> Decimal, datumVon: (T) -> Date
+    ) -> PersistentIdentifier? {
         liste
-            .filter { betragVon($0) == betrag
-                && abs(datumVon($0).timeIntervalSince(datum)) <= Double(toleranzTage) * 86_400 }
+            .filter {
+                betragVon($0) == betrag
+                    && abs(datumVon($0).timeIntervalSince(datum)) <= Double(toleranzTage) * 86_400
+            }
             .min { abs(datumVon($0).timeIntervalSince(datum)) < abs(datumVon($1).timeIntervalSince(datum)) }?
             .persistentModelID
     }
@@ -345,21 +419,22 @@ extension ZuordnungsRegel {
     /// (`ImportAnwendung.merkeRegel`, unabhängig von diesem Seed). Schlüssel =
     /// `Bankbuchung.haendlerSchluessel` (normalisierter Händlername; das Matching ist **exakt**,
     /// die Treffer sind also best effort – alles Übrige lernt der Import selbst).
-    static let startRegeln: [(schluessel: String, kategorie: ImportKategorie, betrieblich: Bool, steuerart: Steuerart)] = [
-        // Vorsorge: KSK-Beitrag → Zahlungen-Ledger (kein EÜR-Posten)
-        ("kuenstlersozialkasse", .ksk, false, .inland19),
-        // Verbreitete Auslands-SaaS (Design/Dev) → Betriebsausgabe, Reverse-Charge (§13b)
-        ("figma", .betriebsausgabe, true, .reverseCharge),
-        ("anthropic claude sub", .betriebsausgabe, true, .reverseCharge),
-        ("anthropic", .betriebsausgabe, true, .reverseCharge),
-        ("openai", .betriebsausgabe, true, .reverseCharge),
-        ("github", .betriebsausgabe, true, .reverseCharge),
-        ("github inc", .betriebsausgabe, true, .reverseCharge),
-        ("vercel", .betriebsausgabe, true, .reverseCharge),
-        ("notion labs", .betriebsausgabe, true, .reverseCharge),
-        // SaaS mit deutscher USt → Betriebsausgabe, Inland 19 %
-        ("adobe", .betriebsausgabe, true, .inland19),
-    ]
+    static let startRegeln:
+        [(schluessel: String, kategorie: ImportKategorie, betrieblich: Bool, steuerart: Steuerart)] = [
+            // Vorsorge: KSK-Beitrag → Zahlungen-Ledger (kein EÜR-Posten)
+            ("kuenstlersozialkasse", .ksk, false, .inland19),
+            // Verbreitete Auslands-SaaS (Design/Dev) → Betriebsausgabe, Reverse-Charge (§13b)
+            ("figma", .betriebsausgabe, true, .reverseCharge),
+            ("anthropic claude sub", .betriebsausgabe, true, .reverseCharge),
+            ("anthropic", .betriebsausgabe, true, .reverseCharge),
+            ("openai", .betriebsausgabe, true, .reverseCharge),
+            ("github", .betriebsausgabe, true, .reverseCharge),
+            ("github inc", .betriebsausgabe, true, .reverseCharge),
+            ("vercel", .betriebsausgabe, true, .reverseCharge),
+            ("notion labs", .betriebsausgabe, true, .reverseCharge),
+            // SaaS mit deutscher USt → Betriebsausgabe, Inland 19 %
+            ("adobe", .betriebsausgabe, true, .inland19),
+        ]
 
     /// Legt fehlende Start-Regeln idempotent an (nur Schlüssel, die noch nicht existieren) –
     /// so bekommen auch bestehende Datenbanken die Vorschläge, ohne Nutzer-Regeln zu überschreiben.
@@ -368,8 +443,10 @@ extension ZuordnungsRegel {
         let keys = Set(vorhandene.map(\.schluessel))
         var aenderungen = 0
         for r in startRegeln where !keys.contains(r.schluessel) {
-            ctx.insert(ZuordnungsRegel(schluessel: r.schluessel, kategorie: r.kategorie,
-                                       betrieblich: r.betrieblich, steuerart: r.steuerart))
+            ctx.insert(
+                ZuordnungsRegel(
+                    schluessel: r.schluessel, kategorie: r.kategorie,
+                    betrieblich: r.betrieblich, steuerart: r.steuerart))
             aenderungen += 1
         }
         if aenderungen > 0 { try? ctx.save() }

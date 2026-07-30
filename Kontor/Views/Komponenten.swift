@@ -1,7 +1,7 @@
-import SwiftUI
-import SwiftData
 import AppKit
 import PDFKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Warnleiste über einem Auswertungs-Screen, wenn dem gewählten Jahr die `YearSettings` fehlen.
@@ -24,10 +24,12 @@ struct FehlendeJahresEinstellungen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Für \(String(jahr)) sind keine Einstellungen hinterlegt.")
                         .font(.callout.weight(.semibold))
-                    Text("ESt-Rücklage und KSK sind deshalb geschätzt: 15 % Pauschalsatz, KSK 0 €. "
-                         + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text(
+                        "ESt-Rücklage und KSK sind deshalb geschätzt: 15 % Pauschalsatz, KSK 0 €. "
+                            + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen."
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 if let beiAnlegen {
@@ -93,7 +95,8 @@ func verfuegbareJahre(_ ctx: ModelContext) -> ClosedRange<Int> {
     var jahre: Set<Int> = [heute, heute + 1]
     func rand<T: PersistentModel>(_ make: (SortOrder) -> FetchDescriptor<T>, _ datum: (T) -> Date) {
         for order: SortOrder in [.forward, .reverse] {
-            var d = make(order); d.fetchLimit = 1
+            var d = make(order)
+            d.fetchLimit = 1
             if let e = try? ctx.fetch(d).first { jahre.insert(appKalender.component(.year, from: datum(e))) }
         }
     }
@@ -148,12 +151,14 @@ struct MonatJahrWaehler: View {
 }
 
 private let _deMonthSymbols: [String] = {
-    let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "de_DE")
     return df.monthSymbols ?? []
 }()
 
 private let _deShortMonthSymbols: [String] = {
-    let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "de_DE")
     return df.shortMonthSymbols ?? []
 }()
 
@@ -182,8 +187,8 @@ struct Zeitfilter {
     func enthaelt(_ datum: Date) -> Bool {
         let c = appKalender.dateComponents([.year, .month], from: datum)
         switch modus {
-        case .alle:  return true
-        case .jahr:  return c.year == jahr
+        case .alle: return true
+        case .jahr: return c.year == jahr
         case .monat: return c.year == jahr && c.month == monat
         }
     }
@@ -243,8 +248,14 @@ struct ZeitraumLeiste<Trailing: View>: View {
     private func zeile(umgebrochen: Bool) -> some View {
         if umgebrochen {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) { zeitControls; Spacer(minLength: 0) }
-                HStack(spacing: 12) { trailing(); Spacer(minLength: 0) }
+                HStack(spacing: 12) {
+                    zeitControls
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 12) {
+                    trailing()
+                    Spacer(minLength: 0)
+                }
             }
         } else {
             HStack(spacing: 12) {
@@ -273,7 +284,9 @@ struct BelegVorschau: View {
     private var url: URL { Belege.url(fuer: pfad) }
 
     var body: some View {
-        Button { NSWorkspace.shared.open(url) } label: {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
             ZStack {
                 if let bild {
                     Image(nsImage: bild)
@@ -304,7 +317,8 @@ struct BelegVorschau: View {
     }
 
     private func lade() {
-        bild = nil; geladen = false
+        bild = nil
+        geladen = false
         defer { geladen = true }
         let ext = (pfad as NSString).pathExtension.lowercased()
         if ext == "pdf" {
@@ -335,15 +349,19 @@ struct BelegDropArea: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .windowBackgroundColor)))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(zielAktiv ? Color.accentColor : Color.secondary.opacity(0.35),
-                              style: StrokeStyle(lineWidth: zielAktiv ? 2 : 1, dash: [6]))
+                .strokeBorder(
+                    zielAktiv ? Color.accentColor : Color.secondary.opacity(0.35),
+                    style: StrokeStyle(lineWidth: zielAktiv ? 2 : 1, dash: [6]))
         }
         .contentShape(RoundedRectangle(cornerRadius: 10))
         .onTapGesture { waehle() }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
-            aufnehmen(url); return true
-        } isTargeted: { zielAktiv = $0 }
+            aufnehmen(url)
+            return true
+        } isTargeted: {
+            zielAktiv = $0
+        }
         .help("Beleg per Drag & Drop ablegen oder klicken zum Auswählen")
     }
 
@@ -468,7 +486,8 @@ struct BudgetWert: View {
 
 /// Kopiert einen Geldbetrag im dt. Format **ohne** Tausenderpunkt in die Zwischenablage.
 func kopiereInZwischenablage(_ wert: Decimal) {
-    let text = wert.formatted(.number.grouping(.never).precision(.fractionLength(2)).locale(Locale(identifier: "de_DE")))
+    let text = wert.formatted(
+        .number.grouping(.never).precision(.fractionLength(2)).locale(Locale(identifier: "de_DE")))
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
 }
@@ -478,7 +497,10 @@ func kopiereInZwischenablage(_ wert: Decimal) {
 @MainActor func kopiereMitHaken(_ wert: Decimal, _ flag: Binding<Bool>) {
     kopiereInZwischenablage(wert)
     withAnimation { flag.wrappedValue = true }
-    Task { try? await Task.sleep(for: .seconds(1.2)); withAnimation { flag.wrappedValue = false } }
+    Task {
+        try? await Task.sleep(for: .seconds(1.2))
+        withAnimation { flag.wrappedValue = false }
+    }
 }
 
 /// Kleines Kopier-Häkchen (für die kopierbaren Card-Zeilen). Standardfarbe grün;
@@ -503,7 +525,7 @@ struct KopierHaken: View {
     alert.messageText = anzahl == 1 ? "Diesen Eintrag löschen?" : "\(anzahl) Einträge löschen?"
     alert.informativeText = "Das lässt sich nicht rückgängig machen."
     alert.addButton(withTitle: "Löschen")
-    alert.addButton(withTitle: "Abbrechen").keyEquivalent = "\u{1b}"   // Escape bricht ab
+    alert.addButton(withTitle: "Abbrechen").keyEquivalent = "\u{1b}"  // Escape bricht ab
     return alert.runModal() == .alertFirstButtonReturn
 }
 
@@ -571,8 +593,9 @@ struct AufgabenInspektorListe: View {
 
     var body: some View {
         if aufgaben.isEmpty {
-            ContentUnavailableView("Keine offenen Aufgaben", systemImage: "checklist",
-                                   description: Text(leererHinweis))
+            ContentUnavailableView(
+                "Keine offenen Aufgaben", systemImage: "checklist",
+                description: Text(leererHinweis))
         } else {
             ScrollView {
                 VStack(spacing: 8) {
@@ -585,7 +608,8 @@ struct AufgabenInspektorListe: View {
 
     private func zeile(_ t: MonthlyTask) -> some View {
         Button {
-            t.erledigt.toggle(); TaskVorlagen.nachAbschluss(t, in: context)
+            t.erledigt.toggle()
+            TaskVorlagen.nachAbschluss(t, in: context)
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: t.erledigt ? "checkmark.circle.fill" : "circle")
@@ -613,7 +637,8 @@ struct LeereInspektorView: View {
     var hinweis: String = "Zeile wählen – oder „+“ für einen neuen Eintrag."
 
     var body: some View {
-        ContentUnavailableView(titel, systemImage: "sidebar.right",
+        ContentUnavailableView(
+            titel, systemImage: "sidebar.right",
             description: Text(hinweis))
     }
 }

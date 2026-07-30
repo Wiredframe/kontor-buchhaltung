@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 
 struct MonatsabschlussView: View {
     @Environment(\.modelContext) private var context
@@ -100,16 +100,19 @@ struct MonatsabschlussView: View {
     }
 
     private func zahlenAus(_ s: MonatsSnapshot) -> Zahlen {
-        Zahlen(a: MonatsAuswertung(rn: s.rn, ust: s.ust, vst: s.vst, ustKorrektur: s.ustKorrektur,
-                                   ksk: s.ksk, est: s.est, estKorrektur: s.estKorrektur,
-                                   betriebsausgabenNetto: s.betriebsausgabenNetto,
-                                   fixkostenPrivat: s.privatFix, privatVariabel: s.privatVariabel),
-               umlagefaehig: s.umlagefaehig)
+        Zahlen(
+            a: MonatsAuswertung(
+                rn: s.rn, ust: s.ust, vst: s.vst, ustKorrektur: s.ustKorrektur,
+                ksk: s.ksk, est: s.est, estKorrektur: s.estKorrektur,
+                betriebsausgabenNetto: s.betriebsausgabenNetto,
+                fixkostenPrivat: s.privatFix, privatVariabel: s.privatVariabel),
+            umlagefaehig: s.umlagefaehig)
     }
     private func snapshotAus(_ z: Zahlen) -> MonatsSnapshot {
-        MonatsSnapshot(rn: z.rn, ust: z.ust, vst: z.vst, ustKorrektur: z.ustKorrektur, ksk: z.ksk,
-                       est: z.est, estKorrektur: z.estKorrektur, betriebsausgabenNetto: z.betriebsausgabenNetto,
-                       umlagefaehig: z.umlagefaehig, privatFix: z.privatFix, privatVariabel: z.privatVariabel)
+        MonatsSnapshot(
+            rn: z.rn, ust: z.ust, vst: z.vst, ustKorrektur: z.ustKorrektur, ksk: z.ksk,
+            est: z.est, estKorrektur: z.estKorrektur, betriebsausgabenNetto: z.betriebsausgabenNetto,
+            umlagefaehig: z.umlagefaehig, privatFix: z.privatFix, privatVariabel: z.privatVariabel)
     }
 
     /// Posten-Arrays werden vom Aufrufer **einmal** gemappt übergeben (in der Jahresansicht
@@ -127,7 +130,9 @@ struct MonatsabschlussView: View {
             kskFuer: { jahre.ksk(jahr: $0, monat: $1) }, fixkostenPrivat: fixkostenPrivat(m),
             privatVariabel: lm + an + einmalig,
             pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
-        let umlage = ausgaben.filter { $0.betrieblich && $0.umlagefaehig && p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.netto }
+        let umlage = ausgaben.filter { $0.betrieblich && $0.umlagefaehig && p.enthaelt($0.datum) }.reduce(Decimal(0)) {
+            $0 + $1.netto
+        }
         return Zahlen(a: a, umlagefaehig: umlage)
     }
 
@@ -146,8 +151,12 @@ struct MonatsabschlussView: View {
         .navigationTitle("Monatsabschluss")
         .toolbar {
             ToolbarItem {
-                Button { zeigeAufgaben.toggle() } label: { Label("Seitenleiste", systemImage: "sidebar.trailing") }
-                    .help("Werte & Aufgaben ein-/ausblenden")
+                Button {
+                    zeigeAufgaben.toggle()
+                } label: {
+                    Label("Seitenleiste", systemImage: "sidebar.trailing")
+                }
+                .help("Werte & Aufgaben ein-/ausblenden")
             }
         }
         .inspector(isPresented: $zeigeAufgaben) {
@@ -162,15 +171,18 @@ struct MonatsabschlussView: View {
                     if let s = settings {
                         MonatsWerteEditor(settings: s, monat: monat)
                     } else {
-                        ContentUnavailableView("Kein Jahr angelegt", systemImage: "calendar.badge.exclamationmark",
-                            description: Text("Lege in den Einstellungen ein Jahr an, um Werte zu pflegen."))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        ContentUnavailableView(
+                            "Kein Jahr angelegt", systemImage: "calendar.badge.exclamationmark",
+                            description: Text("Lege in den Einstellungen ein Jahr an, um Werte zu pflegen.")
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Aufgaben · \(monatsName(monat))")
                             .font(.headline).padding(.horizontal, 14).padding(.top, 14)
-                        AufgabenInspektorListe(aufgaben: monatsSidebarAufgaben,
+                        AufgabenInspektorListe(
+                            aufgaben: monatsSidebarAufgaben,
                             leererHinweis: "Keine Aufgaben für \(monatsName(monat)). Im Modul „Aufgaben“ anlegen.")
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -201,13 +213,19 @@ struct MonatsabschlussView: View {
             Spacer()
             if !jahresansicht {
                 if abgeschlossen {
-                    Button(role: .destructive) { abschlussAufheben() } label: {
+                    Button(role: .destructive) {
+                        abschlussAufheben()
+                    } label: {
                         Label("Abschluss aufheben", systemImage: "lock.open")
                     }
                     .help("Hebt die Abschluss-Markierung dieses Monats wieder auf.")
                 } else {
-                    Button { monatAbschliessen() } label: { Label("Monat abschließen", systemImage: "checkmark.seal") }
-                        .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
+                    Button {
+                        monatAbschliessen()
+                    } label: {
+                        Label("Monat abschließen", systemImage: "checkmark.seal")
+                    }
+                    .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
                 }
             }
         }
@@ -242,8 +260,10 @@ struct MonatsabschlussView: View {
                 HStack(alignment: .top, spacing: 12) {
                     // „Betriebsausgaben" zeigt alle betrieblichen Buchungen des Monats
                     // (jede Art) → Ausgaben-View auf Sparte=betrieblich + Monat vorfiltern.
-                    listenKarte("Betriebsausgaben", anzahl: monatsAusgaben.count,
-                                oeffnen: { nav.zeigeAusgaben(jahr: jahr, monat: monat, betrieblich: true, zeit: zeit) }) {
+                    listenKarte(
+                        "Betriebsausgaben", anzahl: monatsAusgaben.count,
+                        oeffnen: { nav.zeigeAusgaben(jahr: jahr, monat: monat, betrieblich: true, zeit: zeit) }
+                    ) {
                         ForEach(monatsAusgaben) { e in
                             postenZeile(e.bezeichnung, e.brutto, akzent: nil)
                         }
@@ -252,8 +272,10 @@ struct MonatsabschlussView: View {
                         postenSummenzeile("Summe", monatsAusgaben.reduce(Decimal(0)) { $0 + $1.brutto }, fett: true)
                         postenSummenzeile("davon umlagefähig", z.umlagefaehig)
                     }
-                    listenKarte("Einnahmen", anzahl: monatsEinnahmen.count,
-                                oeffnen: { nav.zeigeEinnahmen(jahr: jahr, monat: monat, zeit: zeit) }) {
+                    listenKarte(
+                        "Einnahmen", anzahl: monatsEinnahmen.count,
+                        oeffnen: { nav.zeigeEinnahmen(jahr: jahr, monat: monat, zeit: zeit) }
+                    ) {
                         ForEach(monatsEinnahmen) { e in
                             postenZeile(e.kunde, e.rnNetto, akzent: e.status == .offen ? .orange : nil)
                         }
@@ -291,9 +313,15 @@ struct MonatsabschlussView: View {
         return Panel(titel: "Auf Rücklagenkonto") {
             VStack(spacing: 2) {
                 Kartenzeile(label: "USt-Zahllast", wert: z.ust - z.vst, icon: "building.columns")
-                if z.ustKorrektur != 0 { Kartenzeile(label: "§17-Korrektur (Ausfall)", wert: z.ustKorrektur, icon: "exclamationmark.triangle") }
+                if z.ustKorrektur != 0 {
+                    Kartenzeile(
+                        label: "§17-Korrektur (Ausfall)", wert: z.ustKorrektur, icon: "exclamationmark.triangle")
+                }
                 Kartenzeile(label: "ESt-Rücklage", wert: z.est, icon: "percent")
-                if z.estKorrektur != 0 { Kartenzeile(label: "ESt-Auflösung (Ausfall)", wert: z.estKorrektur, icon: "exclamationmark.triangle") }
+                if z.estKorrektur != 0 {
+                    Kartenzeile(
+                        label: "ESt-Auflösung (Ausfall)", wert: z.estKorrektur, icon: "exclamationmark.triangle")
+                }
                 Kartenzeile(label: "KSK-Beitrag", wert: z.ksk, icon: "cross.case")
                 Kartenzeile(label: "Fixkosten (privat)", wert: z.privatFix, icon: "house")
                 Summenzeile(label: "Summe Rücklage", wert: summe, farbe: Stil.steuer)
@@ -322,9 +350,12 @@ struct MonatsabschlussView: View {
         Panel(titel: "KSK-Beitrag") {
             VStack(alignment: .leading, spacing: 8) {
                 Text(z.ksk.euro).font(.system(size: 26, weight: .bold)).monospacedDigit()
-                Text(z.ksk == 0 ? "Noch kein Beitrag – in der Sidebar unter „Werte“ eintragen"
-                                : (kskEigenerWert ? "Wert für \(monatsName(monat))" : "übernommen aus dem Vormonat"))
-                    .font(.caption).foregroundStyle(z.ksk == 0 ? Color.orange : Color.secondary)
+                Text(
+                    z.ksk == 0
+                        ? "Noch kein Beitrag – in der Sidebar unter „Werte“ eintragen"
+                        : (kskEigenerWert ? "Wert für \(monatsName(monat))" : "übernommen aus dem Vormonat")
+                )
+                .font(.caption).foregroundStyle(z.ksk == 0 ? Color.orange : Color.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -337,9 +368,11 @@ struct MonatsabschlussView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(z.est.euro).font(.system(size: 26, weight: .bold)).monospacedDigit()
                 if let s = settings {
-                    Text("Satz \(s.estSatz(monat: monat).formatted(.percent))"
-                         + (estEigenerSatz ? " (für \(monatsName(monat)))" : " (übernommen)"))
-                        .font(.caption).foregroundStyle(estEigenerSatz ? Stil.steuer : Color.secondary)
+                    Text(
+                        "Satz \(s.estSatz(monat: monat).formatted(.percent))"
+                            + (estEigenerSatz ? " (für \(monatsName(monat)))" : " (übernommen)")
+                    )
+                    .font(.caption).foregroundStyle(estEigenerSatz ? Stil.steuer : Color.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -351,8 +384,9 @@ struct MonatsabschlussView: View {
         AbschlussHero(
             verlauf: Stil.markenVerlauf,
             links: .init(titel: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn),
-            rechts: .init(titel: "Frei verfügbar", wert: z.frei,
-                          farbe: z.frei < 0 ? Stil.heroNegativ : .white))
+            rechts: .init(
+                titel: "Frei verfügbar", wert: z.frei,
+                farbe: z.frei < 0 ? Stil.heroNegativ : .white))
     }
 
     /// Dezenter Hinweis, dass der Monat noch in der Zukunft liegt – die Zahlen sind dann
@@ -386,8 +420,10 @@ struct MonatsabschlussView: View {
         .background(Stil.gewinn.gradient, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private func listenKarte<Inhalt: View, Fuss: View>(_ titel: String, anzahl: Int, oeffnen: @escaping () -> Void,
-        @ViewBuilder rows: () -> Inhalt, @ViewBuilder fuss: () -> Fuss = { EmptyView() }) -> some View {
+    private func listenKarte<Inhalt: View, Fuss: View>(
+        _ titel: String, anzahl: Int, oeffnen: @escaping () -> Void,
+        @ViewBuilder rows: () -> Inhalt, @ViewBuilder fuss: () -> Fuss = { EmptyView() }
+    ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("\(titel) (\(anzahl))").font(.headline)
@@ -419,12 +455,20 @@ struct MonatsabschlussView: View {
 
     // MARK: Jahresansicht
 
-    private struct MonatsZeile: Identifiable { let id: Int; let name: String; let z: Zahlen; let zukunft: Bool }
+    private struct MonatsZeile: Identifiable {
+        let id: Int
+        let name: String
+        let z: Zahlen
+        let zukunft: Bool
+    }
 
     private var jahresAnsicht: some View {
         let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
-        let zeilen = (1...12).map { MonatsZeile(id: $0, name: monatsName($0),
-            z: zahlen($0, einP: einP, ausP: ausP), zukunft: istZukunft($0)) }
+        let zeilen = (1...12).map {
+            MonatsZeile(
+                id: $0, name: monatsName($0),
+                z: zahlen($0, einP: einP, ausP: ausP), zukunft: istZukunft($0))
+        }
         let aktiv = zeilen.filter { !$0.zukunft }
         return Table(zeilen) {
             TableColumn("Monat") { z in
@@ -448,8 +492,10 @@ struct MonatsabschlussView: View {
                 .width(min: 80, ideal: 90)
             TableColumn("Gewinn") { z in zellWert(z.zukunft ? nil : z.z.betrieblicherGewinn) }
                 .width(min: 88, ideal: 98)
-            TableColumn("Frei") { z in zellWert(z.zukunft ? nil : z.z.frei, farbe: (z.z.frei < 0 && !z.zukunft) ? .red : nil) }
-                .width(min: 84, ideal: 94)
+            TableColumn("Frei") { z in
+                zellWert(z.zukunft ? nil : z.z.frei, farbe: (z.z.frei < 0 && !z.zukunft) ? .red : nil)
+            }
+            .width(min: 84, ideal: 94)
         }
         .environment(\.defaultMinListRowHeight, 30)
         .safeAreaInset(edge: .bottom) {
@@ -459,10 +505,12 @@ struct MonatsabschlussView: View {
                 // heute schon gestellt und ihre USt für Dezember geschuldet, sie gehört also in
                 // die Jahressumme. Gewinn/Frei/KSK/ESt eines Monats, der noch nicht war, wären
                 // dagegen Projektionen; die Tabelle zeigt dort bewusst „—".
-                Text("Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
-                     + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                Text(
+                    "Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
+                        + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert"
+                )
+                .font(.caption).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
                     summe("RN", zeilen.reduce(Decimal(0)) { $0 + $1.z.rn })
                     summe("USt", zeilen.reduce(Decimal(0)) { $0 + $1.z.ust })
@@ -480,8 +528,11 @@ struct MonatsabschlussView: View {
 
     private func zellWert(_ wert: Decimal?, farbe: Color? = nil) -> some View {
         Group {
-            if let wert { Text(wert.euro).monospacedDigit().foregroundStyle(farbe ?? .primary).lineLimit(1) }
-            else { Text("—").foregroundStyle(.tertiary).lineLimit(1) }
+            if let wert {
+                Text(wert.euro).monospacedDigit().foregroundStyle(farbe ?? .primary).lineLimit(1)
+            } else {
+                Text("—").foregroundStyle(.tertiary).lineLimit(1)
+            }
         }
     }
 
@@ -514,8 +565,9 @@ struct MonatsabschlussView: View {
     }
 
     private func kopiere(_ wert: Decimal) {
-        let text = wert.formatted(.number.grouping(.never).precision(.fractionLength(2))
-            .locale(Locale(identifier: "de_DE")))
+        let text = wert.formatted(
+            .number.grouping(.never).precision(.fractionLength(2))
+                .locale(Locale(identifier: "de_DE")))
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
@@ -531,7 +583,7 @@ struct MonatsabschlussView: View {
     }
     private func abschlussAufheben() {
         settings?.abschlussProMonat[String(monat)] = nil
-        settings?.loescheSnapshot(monat: monat)   // wieder live rechnen & editierbar
+        settings?.loescheSnapshot(monat: monat)  // wieder live rechnen & editierbar
     }
 }
 
@@ -551,14 +603,28 @@ private struct MonatsWerteEditor: View {
     private func kskBinding(_ zweig: KSKZweig) -> Binding<Decimal> {
         Binding {
             let t = settings.kskTeile(monat: monat)
-            switch zweig { case .rv: return t.rv; case .kv: return t.kv; case .pv: return t.pv }
-        } set: { settings.setzeKSKBetrag(monat: monat, zweig, $0) }
+            switch zweig {
+            case .rv: return t.rv
+            case .kv: return t.kv
+            case .pv: return t.pv
+            }
+        } set: {
+            settings.setzeKSKBetrag(monat: monat, zweig, $0)
+        }
     }
     private var jaeBinding: Binding<Decimal> {
-        Binding { settings.jae(monat: monat) } set: { settings.setzeJAE(monat: monat, $0) }
+        Binding {
+            settings.jae(monat: monat)
+        } set: {
+            settings.setzeJAE(monat: monat, $0)
+        }
     }
     private var estSatzBinding: Binding<Decimal> {
-        Binding { settings.estSatz(monat: monat) } set: { settings.estSatzProMonat[String(monat)] = $0 }
+        Binding {
+            settings.estSatz(monat: monat)
+        } set: {
+            settings.estSatzProMonat[String(monat)] = $0
+        }
     }
 
     var body: some View {
@@ -616,7 +682,8 @@ private struct MonatsWerteEditor: View {
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             if estEigen {
-                                Button("erben") { settings.estSatzProMonat[String(monat)] = nil }.buttonStyle(.link).font(.caption)
+                                Button("erben") { settings.estSatzProMonat[String(monat)] = nil }.buttonStyle(.link)
+                                    .font(.caption)
                             }
                         }
                     }

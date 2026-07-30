@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import Kontor
 
 /// Robustheit/Sicherheit: Beleg-Pfad-Guard (Defense-in-Depth) und Engine-Verhalten bei
@@ -33,8 +34,10 @@ struct RobustheitTests {
 
     @Test func euerUndRuecklageLeerLiefertNull() {
         #expect(Steuer.euerGewinn(einnahmen: [], ausgaben: [], jahr: 2026) == 0)
-        #expect(Steuer.estRuecklageJahr(jahr: 2026, einnahmen: [], ausgaben: [],
-                                        kskFuer: { _, _ in 0 }, pauschalSatz: { _, _ in dez("0.15") }) == 0)
+        #expect(
+            Steuer.estRuecklageJahr(
+                jahr: 2026, einnahmen: [], ausgaben: [],
+                kskFuer: { _, _ in 0 }, pauschalSatz: { _, _ in dez("0.15") }) == 0)
         #expect(Steuer.ustZahllastJahr(jahr: 2026, einnahmen: [], ausgaben: []) == 0)
     }
 
@@ -42,9 +45,13 @@ struct RobustheitTests {
     /// Die anteilige Auflösung teilt durch den Soll-Umsatz des Rechnungsmonats, und
     /// `Decimal`-Division durch 0 trappt nicht, sondern liefert stillschweigend NaN.
     @Test func ausfallOhneNettobetragLoestNichtsAufUndErzeugtKeinNaN() {
-        let einnahmen = [EinnahmePosten(rnNetto: 0, ust: 0, rechnungsdatum: tag(2026, 5, 10),
-            zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))]
-        let a = Steuer.monatsauswertung(monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
+        let einnahmen = [
+            EinnahmePosten(
+                rnNetto: 0, ust: 0, rechnungsdatum: tag(2026, 5, 10),
+                zahlungsdatum: nil, status: .ausgefallen, ausfalldatum: tag(2026, 8, 15))
+        ]
+        let a = Steuer.monatsauswertung(
+            monat: 8, jahr: 2026, einnahmen: einnahmen, ausgaben: [],
             kskFuer: { _, _ in 0 }, fixkostenPrivat: 0, pauschalSatz: { _, _ in dez("0.15") })
         #expect(a.estKorrektur == 0)
         #expect(a.estKorrektur.isNaN == false)
@@ -55,6 +62,6 @@ struct RobustheitTests {
     @Test func jahreloseDefaults() {
         let keine: [YearSettings] = []
         #expect(keine.ksk(jahr: 2026, monat: 3) == 0)
-        #expect(keine.estSatz(jahr: 2026, monat: 3) == dez("0.15"))   // Fallback 15 %
+        #expect(keine.estSatz(jahr: 2026, monat: 3) == dez("0.15"))  // Fallback 15 %
     }
 }

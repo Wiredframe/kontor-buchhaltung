@@ -1,7 +1,7 @@
 import Foundation
 import Network
-import SwiftData
 import Observation
+import SwiftData
 
 /// Lokaler MCP-Server (HTTP/JSON-RPC) auf 127.0.0.1, damit ein externer MCP-Client
 /// (z. B. Claude Code) die Kontor-Daten lesen und – sparsam – schreiben kann.
@@ -65,8 +65,10 @@ final class MCPServer {
     /// per `SecItemUpdate`. Das alte Token war damit weg, und der bereits per `claude mcp add`
     /// konfigurierte Client authentifizierte ab dann gegen ein rotiertes Token, ohne dass
     /// irgendwo etwas fehlschlug: Er bekam schlicht 401, bis jemand den Befehl neu ausführte.
-    nonisolated static func tokenPlan(keychain: Schlusselbund.LadeErgebnis, klartext: String?,
-                                      neuesToken: () -> String) -> TokenPlan {
+    nonisolated static func tokenPlan(
+        keychain: Schlusselbund.LadeErgebnis, klartext: String?,
+        neuesToken: () -> String
+    ) -> TokenPlan {
         switch keychain {
         case .gefunden(let t):
             return .verwende(t)
@@ -83,17 +85,18 @@ final class MCPServer {
     /// `UserDefaults` (Klartext) dorthin; legt sonst ein neues an. `UserDefaults` dient nur
     /// noch als Fallback, falls die Keychain nicht verfügbar ist (unsignierter Debug-Build).
     private static func ermittleToken() -> String {
-        let plan = tokenPlan(keychain: Schlusselbund.lies(tokenKonto),
-                             klartext: UserDefaults.standard.string(forKey: tokenKonto),
-                             neuesToken: { UUID().uuidString })
+        let plan = tokenPlan(
+            keychain: Schlusselbund.lies(tokenKonto),
+            klartext: UserDefaults.standard.string(forKey: tokenKonto),
+            neuesToken: { UUID().uuidString })
         switch plan {
         case .verwende(let t):
             return t
         case .speichere(let t):
             if Schlusselbund.speichere(t, konto: tokenKonto) {
-                UserDefaults.standard.removeObject(forKey: tokenKonto)   // Klartext-Kopie entfernen
+                UserDefaults.standard.removeObject(forKey: tokenKonto)  // Klartext-Kopie entfernen
             } else {
-                UserDefaults.standard.set(t, forKey: tokenKonto)         // Fallback (Dev/unsigniert)
+                UserDefaults.standard.set(t, forKey: tokenKonto)  // Fallback (Dev/unsigniert)
             }
             return t
         }
@@ -144,17 +147,25 @@ final class MCPServer {
     @MainActor
     private func zustandGeaendert(_ zustand: NWListener.State) {
         switch zustand {
-        case .ready:           aktiv = true; letzterFehler = nil
-        case .waiting(let e):  aktiv = false; letzterFehler = meldung(e)
-        case .failed(let e):   aktiv = false; letzterFehler = meldung(e); listener = nil
-        case .cancelled:       aktiv = false
-        default:               break
+        case .ready:
+            aktiv = true
+            letzterFehler = nil
+        case .waiting(let e):
+            aktiv = false
+            letzterFehler = meldung(e)
+        case .failed(let e):
+            aktiv = false
+            letzterFehler = meldung(e)
+            listener = nil
+        case .cancelled: aktiv = false
+        default: break
         }
     }
 
     private func meldung(_ e: NWError) -> String {
         if case .posix(let code) = e, code == .EADDRINUSE {
-            return "Port \(port) ist belegt – läuft Kontor evtl. noch? (Fenster schließen beendet die App nicht; mit ⌘Q ganz beenden.)"
+            return
+                "Port \(port) ist belegt – läuft Kontor evtl. noch? (Fenster schließen beendet die App nicht; mit ⌘Q ganz beenden.)"
         }
         return e.localizedDescription
     }
@@ -162,7 +173,10 @@ final class MCPServer {
     // MARK: - Verbindung
 
     nonisolated private func behandle(_ conn: NWConnection) {
-        guard Self.istLoopback(conn.endpoint) else { conn.cancel(); return }
+        guard Self.istLoopback(conn.endpoint) else {
+            conn.cancel()
+            return
+        }
         conn.start(queue: .global(qos: .userInitiated))
         // Hängende/teilweise Anfragen nach einer Frist schließen (cancel auf bereits
         // geschlossener Verbindung ist ein No-Op).
@@ -194,44 +208,59 @@ final class MCPServer {
     }
 
     nonisolated private func empfange(_ conn: NWConnection, puffer: Data) {
-        conn.receive(minimumIncompleteLength: 1, maximumLength: 1 << 17) { [weak self] daten, _, abgeschlossen, fehler in
-            guard let self else { conn.cancel(); return }
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 1 << 17) {
+            [weak self] daten, _, abgeschlossen, fehler in
+            guard let self else {
+                conn.cancel()
+                return
+            }
             var p = puffer
             if let daten { p.append(daten) }
             if p.count > self.maxAnfrageBytes {
-                self.sende(conn, status: "413 Payload Too Large",
-                           body: Data("payload too large".utf8), typ: "text/plain")
+                self.sende(
+                    conn, status: "413 Payload Too Large",
+                    body: Data("payload too large".utf8), typ: "text/plain")
                 return
             }
             if let anfrage = Self.httpParsen(p), anfrage.vollstaendig {
                 Task { await self.antworten(conn, anfrage) }
                 return
             }
-            if fehler != nil || abgeschlossen { conn.cancel(); return }
+            if fehler != nil || abgeschlossen {
+                conn.cancel()
+                return
+            }
             self.empfange(conn, puffer: p)
         }
     }
 
     nonisolated private func antworten(_ conn: NWConnection, _ anfrage: Anfrage) async {
         guard let auth = anfrage.authorization, Self.sicherGleich(auth, "Bearer \(token)") else {
-            sende(conn, status: "401 Unauthorized", body: Data("unauthorized".utf8), typ: "text/plain"); return
+            sende(conn, status: "401 Unauthorized", body: Data("unauthorized".utf8), typ: "text/plain")
+            return
         }
         guard anfrage.methode == "POST" else {
-            sende(conn, status: "405 Method Not Allowed", body: Data(), typ: "text/plain"); return
+            sende(conn, status: "405 Method Not Allowed", body: Data(), typ: "text/plain")
+            return
         }
         if let antwort = await MCPProtokoll.verarbeite(anfrage.body, container: container, sitzung: sitzungsId) {
-            sende(conn, status: "200 OK", body: antwort, typ: "application/json",
-                  extra: ["Mcp-Session-Id": sitzungsId])
+            sende(
+                conn, status: "200 OK", body: antwort, typ: "application/json",
+                extra: ["Mcp-Session-Id": sitzungsId])
         } else {
             sende(conn, status: "202 Accepted", body: Data(), typ: "application/json")
         }
     }
 
-    nonisolated private func sende(_ conn: NWConnection, status: String, body: Data, typ: String, extra: [String: String] = [:]) {
-        var kopf = "HTTP/1.1 \(status)\r\nContent-Type: \(typ)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n"
+    nonisolated private func sende(
+        _ conn: NWConnection, status: String, body: Data, typ: String, extra: [String: String] = [:]
+    ) {
+        var kopf =
+            "HTTP/1.1 \(status)\r\nContent-Type: \(typ)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n"
         for (k, v) in extra { kopf += "\(k): \(v)\r\n" }
         kopf += "\r\n"
-        var daten = Data(kopf.utf8); daten.append(body)
+        var daten = Data(kopf.utf8)
+        daten.append(body)
         conn.send(content: daten, completion: .contentProcessed { _ in conn.cancel() })
     }
 
@@ -248,7 +277,9 @@ final class MCPServer {
 
     nonisolated static func httpParsen(_ data: Data) -> Anfrage? {
         guard let trenn = data.range(of: Data("\r\n\r\n".utf8)) else { return nil }
-        guard let kopf = String(data: data.subdata(in: data.startIndex..<trenn.lowerBound), encoding: .utf8) else { return nil }
+        guard let kopf = String(data: data.subdata(in: data.startIndex..<trenn.lowerBound), encoding: .utf8) else {
+            return nil
+        }
         let zeilen = kopf.components(separatedBy: "\r\n")
         let start = zeilen.first?.components(separatedBy: " ") ?? []
         let methode = start.first ?? ""
@@ -264,7 +295,7 @@ final class MCPServer {
             let schluessel = z[..<doppel].trimmingCharacters(in: .whitespaces).lowercased()
             let wert = z[z.index(after: doppel)...].trimmingCharacters(in: .whitespaces)
             switch schluessel {
-            case "authorization":  auth = wert
+            case "authorization": auth = wert
             case "content-length":
                 // Nur nicht-negative Zahlen; alles andere bleibt „fehlt".
                 if let n = Int(wert), n >= 0 { laenge = n }
@@ -278,8 +309,8 @@ final class MCPServer {
         guard let laenge else {
             return Anfrage(methode: methode, pfad: pfad, authorization: auth, body: body, vollstaendig: false)
         }
-        return Anfrage(methode: methode, pfad: pfad, authorization: auth, body: body,
-                       vollstaendig: body.count >= laenge)
+        return Anfrage(
+            methode: methode, pfad: pfad, authorization: auth, body: body,
+            vollstaendig: body.count >= laenge)
     }
 }
-

@@ -22,15 +22,16 @@ enum KISicherung {
     static func sichereVorSchreibzugriff(_ context: ModelContext) throws {
         guard !gesichertInSitzung else { return }
         guard let basis = Backup.backupOrdner() else {
-            throw MCPFehler("Kein Backup-Ordner verfügbar – Schreibzugriff abgebrochen, "
-                          + "um ohne Sicherung nichts zu verändern.")
+            throw MCPFehler(
+                "Kein Backup-Ordner verfügbar – Schreibzugriff abgebrochen, "
+                    + "um ohne Sicherung nichts zu verändern.")
         }
         let ordner = basis.appendingPathComponent("KI-Backups", isDirectory: true)
         try FileManager.default.createDirectory(at: ordner, withIntermediateDirectories: true)
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd-HHmmss"
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd-HHmmss"
         let ziel = ordner.appendingPathComponent("ki-backup-\(df.string(from: Date())).json")
         try Backup.exportData(context).write(to: ziel)
-        gesichertInSitzung = true   // erst jetzt: das Backup liegt wirklich auf der Platte
+        gesichertInSitzung = true  // erst jetzt: das Backup liegt wirklich auf der Platte
     }
 }
-

@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Jahresabschluss: EÜR (Gewinn) + Jahres-Steuerbild (ESt-Schätzung, USt-Zahllast),
@@ -35,17 +35,19 @@ struct JahresuebersichtView: View {
         /// oder 4 Quartale (Label + Betrag). Folgt dem `ustvaRhythmus` des Jahres.
         var ustPerioden: [(label: String, betrag: Decimal)]
         var ustRhythmus: UStVARhythmus
-        var estRuecklage: Decimal            // Σ ESt-Rücklage über 12 Monate (geschätzt, pauschal)
+        var estRuecklage: Decimal  // Σ ESt-Rücklage über 12 Monate (geschätzt, pauschal)
         var ksk: (kv: Decimal, rv: Decimal, pv: Decimal)
-        var zahlungen: [TaxPayment]          // des Jahres, nach Datum sortiert
-        var grundfreibetrag: Decimal         // angesetzter Grundfreibetrag (Standard oder lokaler Override)
-        var estVoraussichtlich: Decimal      // jahresbasierte ESt inkl. Grundfreibetrag (realistischer)
+        var zahlungen: [TaxPayment]  // des Jahres, nach Datum sortiert
+        var grundfreibetrag: Decimal  // angesetzter Grundfreibetrag (Standard oder lokaler Override)
+        var estVoraussichtlich: Decimal  // jahresbasierte ESt inkl. Grundfreibetrag (realistischer)
 
         var ustJahr: Decimal { ustPerioden.reduce(Decimal(0)) { $0 + $1.betrag } }
         var kskGesamt: Decimal { ksk.kv + ksk.rv + ksk.pv }
         var steuerlast: Decimal { estRuecklage + ustJahr }
         var bezahltGesamt: Decimal { zahlungen.filter(\.bezahlt).reduce(Decimal(0)) { $0 + $1.betrag } }
-        var estVzBezahlt: Decimal { zahlungen.filter { $0.kind == .estVz && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag } }
+        var estVzBezahlt: Decimal {
+            zahlungen.filter { $0.kind == .estVz && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag }
+        }
         /// Nach Art gruppiert (nur nicht-leere Gruppen, stabile Reihenfolge).
         var gruppen: [(SteuerKind, [TaxPayment])] {
             SteuerKind.allCases.compactMap { kind in
@@ -72,14 +74,23 @@ struct JahresuebersichtView: View {
         // Standard des Jahres, lokal je Jahr überschreibbar; Satz = zuletzt gültiger (Dez.-effektiv),
         // kein Hochrechnen. Rechnet auf demselben Gewinn/KSK, die oben angezeigt werden.
         let gfb = settings?.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: jahr)
-        let voraus = Steuer.estVoraussichtlich(gewinn: a.gewinn, ksk: kskT.kv + kskT.rv + kskT.pv,
-                                               grundfreibetrag: gfb, satz: jahre.estSatz(jahr: jahr, monat: 12))
+        let voraus = Steuer.estVoraussichtlich(
+            gewinn: a.gewinn, ksk: kskT.kv + kskT.rv + kskT.pv,
+            grundfreibetrag: gfb, satz: jahre.estSatz(jahr: jahr, monat: 12))
         // USt-Zahllast je VA-Zeitraum – Rhythmus aus den Jahres-Einstellungen (monatlich = 12,
         // sonst 4 Quartale). Die Jahressumme ist in beiden Fällen identisch.
         let rhythmus = settings?.ustvaRhythmus ?? .vierteljaehrlich
-        let ustP: [(String, Decimal)] = rhythmus == .monatlich
-            ? (1...12).map { (kurzMonat($0), Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.monat(jahr, $0)).zahllast) }
-            : (1...4).map { ("Q\($0)", Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.quartal(jahr, $0)).zahllast) }
+        let ustP: [(String, Decimal)] =
+            rhythmus == .monatlich
+            ? (1...12).map {
+                (
+                    kurzMonat($0),
+                    Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.monat(jahr, $0)).zahllast
+                )
+            }
+            : (1...4).map {
+                ("Q\($0)", Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.quartal(jahr, $0)).zahllast)
+            }
         let jz = zahlungen.filter { $0.jahr == jahr }.sorted { $0.anzeigeDatum < $1.anzeigeDatum }
         return Jahreswerte(
             a: a, ustPerioden: ustP, ustRhythmus: rhythmus, estRuecklage: est, ksk: kskT,
@@ -95,7 +106,12 @@ struct JahresuebersichtView: View {
         guard bis >= 1, let s = settings else { return (0, 0, 0) }
         // Exakte Summe der je Monat hinterlegten KV/RV/PV-Beträge.
         var kv = Decimal(0), rv = Decimal(0), pv = Decimal(0)
-        for m in 1...bis { let t = s.kskTeile(monat: m); kv += t.kv; rv += t.rv; pv += t.pv }
+        for m in 1...bis {
+            let t = s.kskTeile(monat: m)
+            kv += t.kv
+            rv += t.rv
+            pv += t.pv
+        }
         return (kv, rv, pv)
     }
     var body: some View {
@@ -109,9 +125,13 @@ struct JahresuebersichtView: View {
                     zeit.filter.jahr = appKalender.component(.year, from: Date())
                 }
                 Spacer()
-                Button { belegeExportieren() } label: { Label("Belege \(String(jahr)) exportieren", systemImage: "doc.zipper") }
-                    .disabled(belegAnzahl == 0)
-                    .help(belegAnzahl == 0 ? "Keine Belege in \(String(jahr))." : "\(belegAnzahl) Belege als ZIP bündeln.")
+                Button {
+                    belegeExportieren()
+                } label: {
+                    Label("Belege \(String(jahr)) exportieren", systemImage: "doc.zipper")
+                }
+                .disabled(belegAnzahl == 0)
+                .help(belegAnzahl == 0 ? "Keine Belege in \(String(jahr))." : "\(belegAnzahl) Belege als ZIP bündeln.")
             }
             .padding()
             Divider()
@@ -124,27 +144,40 @@ struct JahresuebersichtView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung.")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                    Text(
+                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung."
+                    )
+                    .font(.subheadline).foregroundStyle(.secondary)
 
                     // Jahresergebnis auf einen Blick – eigener Teal→Smaragd-Hero (Monat = Blau→Violett).
                     AbschlussHero(
                         verlauf: Stil.jahresVerlauf,
-                        links: .init(titel: "Gewinn (EÜR)", wert: w.a.gewinn,
-                                     farbe: w.a.gewinn < 0 ? Stil.heroNegativ : .white),
-                        rechts: .init(titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast,
-                                      farbe: w.steuerlast < 0 ? Stil.heroNegativ : .white))
+                        links: .init(
+                            titel: "Gewinn (EÜR)", wert: w.a.gewinn,
+                            farbe: w.a.gewinn < 0 ? Stil.heroNegativ : .white),
+                        rechts: .init(
+                            titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast,
+                            farbe: w.steuerlast < 0 ? Stil.heroNegativ : .white))
 
                     // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
-                    Panel(titel: "Einnahmenüberschussrechnung (EÜR)",
-                          aktion: { nav.zeigeAusgabenJahr(jahr: jahr, betrieblich: true, zeit: zeit) }) {
+                    Panel(
+                        titel: "Einnahmenüberschussrechnung (EÜR)",
+                        aktion: { nav.zeigeAusgabenJahr(jahr: jahr, betrieblich: true, zeit: zeit) }
+                    ) {
                         VStack(spacing: 2) {
-                            Kartenzeile(label: "Betriebseinnahmen (Zufluss, netto)", wert: w.a.einnahmenBezahlt, icon: "eurosign.circle")
+                            Kartenzeile(
+                                label: "Betriebseinnahmen (Zufluss, netto)", wert: w.a.einnahmenBezahlt,
+                                icon: "eurosign.circle")
                             Divider().padding(.vertical, 4)
-                            Kartenzeile(label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard", minus: true)
-                            Summenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? .red : Stil.gewinn)
-                            Text("Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres.")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Kartenzeile(
+                                label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
+                                minus: true)
+                            Summenzeile(
+                                label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? .red : Stil.gewinn)
+                            Text(
+                                "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
@@ -152,17 +185,31 @@ struct JahresuebersichtView: View {
                     Panel(titel: "Einkommensteuer (Rücklage, geschätzt)") {
                         VStack(spacing: 2) {
                             Kartenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn, icon: "chart.line.uptrend.xyaxis")
-                            Kartenzeile(label: "Vorsorgeaufwand (KSK, Sonderausgabe)", wert: w.kskGesamt, icon: "cross.case", minus: true)
-                            Kartenzeile(label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt, icon: "function")
+                            Kartenzeile(
+                                label: "Vorsorgeaufwand (KSK, Sonderausgabe)", wert: w.kskGesamt, icon: "cross.case",
+                                minus: true)
+                            Kartenzeile(
+                                label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt,
+                                icon: "function")
                             Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage, farbe: Stil.steuer)
-                            Text("Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt.")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Text(
+                                "Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt."
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
                             Divider().padding(.vertical, 4)
-                            Kartenzeile(label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag, icon: "person.crop.circle", minus: true)
-                            Summenzeile(label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich, farbe: Stil.steuer)
-                            Kartenzeile(label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich, icon: "arrow.down.right.circle")
-                            Text("Jahresbasiert: (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt, der Gewinn wächst bis Dezember noch." : "") Grobe Orientierung, keine Steuererklärung: Progression, weitere Einkünfte und Splitting bleiben unberücksichtigt. Grundfreibetrag in den Einstellungen je Jahr anpassbar.")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Kartenzeile(
+                                label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag,
+                                icon: "person.crop.circle", minus: true)
+                            Summenzeile(
+                                label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich,
+                                farbe: Stil.steuer)
+                            Kartenzeile(
+                                label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich,
+                                icon: "arrow.down.right.circle")
+                            Text(
+                                "Jahresbasiert: (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt, der Gewinn wächst bis Dezember noch." : "") Grobe Orientierung, keine Steuererklärung: Progression, weitere Einkünfte und Splitting bleiben unberücksichtigt. Grundfreibetrag in den Einstellungen je Jahr anpassbar."
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
@@ -174,8 +221,10 @@ struct JahresuebersichtView: View {
                             Kartenzeile(label: "Rentenversicherung (RV)", wert: k.rv, icon: "building.columns")
                             Kartenzeile(label: "Pflegeversicherung (PV)", wert: k.pv, icon: "heart.text.square")
                             Summenzeile(label: "Summe KSK", wert: k.kv + k.rv + k.pv, farbe: Stil.ksk)
-                            Text("Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“.")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Text(
+                                "Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“."
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
@@ -186,8 +235,10 @@ struct JahresuebersichtView: View {
                                 ForEach(w.ustPerioden, id: \.label) { p in Kennzahl(titel: p.label, wert: p.betrag) }
                             }
                             Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr, farbe: Stil.steuer)
-                            Text("Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“.")
-                                .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(
+                                "Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“."
+                            )
+                            .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
 
@@ -205,27 +256,35 @@ struct JahresuebersichtView: View {
                         Divider()
                         Text("Tatsächlich geleistet")
                             .font(.title3.weight(.semibold))
-                        Text("Abgleich der Schätzung mit den echten Abbuchungen – was wirklich an Steuern & Vorsorge gezahlt wurde.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(
+                            "Abgleich der Schätzung mit den echten Abbuchungen – was wirklich an Steuern & Vorsorge gezahlt wurde."
+                        )
+                        .font(.caption).foregroundStyle(.secondary)
                     }
                     .padding(.top, 4)
 
                     Panel(titel: "ESt-Abgleich (Schätzung vs. geleistet)") {
                         let diff = w.estRuecklage - w.estVzBezahlt
                         VStack(spacing: 2) {
-                            Kartenzeile(label: "ESt-Rücklage (geschätzt, pauschal)", wert: w.estRuecklage, icon: "percent")
+                            Kartenzeile(
+                                label: "ESt-Rücklage (geschätzt, pauschal)", wert: w.estRuecklage, icon: "percent")
                             Kartenzeile(label: "ESt-Vorauszahlungen geleistet", wert: w.estVzBezahlt, icon: "calendar")
-                            Summenzeile(label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung",
-                                        wert: abs(diff), farbe: diff >= 0 ? .orange : .green)
-                            Text("Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung).")
-                                .font(.caption).foregroundStyle(.secondary)
+                            Summenzeile(
+                                label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung",
+                                wert: abs(diff), farbe: diff >= 0 ? .orange : .green)
+                            Text(
+                                "Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung)."
+                            )
+                            .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
                     Panel(titel: "Tatsächlich gezahlt · Steuern & Vorsorge \(String(jahr))") {
                         if w.zahlungen.isEmpty {
-                            Text("Noch keine erfassten Zahlungen. Erfassung über den Kontoauszug-Import bzw. im Modul „Ausgaben“ (Bereich Vorsorge/Steuern).")
-                                .font(.callout).foregroundStyle(.secondary).padding(.vertical, 4)
+                            Text(
+                                "Noch keine erfassten Zahlungen. Erfassung über den Kontoauszug-Import bzw. im Modul „Ausgaben“ (Bereich Vorsorge/Steuern)."
+                            )
+                            .font(.callout).foregroundStyle(.secondary).padding(.vertical, 4)
                         } else {
                             VStack(alignment: .leading, spacing: 14) {
                                 ForEach(w.gruppen, id: \.0) { gruppe in
@@ -235,14 +294,17 @@ struct JahresuebersichtView: View {
                                             .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                         ForEach(gruppe.1) { t in ZahlungLeseZeile(eintrag: t) }
-                                        Summenzeile(label: "Summe \(gruppe.0.bezeichnung)", wert: summe,
-                                                    farbe: summe < 0 ? .green : Stil.steuer)
+                                        Summenzeile(
+                                            label: "Summe \(gruppe.0.bezeichnung)", wert: summe,
+                                            farbe: summe < 0 ? .green : Stil.steuer)
                                     }
                                 }
                                 Summenzeile(label: "Bezahlt gesamt", wert: w.bezahltGesamt, farbe: Stil.steuer)
                             }
-                            Text("Read-only · Termine liegen in „Aufgaben“, Erfassung im Modul „Ausgaben“ (Vorsorge/Steuern) bzw. über den Kontoauszug.")
-                                .font(.caption).foregroundStyle(.tertiary)
+                            Text(
+                                "Read-only · Termine liegen in „Aufgaben“, Erfassung im Modul „Ausgaben“ (Vorsorge/Steuern) bzw. über den Kontoauszug."
+                            )
+                            .font(.caption).foregroundStyle(.tertiary)
                         }
                     }
                 }
@@ -252,16 +314,23 @@ struct JahresuebersichtView: View {
         .navigationTitle("Jahresabschluss")
         .toolbar {
             ToolbarItem {
-                Button { zeigeAufgaben.toggle() } label: { Label("Aufgaben", systemImage: "checklist") }
-                    .help("Jahres-Aufgaben ein-/ausblenden")
+                Button {
+                    zeigeAufgaben.toggle()
+                } label: {
+                    Label("Aufgaben", systemImage: "checklist")
+                }
+                .help("Jahres-Aufgaben ein-/ausblenden")
             }
         }
         .inspector(isPresented: $zeigeAufgaben) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Aufgaben · \(String(jahr))")
                     .font(.headline).padding(.horizontal, 14).padding(.top, 14)
-                AufgabenInspektorListe(aufgaben: jahresAufgaben,
-                    leererHinweis: "Keine jährlichen Aufgaben für \(String(jahr)). Im Modul „Aufgaben“ anlegen (Wiederholung „jährlich“).")
+                AufgabenInspektorListe(
+                    aufgaben: jahresAufgaben,
+                    leererHinweis:
+                        "Keine jährlichen Aufgaben für \(String(jahr)). Im Modul „Aufgaben“ anlegen (Wiederholung „jährlich“)."
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
@@ -288,7 +357,10 @@ struct JahresuebersichtView: View {
     }
     private var belegAnzahl: Int { belegPfade.count }
     private func belegeExportieren() {
-        guard !belegPfade.isEmpty else { NSSound.beep(); return }
+        guard !belegPfade.isEmpty else {
+            NSSound.beep()
+            return
+        }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "Belege-\(jahr).zip"
         panel.allowedContentTypes = [.zip]

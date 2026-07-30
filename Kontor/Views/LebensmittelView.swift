@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct LebensmittelView: View {
     @Environment(\.modelContext) private var context
@@ -16,14 +16,17 @@ struct LebensmittelView: View {
     private let iso = Calendar(identifier: .iso8601)
 
     private var gefiltert: [GroceryEntry] {
-        alle.filter { zeit.filter.enthaelt($0.datum) && (suche.isEmpty || $0.ort.localizedCaseInsensitiveContains(suche)) }
+        alle.filter {
+            zeit.filter.enthaelt($0.datum) && (suche.isEmpty || $0.ort.localizedCaseInsensitiveContains(suche))
+        }
     }
     private var anzeige: [GroceryEntry] { gefiltert.sorted(using: sortOrder) }
     private var ausgewaehlt: GroceryEntry? { selection.count == 1 ? alle.first { $0.id == selection.first } : nil }
     private func kw(_ d: Date) -> Int { iso.component(.weekOfYear, from: d) }
     private var recentOrte: [String] {
         // alle ist nach Datum absteigend → eindeutige Orte in „zuletzt genutzt"-Reihenfolge.
-        var gesehen = Set<String>(); var ergebnis: [String] = []
+        var gesehen = Set<String>()
+        var ergebnis: [String] = []
         for o in alle.map(\.ort) where !o.isEmpty && gesehen.insert(o).inserted {
             ergebnis.append(o)
             if ergebnis.count == 10 { break }
@@ -46,11 +49,15 @@ struct LebensmittelView: View {
             Divider()
 
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Datum", value: \.datum) { Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1) }
-                    .width(min: 96, ideal: 110)
+                TableColumn("Datum", value: \.datum) {
+                    Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1)
+                }
+                .width(min: 96, ideal: 110)
                 // KW ist aus dem Datum abgeleitet → chronologisch = KW-Reihenfolge (über Jahre sinnvoller).
-                TableColumn("KW", value: \.datum) { Text("KW \(kw($0.datum))").foregroundStyle(.secondary).lineLimit(1) }
-                    .width(min: 56, ideal: 70)
+                TableColumn("KW", value: \.datum) {
+                    Text("KW \(kw($0.datum))").foregroundStyle(.secondary).lineLimit(1)
+                }
+                .width(min: 56, ideal: 70)
                 TableColumn("Ort", value: \.ort) { Text($0.ort.isEmpty ? "—" : $0.ort).lineLimit(1) }
                     .width(min: 140, ideal: 220)
                 TableColumn("Betrag", value: \.betrag) { Text($0.betrag.euro).monospacedDigit().lineLimit(1) }
@@ -68,9 +75,17 @@ struct LebensmittelView: View {
         .searchable(text: $suche, prompt: "Ort suchen")
         .toolbar {
             ToolbarItemGroup {
-                Button { neu() } label: { Label("Neu", systemImage: "plus") }
-                Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
-                    .help("Inspector-Seitenleiste ein-/ausblenden")
+                Button {
+                    neu()
+                } label: {
+                    Label("Neu", systemImage: "plus")
+                }
+                Button {
+                    zeigeInspektor.toggle()
+                } label: {
+                    Label("Details", systemImage: "sidebar.trailing")
+                }
+                .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -87,8 +102,11 @@ struct LebensmittelView: View {
         }
         .inspector(isPresented: $zeigeInspektor) {
             Group {
-                if let e = ausgewaehlt { LebensmittelInspektor(eintrag: e, orte: recentOrte) }
-                else { LeereInspektorView() }
+                if let e = ausgewaehlt {
+                    LebensmittelInspektor(eintrag: e, orte: recentOrte)
+                } else {
+                    LeereInspektorView()
+                }
             }
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
@@ -96,9 +114,12 @@ struct LebensmittelView: View {
 
     private func neu() {
         let e = GroceryEntry(datum: Date(), betrag: 0, ort: "")
-        context.insert(e); try? context.save()
-        suche = ""; if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
-        selection = [e.id]; zeigeInspektor = true
+        context.insert(e)
+        try? context.save()
+        suche = ""
+        if !zeit.filter.enthaelt(e.datum) { zeit.filter.modus = .alle }
+        selection = [e.id]
+        zeigeInspektor = true
     }
     private func duplizieren(_ ids: Set<GroceryEntry.ID>) {
         for e in alle where ids.contains(e.id) {

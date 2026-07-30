@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 /// Eine Aufgabenliste – einmalig oder wiederkehrend (Reminders-Logik: beim Abhaken
 /// einer wiederkehrenden Aufgabe erscheint automatisch die nächste fällige).
@@ -14,7 +14,9 @@ struct AufgabenView: View {
     @State private var suche = ""
 
     private var gefiltert: [MonthlyTask] {
-        tasks.filter { zeit.filter.enthaelt($0.monat) && (suche.isEmpty || $0.titel.localizedCaseInsensitiveContains(suche)) }
+        tasks.filter {
+            zeit.filter.enthaelt($0.monat) && (suche.isEmpty || $0.titel.localizedCaseInsensitiveContains(suche))
+        }
     }
     private var anzeige: [MonthlyTask] { gefiltert.sorted(using: sortOrder) }
     private var ausgewaehlt: MonthlyTask? { selection.count == 1 ? tasks.first { $0.id == selection.first } : nil }
@@ -26,7 +28,10 @@ struct AufgabenView: View {
             Divider()
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("", value: \.erledigtSort) { t in
-                    Button { t.erledigt.toggle(); TaskVorlagen.nachAbschluss(t, in: context) } label: {
+                    Button {
+                        t.erledigt.toggle()
+                        TaskVorlagen.nachAbschluss(t, in: context)
+                    } label: {
                         Image(systemName: t.erledigt ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(t.erledigt ? Color.accentColor : .secondary)
                     }
@@ -47,8 +52,10 @@ struct AufgabenView: View {
                     }
                 }
                 .width(min: 110, ideal: 140)
-                TableColumn("Fällig", value: \.monat) { Text($0.monat, format: .dateTime.day().month().year()).lineLimit(1) }
-                    .width(min: 96, ideal: 120)
+                TableColumn("Fällig", value: \.monat) {
+                    Text($0.monat, format: .dateTime.day().month().year()).lineLimit(1)
+                }
+                .width(min: 96, ideal: 120)
             }
             .environment(\.defaultMinListRowHeight, 36)
             .onDeleteCommand { loesche(selection) }
@@ -61,16 +68,28 @@ struct AufgabenView: View {
         .searchable(text: $suche, prompt: "Aufgabe suchen")
         .toolbar {
             ToolbarItemGroup {
-                Button { neu() } label: { Label("Neu", systemImage: "plus") }
-                Button { zeigeInspektor.toggle() } label: { Label("Details", systemImage: "sidebar.trailing") }
-                    .help("Inspector-Seitenleiste ein-/ausblenden")
+                Button {
+                    neu()
+                } label: {
+                    Label("Neu", systemImage: "plus")
+                }
+                Button {
+                    zeigeInspektor.toggle()
+                } label: {
+                    Label("Details", systemImage: "sidebar.trailing")
+                }
+                .help("Inspector-Seitenleiste ein-/ausblenden")
             }
         }
         .inspector(isPresented: $zeigeInspektor) {
             Group {
-                if let t = ausgewaehlt { AufgabenInspektor(task: t) }
-                else { LeereInspektorView(titel: "Keine Aufgabe gewählt",
-                        hinweis: "Zeile wählen – oder „+“ für eine neue Aufgabe.") }
+                if let t = ausgewaehlt {
+                    AufgabenInspektor(task: t)
+                } else {
+                    LeereInspektorView(
+                        titel: "Keine Aufgabe gewählt",
+                        hinweis: "Zeile wählen – oder „+“ für eine neue Aufgabe.")
+                }
             }
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
@@ -78,14 +97,19 @@ struct AufgabenView: View {
 
     private func neu() {
         let t = MonthlyTask(titel: "", monat: Date())
-        context.insert(t); try? context.save()
-        suche = ""; if !zeit.filter.enthaelt(t.monat) { zeit.filter.modus = .alle }
-        selection = [t.id]; zeigeInspektor = true
+        context.insert(t)
+        try? context.save()
+        suche = ""
+        if !zeit.filter.enthaelt(t.monat) { zeit.filter.modus = .alle }
+        selection = [t.id]
+        zeigeInspektor = true
     }
     private func duplizieren(_ ids: Set<MonthlyTask.ID>) {
         for t in tasks where ids.contains(t.id) {
-            context.insert(MonthlyTask(titel: t.titel, monat: t.monat, erledigt: false,
-                intervall: t.intervall, faelligTag: t.faelligTag, quartalsMonate: t.quartalsMonate))
+            context.insert(
+                MonthlyTask(
+                    titel: t.titel, monat: t.monat, erledigt: false,
+                    intervall: t.intervall, faelligTag: t.faelligTag, quartalsMonate: t.quartalsMonate))
         }
     }
     private func loesche(_ ids: Set<MonthlyTask.ID>) {
@@ -102,19 +126,29 @@ struct AufgabenInspektor: View {
 
     /// Für „jährlich": der eine Stichtags-Monat steckt in `quartalsMonate`.
     private var jahre: ClosedRange<Int> {
-        let h = appKalender.component(.year, from: Date()); return (h - 1)...(h + 2)
+        let h = appKalender.component(.year, from: Date())
+        return (h - 1)...(h + 2)
     }
     private var faelligMonat: Binding<Int> {
-        Binding { appKalender.component(.month, from: task.monat) }
-            set: { setzeFaellig(monat: $0, jahr: appKalender.component(.year, from: task.monat)) }
+        Binding {
+            appKalender.component(.month, from: task.monat)
+        } set: {
+            setzeFaellig(monat: $0, jahr: appKalender.component(.year, from: task.monat))
+        }
     }
     private var faelligJahr: Binding<Int> {
-        Binding { appKalender.component(.year, from: task.monat) }
-            set: { setzeFaellig(monat: appKalender.component(.month, from: task.monat), jahr: $0) }
+        Binding {
+            appKalender.component(.year, from: task.monat)
+        } set: {
+            setzeFaellig(monat: appKalender.component(.month, from: task.monat), jahr: $0)
+        }
     }
     private var faelligQuartal: Binding<Int> {
-        Binding { (appKalender.component(.month, from: task.monat) - 1) / 3 + 1 }
-            set: { setzeQuartal($0, jahr: appKalender.component(.year, from: task.monat)) }
+        Binding {
+            (appKalender.component(.month, from: task.monat) - 1) / 3 + 1
+        } set: {
+            setzeQuartal($0, jahr: appKalender.component(.year, from: task.monat))
+        }
     }
     /// Setzt die Fälligkeit dieser Instanz auf Monat/Jahr (Tag = faelligTag); jährlich pflegt den Stichtagsmonat.
     ///
@@ -156,9 +190,15 @@ struct AufgabenInspektor: View {
                         ForEach(1...12, id: \.self) { monatChip($0) }
                     }
                     HStack {
-                        Button("UStVA (1·4·7·10)") { task.quartalsMonate = [1, 4, 7, 10]; setzeQuartal(faelligQuartal.wrappedValue, jahr: faelligJahr.wrappedValue) }
+                        Button("UStVA (1·4·7·10)") {
+                            task.quartalsMonate = [1, 4, 7, 10]
+                            setzeQuartal(faelligQuartal.wrappedValue, jahr: faelligJahr.wrappedValue)
+                        }
                         Spacer()
-                        Button("ESt-VZ (3·6·9·12)") { task.quartalsMonate = [3, 6, 9, 12]; setzeQuartal(faelligQuartal.wrappedValue, jahr: faelligJahr.wrappedValue) }
+                        Button("ESt-VZ (3·6·9·12)") {
+                            task.quartalsMonate = [3, 6, 9, 12]
+                            setzeQuartal(faelligQuartal.wrappedValue, jahr: faelligJahr.wrappedValue)
+                        }
                     }
                     .font(.caption).buttonStyle(.link)
                 }
@@ -173,10 +213,12 @@ struct AufgabenInspektor: View {
                         ForEach(jahre, id: \.self) { Text(verbatim: String($0)).tag($0) }
                     }
                 }
-                Text(task.intervall == .monatlich
-                     ? "Steht im Monatsabschluss des gewählten Monats; Abhaken erzeugt den Folgemonat."
-                     : "Steht im Jahresabschluss des gewählten Jahres; Abhaken erzeugt das Folgejahr.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    task.intervall == .monatlich
+                        ? "Steht im Monatsabschluss des gewählten Monats; Abhaken erzeugt den Folgemonat."
+                        : "Steht im Jahresabschluss des gewählten Jahres; Abhaken erzeugt das Folgejahr."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
             Toggle("Erledigt", isOn: $task.erledigt)
         }
@@ -197,17 +239,19 @@ struct AufgabenInspektor: View {
                 // Kein plausibles Quartals-Schema (vier Monate im 3er-Abstand)? Vom gewählten
                 // Monat aus neu aufspannen, damit die Fälligkeit erhalten bleibt.
                 if task.quartalsMonate.sorted() != TaskVorlagen.quartalsSchema(ab: m),
-                   task.quartalsMonate.count != 4 {
+                    task.quartalsMonate.count != 4
+                {
                     task.quartalsMonate = TaskVorlagen.quartalsSchema(ab: m)
                 }
             case .monatlich, .einmalig:
-                break   // Schema wird nicht gelesen; stehenlassen kostet nichts
+                break  // Schema wird nicht gelesen; stehenlassen kostet nichts
             }
         }
         .onChange(of: task.faelligTag) { _, _ in
             guard task.istWiederkehrend else { return }
-            setzeFaellig(monat: appKalender.component(.month, from: task.monat),
-                         jahr: appKalender.component(.year, from: task.monat))
+            setzeFaellig(
+                monat: appKalender.component(.month, from: task.monat),
+                jahr: appKalender.component(.year, from: task.monat))
         }
     }
 

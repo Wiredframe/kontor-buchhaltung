@@ -1,6 +1,7 @@
-import Testing
 import Foundation
 import SwiftData
+import Testing
+
 @testable import Kontor
 
 /// Der einzige Pfad, der die produktive Nutzer-Datenbank wegbenennen kann – und er war
@@ -73,10 +74,10 @@ struct StoreOeffnerTests {
         let (_, zustand) = StoreOeffner.oeffne(datei: datei, pause: 1.0)
         _ = await raeumer.result
 
-        #expect(zustand == .normal)     // zweiter Versuch klappt → kein Beiseitelegen
+        #expect(zustand == .normal)  // zweiter Versuch klappt → kein Beiseitelegen
         let reste = try FileManager.default.contentsOfDirectory(atPath: ordner.path)
             .filter { $0.contains(".defekt-") }
-        #expect(reste.isEmpty)          // die Buchhaltung blieb, wo sie war
+        #expect(reste.isEmpty)  // die Buchhaltung blieb, wo sie war
     }
 
     /// Regression: Lässt sich der kaputte Store **nicht verschieben**, stand hier früher ein

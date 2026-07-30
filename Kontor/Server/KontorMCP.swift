@@ -9,99 +9,128 @@ import SwiftData
 /// legt vorab automatisch ein Backup an (`KISicherung`).
 enum KontorMCP {
 
-    struct Werkzeug { let name: String; let beschreibung: String; let schema: [String: Any] }
+    struct Werkzeug {
+        let name: String
+        let beschreibung: String
+        let schema: [String: Any]
+    }
 
     static let briefing = """
-    Kontor – lokale Buchhaltung eines Freiberuflers (EÜR, Soll-USt, KSK). Geld in EUR.
-    Lesen: kontor_uebersicht (Jahres-Schnappschuss), kontor_eur (Gewinn/Ausgaben), \
-    kontor_ustva (KZ-Zahlen je Quartal/Monat), kontor_monat (Rücklage), kontor_liste \
-    (CSV je Modul: einnahmen, offene_rechnungen, ausgaben, fixkosten, subscriptions, vorlagen, ksk, \
-    zahlungen, aufgaben, lebensmittel, einkaeufe). fixkosten/subscriptions sind datierte Buchungen \
-    (mit Jahr/Monat filterbar); vorlagen = Sidebar-Vorlagen. \
-    Schreiben (alle Module, selten nötig): kontor_anlegen / kontor_aktualisieren / kontor_loeschen \
-    mit demselben typ-Vokabular; für Ändern/Löschen vorher kontor_liste mit mit_id=true (liefert die id). \
-    Belege: kontor_beleg hängt eine PDF/Bild (Base64) an einnahmen|ausgaben|einkaeufe an (Feld belegPfad, \
-    Ablage Belege/<Jahr>/); die beleg-Spalte dieser Listen zeigt den hinterlegten Pfad. \
-    Beträge stets brutto in EUR, Datum als YYYY-MM-DD. Zahlen sind Schätzungen, keine Steuerberatung.
-    """
+        Kontor – lokale Buchhaltung eines Freiberuflers (EÜR, Soll-USt, KSK). Geld in EUR.
+        Lesen: kontor_uebersicht (Jahres-Schnappschuss), kontor_eur (Gewinn/Ausgaben), \
+        kontor_ustva (KZ-Zahlen je Quartal/Monat), kontor_monat (Rücklage), kontor_liste \
+        (CSV je Modul: einnahmen, offene_rechnungen, ausgaben, fixkosten, subscriptions, vorlagen, ksk, \
+        zahlungen, aufgaben, lebensmittel, einkaeufe). fixkosten/subscriptions sind datierte Buchungen \
+        (mit Jahr/Monat filterbar); vorlagen = Sidebar-Vorlagen. \
+        Schreiben (alle Module, selten nötig): kontor_anlegen / kontor_aktualisieren / kontor_loeschen \
+        mit demselben typ-Vokabular; für Ändern/Löschen vorher kontor_liste mit mit_id=true (liefert die id). \
+        Belege: kontor_beleg hängt eine PDF/Bild (Base64) an einnahmen|ausgaben|einkaeufe an (Feld belegPfad, \
+        Ablage Belege/<Jahr>/); die beleg-Spalte dieser Listen zeigt den hinterlegten Pfad. \
+        Beträge stets brutto in EUR, Datum als YYYY-MM-DD. Zahlen sind Schätzungen, keine Steuerberatung.
+        """
 
     // MARK: - Tool-Katalog
 
     static var werkzeuge: [Werkzeug] {
         [
-            Werkzeug(name: "kontor_uebersicht",
-                     beschreibung: "Kompakter Finanz-Schnappschuss eines Jahres: EÜR-Gewinn, USt-Zahllast, offene Rechnungen, KSK/Monat, Betriebsausgaben, nächste Frist.",
-                     schema: obj(props: ["jahr": zahl("Kalenderjahr, Default = laufendes Jahr.")])),
-            Werkzeug(name: "kontor_eur",
-                     beschreibung: "EÜR-Jahresrechnung (Zuflussprinzip): bezahlte Einnahmen, Betriebsausgaben (netto), Vorsteuer, Gewinn.",
-                     schema: obj(props: ["jahr": zahl("Kalenderjahr.")], required: ["jahr"])),
-            Werkzeug(name: "kontor_ustva",
-                     beschreibung: "UStVA-Kennzahlen (Soll) einer Periode: KZ81/USt19/KZ66/KZ84/KZ85/KZ67, §17-Korrektur, Zahllast KZ83. Quartal ODER Monat angeben.",
-                     schema: obj(props: [
+            Werkzeug(
+                name: "kontor_uebersicht",
+                beschreibung:
+                    "Kompakter Finanz-Schnappschuss eines Jahres: EÜR-Gewinn, USt-Zahllast, offene Rechnungen, KSK/Monat, Betriebsausgaben, nächste Frist.",
+                schema: obj(props: ["jahr": zahl("Kalenderjahr, Default = laufendes Jahr.")])),
+            Werkzeug(
+                name: "kontor_eur",
+                beschreibung:
+                    "EÜR-Jahresrechnung (Zuflussprinzip): bezahlte Einnahmen, Betriebsausgaben (netto), Vorsteuer, Gewinn.",
+                schema: obj(props: ["jahr": zahl("Kalenderjahr.")], required: ["jahr"])),
+            Werkzeug(
+                name: "kontor_ustva",
+                beschreibung:
+                    "UStVA-Kennzahlen (Soll) einer Periode: KZ81/USt19/KZ66/KZ84/KZ85/KZ67, §17-Korrektur, Zahllast KZ83. Quartal ODER Monat angeben.",
+                schema: obj(
+                    props: [
                         "jahr": zahl("Kalenderjahr."),
                         "quartal": zahl("Quartal 1–4 (alternativ zu monat)."),
                         "monat": zahl("Monat 1–12 (alternativ zu quartal)."),
-                     ], required: ["jahr"])),
-            Werkzeug(name: "kontor_monat",
-                     beschreibung: "Monatsauswertung/Rücklage: RN, USt, Vorsteuer, KSK, ESt-Rücklage, Steuerrücklage gesamt, frei verfügbar.",
-                     schema: obj(props: [
+                    ], required: ["jahr"])),
+            Werkzeug(
+                name: "kontor_monat",
+                beschreibung:
+                    "Monatsauswertung/Rücklage: RN, USt, Vorsteuer, KSK, ESt-Rücklage, Steuerrücklage gesamt, frei verfügbar.",
+                schema: obj(
+                    props: [
                         "jahr": zahl("Kalenderjahr."),
                         "monat": zahl("Monat 1–12."),
-                     ], required: ["jahr", "monat"])),
-            Werkzeug(name: "kontor_liste",
-                     beschreibung: "Datensätze eines Moduls als CSV (;-getrennt). typ: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe. fixkosten/subscriptions sind datierte Buchungen (mit Jahr/Monat filterbar wie Ausgaben); vorlagen komplett. ksk = Monatswerte KV/RV/PV/JAE/Summe eines Jahres (read-only, ohne id). Für Ändern/Löschen mit_id=true setzen → letzte Spalte 'id'.",
-                     schema: obj(props: [
-                        "typ": text("einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe"),
+                    ], required: ["jahr", "monat"])),
+            Werkzeug(
+                name: "kontor_liste",
+                beschreibung:
+                    "Datensätze eines Moduls als CSV (;-getrennt). typ: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe. fixkosten/subscriptions sind datierte Buchungen (mit Jahr/Monat filterbar wie Ausgaben); vorlagen komplett. ksk = Monatswerte KV/RV/PV/JAE/Summe eines Jahres (read-only, ohne id). Für Ändern/Löschen mit_id=true setzen → letzte Spalte 'id'.",
+                schema: obj(
+                    props: [
+                        "typ": text(
+                            "einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe"
+                        ),
                         "jahr": zahl("Jahr-Filter (datierte Listen)."),
                         "monat": zahl("Monat-Filter 1–12 (datierte Listen)."),
                         "status": text("Status-Filter (Einnahmen: offen|bezahlt|ausgefallen)."),
                         "limit": zahl("Max. Zeilen, Default 50."),
                         "mit_id": flag("id-Spalte für kontor_aktualisieren/kontor_loeschen anhängen (Default false)."),
-                     ], required: ["typ"])),
-            Werkzeug(name: "kontor_anlegen",
-                     beschreibung: """
-                     Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
-                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
-                     ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
-                     fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
-                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
-                     zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
-                     aufgaben: titel, monat [, intervall(einmalig|monatlich|quartalsweise|jaehrlich), faelligTag, quartalsMonate, erledigt];
-                     lebensmittel: datum, betrag [, ort];
-                     einkaeufe: datum, bezeichnung, preis.
-                     """,
-                     schema: obj(props: [
+                    ], required: ["typ"])),
+            Werkzeug(
+                name: "kontor_anlegen",
+                beschreibung: """
+                    Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
+                    einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
+                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
+                    fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
+                    vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
+                    zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
+                    aufgaben: titel, monat [, intervall(einmalig|monatlich|quartalsweise|jaehrlich), faelligTag, quartalsMonate, erledigt];
+                    lebensmittel: datum, betrag [, ort];
+                    einkaeufe: datum, bezeichnung, preis.
+                    """,
+                schema: obj(
+                    props: [
                         "typ": text("Modul (wie bei kontor_liste, Singular-Synonyme erlaubt)."),
                         "felder": freiObj("Feld→Wert je typ (siehe Beschreibung)."),
-                     ], required: ["typ", "felder"])),
-            Werkzeug(name: "kontor_aktualisieren",
-                     beschreibung: "Ändert Felder eines bestehenden Datensatzes. 'id' stammt aus kontor_liste mit mit_id=true. Nur übergebene 'felder' werden geändert (Feldnamen wie bei kontor_anlegen). typ wie bei kontor_liste.",
-                     schema: obj(props: [
+                    ], required: ["typ", "felder"])),
+            Werkzeug(
+                name: "kontor_aktualisieren",
+                beschreibung:
+                    "Ändert Felder eines bestehenden Datensatzes. 'id' stammt aus kontor_liste mit mit_id=true. Nur übergebene 'felder' werden geändert (Feldnamen wie bei kontor_anlegen). typ wie bei kontor_liste.",
+                schema: obj(
+                    props: [
                         "typ": text("Modul (wie bei kontor_liste)."),
                         "id": text("id aus kontor_liste (mit_id=true)."),
                         "felder": freiObj("Zu ändernde Felder (Feldnamen wie bei kontor_anlegen)."),
-                     ], required: ["typ", "id", "felder"])),
-            Werkzeug(name: "kontor_loeschen",
-                     beschreibung: "Löscht einen Datensatz. 'id' stammt aus kontor_liste mit mit_id=true. typ wie bei kontor_liste. Vorher wird automatisch ein Backup angelegt.",
-                     schema: obj(props: [
+                    ], required: ["typ", "id", "felder"])),
+            Werkzeug(
+                name: "kontor_loeschen",
+                beschreibung:
+                    "Löscht einen Datensatz. 'id' stammt aus kontor_liste mit mit_id=true. typ wie bei kontor_liste. Vorher wird automatisch ein Backup angelegt.",
+                schema: obj(
+                    props: [
                         "typ": text("Modul (wie bei kontor_liste)."),
                         "id": text("id aus kontor_liste (mit_id=true)."),
-                     ], required: ["typ", "id"])),
-            Werkzeug(name: "kontor_beleg",
-                     beschreibung: """
-                     Hängt eine Beleg-PDF (oder Bild) an einen Datensatz an und legt die Datei lokal unter \
-                     Belege/<Jahr>/ ab (Jahr = Datum des Datensatzes); der relative Pfad wird im Feld 'belegPfad' \
-                     gespeichert. Nur Module mit Beleg: einnahmen | ausgaben | einkaeufe. 'inhalt_base64' = \
-                     Base64 des Dateiinhalts, 'dateiname' liefert Endung/Name. 'id' aus kontor_liste (mit_id=true). \
-                     Ein vorhandener Beleg wird ersetzt. Mit entfernen=true wird nur der Verweis gelöst (kein Upload).
-                     """,
-                     schema: obj(props: [
+                    ], required: ["typ", "id"])),
+            Werkzeug(
+                name: "kontor_beleg",
+                beschreibung: """
+                    Hängt eine Beleg-PDF (oder Bild) an einen Datensatz an und legt die Datei lokal unter \
+                    Belege/<Jahr>/ ab (Jahr = Datum des Datensatzes); der relative Pfad wird im Feld 'belegPfad' \
+                    gespeichert. Nur Module mit Beleg: einnahmen | ausgaben | einkaeufe. 'inhalt_base64' = \
+                    Base64 des Dateiinhalts, 'dateiname' liefert Endung/Name. 'id' aus kontor_liste (mit_id=true). \
+                    Ein vorhandener Beleg wird ersetzt. Mit entfernen=true wird nur der Verweis gelöst (kein Upload).
+                    """,
+                schema: obj(
+                    props: [
                         "typ": text("einnahmen | ausgaben | einkaeufe"),
                         "id": text("id aus kontor_liste (mit_id=true)."),
                         "dateiname": text("Originaldateiname inkl. Endung, z. B. 'RE41197676.pdf'."),
                         "inhalt_base64": text("Base64-kodierter Dateiinhalt (PDF/Bild)."),
                         "entfernen": flag("true → vorhandenen Beleg-Verweis entfernen (ohne Upload)."),
-                     ], required: ["typ", "id"])),
+                    ], required: ["typ", "id"])),
         ]
     }
 
@@ -112,17 +141,21 @@ enum KontorMCP {
         let ctx = container.mainContext
         switch name {
         case "kontor_uebersicht": return uebersichtText(jahr: intArg(a["jahr"]) ?? heuteJahr, ctx)
-        case "kontor_eur":        return eurText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich), ctx)
-        case "kontor_ustva":      return ustvaText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
-                                                    quartal: try intArg(a, "quartal", bereich: 1...4),
-                                                    monat: try intArg(a, "monat", bereich: 1...12), ctx)
-        case "kontor_monat":      return monatText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
-                                                    monat: try pflichtInt(a, "monat", bereich: 1...12), ctx)
-        case "kontor_liste":      return try listeCSV(a, ctx)
-        case "kontor_anlegen":       return try anlegen(a, ctx)
+        case "kontor_eur": return eurText(jahr: try pflichtInt(a, "jahr", bereich: jahrBereich), ctx)
+        case "kontor_ustva":
+            return ustvaText(
+                jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
+                quartal: try intArg(a, "quartal", bereich: 1...4),
+                monat: try intArg(a, "monat", bereich: 1...12), ctx)
+        case "kontor_monat":
+            return monatText(
+                jahr: try pflichtInt(a, "jahr", bereich: jahrBereich),
+                monat: try pflichtInt(a, "monat", bereich: 1...12), ctx)
+        case "kontor_liste": return try listeCSV(a, ctx)
+        case "kontor_anlegen": return try anlegen(a, ctx)
         case "kontor_aktualisieren": return try aktualisieren(a, ctx)
-        case "kontor_loeschen":      return try loeschen(a, ctx)
-        case "kontor_beleg":         return try beleg(a, ctx)
+        case "kontor_loeschen": return try loeschen(a, ctx)
+        case "kontor_beleg": return try beleg(a, ctx)
         default: throw MCPFehler("Unbekanntes Tool: \(name)")
         }
     }
@@ -130,17 +163,25 @@ enum KontorMCP {
     // MARK: - Resources
 
     static let ressourcen: [[String: Any]] = [
-        ["uri": "kontor://uebersicht", "name": "Übersicht (laufendes Jahr)",
-         "description": "Finanz-Schnappschuss des laufenden Jahres.", "mimeType": "text/plain"],
+        [
+            "uri": "kontor://uebersicht", "name": "Übersicht (laufendes Jahr)",
+            "description": "Finanz-Schnappschuss des laufenden Jahres.", "mimeType": "text/plain",
+        ]
     ]
 
     static let ressourcenVorlagen: [[String: Any]] = [
-        ["uriTemplate": "kontor://eur/{jahr}", "name": "EÜR-Jahr",
-         "description": "EÜR-Jahresrechnung für {jahr}.", "mimeType": "text/plain"],
-        ["uriTemplate": "kontor://ustva/{jahr}/{quartal}", "name": "UStVA-Quartal",
-         "description": "UStVA-Kennzahlen für {jahr} Quartal {quartal}.", "mimeType": "text/plain"],
-        ["uriTemplate": "kontor://monat/{jahr}/{monat}", "name": "Monatsauswertung",
-         "description": "Monatsauswertung/Rücklage für {jahr}-{monat}.", "mimeType": "text/plain"],
+        [
+            "uriTemplate": "kontor://eur/{jahr}", "name": "EÜR-Jahr",
+            "description": "EÜR-Jahresrechnung für {jahr}.", "mimeType": "text/plain",
+        ],
+        [
+            "uriTemplate": "kontor://ustva/{jahr}/{quartal}", "name": "UStVA-Quartal",
+            "description": "UStVA-Kennzahlen für {jahr} Quartal {quartal}.", "mimeType": "text/plain",
+        ],
+        [
+            "uriTemplate": "kontor://monat/{jahr}/{monat}", "name": "Monatsauswertung",
+            "description": "Monatsauswertung/Rücklage für {jahr}-{monat}.", "mimeType": "text/plain",
+        ],
     ]
 
     @MainActor
@@ -154,10 +195,14 @@ enum KontorMCP {
             guard teile.count >= 2, let j = Int(teile[1]) else { throw MCPFehler("Erwartet kontor://eur/{jahr}") }
             return eurText(jahr: j, ctx)
         case "ustva":
-            guard teile.count >= 3, let j = Int(teile[1]), let q = Int(teile[2]) else { throw MCPFehler("Erwartet kontor://ustva/{jahr}/{quartal}") }
+            guard teile.count >= 3, let j = Int(teile[1]), let q = Int(teile[2]) else {
+                throw MCPFehler("Erwartet kontor://ustva/{jahr}/{quartal}")
+            }
             return ustvaText(jahr: j, quartal: q, monat: nil, ctx)
         case "monat":
-            guard teile.count >= 3, let j = Int(teile[1]), let m = Int(teile[2]) else { throw MCPFehler("Erwartet kontor://monat/{jahr}/{monat}") }
+            guard teile.count >= 3, let j = Int(teile[1]), let m = Int(teile[2]) else {
+                throw MCPFehler("Erwartet kontor://monat/{jahr}/{monat}")
+            }
             return monatText(jahr: j, monat: m, ctx)
         default: throw MCPFehler("Unbekannte Ressource: \(uri)")
         }
@@ -182,7 +227,9 @@ enum KontorMCP {
             "KSK/Monat:                   \(g(ksk)) €",
             "Betriebsausgaben (netto):    \(g(jahresA.ausgabenNetto)) €",
         ]
-        if let f = naechsteFrist(ctx) { z.append("Nächste Frist:               \(tagText(f.faellig)) – \(f.kind.bezeichnung) \(g(f.betrag)) €") }
+        if let f = naechsteFrist(ctx) {
+            z.append("Nächste Frist:               \(tagText(f.faellig)) – \(f.kind.bezeichnung) \(g(f.betrag)) €")
+        }
         return z.joined(separator: "\n")
     }
 
@@ -190,36 +237,40 @@ enum KontorMCP {
     static func eurText(jahr: Int, _ ctx: ModelContext) -> String {
         let a = Steuer.jahresauswertung(jahr: jahr, einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx))
         return """
-        EÜR \(jahr)
-        Einnahmen (bezahlt, netto):  \(g(a.einnahmenBezahlt)) €
-        Betriebsausgaben (netto):    \(g(a.ausgabenNetto)) €
-        Vorsteuer gesamt:            \(g(a.vstGesamt)) €
-        Gewinn:                      \(g(a.gewinn)) €
-        """
+            EÜR \(jahr)
+            Einnahmen (bezahlt, netto):  \(g(a.einnahmenBezahlt)) €
+            Betriebsausgaben (netto):    \(g(a.ausgabenNetto)) €
+            Vorsteuer gesamt:            \(g(a.vstGesamt)) €
+            Gewinn:                      \(g(a.gewinn)) €
+            """
     }
 
     @MainActor
     static func ustvaText(jahr: Int, quartal: Int?, monat: Int?, _ ctx: ModelContext) -> String {
-        let periode: Periode; let label: String
-        if let m = monat { periode = .monat(jahr, m); label = "\(jahr)-\(String(format: "%02d", m))" }
-        else {
+        let periode: Periode
+        let label: String
+        if let m = monat {
+            periode = .monat(jahr, m)
+            label = "\(jahr)-\(String(format: "%02d", m))"
+        } else {
             let q = quartal ?? (jahr == heuteJahr ? (heuteMonat + 2) / 3 : 4)
-            periode = .quartal(jahr, q); label = "\(jahr) Q\(q)"
+            periode = .quartal(jahr, q)
+            label = "\(jahr) Q\(q)"
         }
         let r = Steuer.ustva(einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx), periode: periode)
         return """
-        UStVA \(label)
-        KZ81 (Netto 19 %):           \(g(r.kz81)) €
-        USt 19 % (auto):             \(g(r.ust81)) €
-        KZ86 (Netto 7 %):            \(g(r.kz86)) €
-        USt 7 % (auto):              \(g(r.ust86)) €
-        KZ66 (Vorsteuer Inland):     \(g(r.kz66)) €
-        KZ84 (§13b Netto):           \(g(r.kz84)) €
-        KZ85 (§13b USt):             \(g(r.kz85)) €
-        KZ67 (§13b Vorsteuer):       \(g(r.kz67)) €
-        §17-Korrektur:               \(g(r.korrektur17)) €
-        Zahllast (KZ83):             \(g(r.zahllast)) €
-        """
+            UStVA \(label)
+            KZ81 (Netto 19 %):           \(g(r.kz81)) €
+            USt 19 % (auto):             \(g(r.ust81)) €
+            KZ86 (Netto 7 %):            \(g(r.kz86)) €
+            USt 7 % (auto):              \(g(r.ust86)) €
+            KZ66 (Vorsteuer Inland):     \(g(r.kz66)) €
+            KZ84 (§13b Netto):           \(g(r.kz84)) €
+            KZ85 (§13b USt):             \(g(r.kz85)) €
+            KZ67 (§13b Vorsteuer):       \(g(r.kz67)) €
+            §17-Korrektur:               \(g(r.korrektur17)) €
+            Zahllast (KZ83):             \(g(r.zahllast)) €
+            """
     }
 
     @MainActor
@@ -239,20 +290,20 @@ enum KontorMCP {
             privatVariabel: lm + an + einmalig,
             pauschalSatz: { j, m in settings.estSatz(jahr: j, monat: m) })
         return """
-        Monat \(jahr)-\(String(format: "%02d", monat))
-        RN (netto, Soll):            \(g(a.rn)) €
-        USt:                         \(g(a.ust)) €
-        Brutto:                      \(g(a.brutto)) €
-        Vorsteuer:                   \(g(a.vst)) €
-        Betriebsausgaben (netto):    \(g(a.betriebsausgabenNetto)) €
-        Betrieblicher Gewinn:        \(g(a.betrieblicherGewinn)) €
-        KSK:                         \(g(a.ksk)) €
-        ESt-Rücklage:                \(g(a.est + a.estKorrektur)) €
-        Steuerrücklage gesamt:       \(g(a.steuerRuecklage)) €
-        Fixkosten privat:            \(g(a.fixkostenPrivat)) €
-        Privat variabel:             \(g(a.privatVariabel)) €
-        Frei verfügbar:              \(g(a.verfuegbar)) €
-        """
+            Monat \(jahr)-\(String(format: "%02d", monat))
+            RN (netto, Soll):            \(g(a.rn)) €
+            USt:                         \(g(a.ust)) €
+            Brutto:                      \(g(a.brutto)) €
+            Vorsteuer:                   \(g(a.vst)) €
+            Betriebsausgaben (netto):    \(g(a.betriebsausgabenNetto)) €
+            Betrieblicher Gewinn:        \(g(a.betrieblicherGewinn)) €
+            KSK:                         \(g(a.ksk)) €
+            ESt-Rücklage:                \(g(a.est + a.estKorrektur)) €
+            Steuerrücklage gesamt:       \(g(a.steuerRuecklage)) €
+            Fixkosten privat:            \(g(a.fixkostenPrivat)) €
+            Privat variabel:             \(g(a.privatVariabel)) €
+            Frei verfügbar:              \(g(a.verfuegbar)) €
+            """
     }
 
     // MARK: - Liste (CSV)
@@ -280,56 +331,113 @@ enum KontorMCP {
             let rows = alle(Income.self, ctx)
                 .filter { imZeitraum($0.rechnungsdatum) && (status == nil || $0.status == status) }
                 .sorted { $0.rechnungsdatum < $1.rechnungsdatum }.prefix(limit)
-            return csv(kopf(["datum", "rechnungsnummer", "kunde", "netto", "ust", "satz", "netto2", "ust2", "satz2", "brutto", "status", "zahlungsdatum", "beleg"]),
-                       rows.map { zeile($0, [tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde,
-                                   g($0.rnNetto), g($0.ust), $0.satzEffektiv.rawValue,
-                                   g($0.rnNetto2), g($0.ust2), $0.satz2?.rawValue ?? "",
-                                   g($0.brutto), $0.status.rawValue,
-                                   $0.zahlungsdatum.map(tagText) ?? "", $0.belegPfad ?? ""]) })
+            return csv(
+                kopf([
+                    "datum", "rechnungsnummer", "kunde", "netto", "ust", "satz", "netto2", "ust2", "satz2", "brutto",
+                    "status", "zahlungsdatum", "beleg",
+                ]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde,
+                            g($0.rnNetto), g($0.ust), $0.satzEffektiv.rawValue,
+                            g($0.rnNetto2), g($0.ust2), $0.satz2?.rawValue ?? "",
+                            g($0.brutto), $0.status.rawValue,
+                            $0.zahlungsdatum.map(tagText) ?? "", $0.belegPfad ?? "",
+                        ])
+                })
         case "offene_rechnungen":
             let rows = alle(Income.self, ctx).filter { $0.status == .offen && imZeitraum($0.rechnungsdatum) }
                 .sorted { $0.rechnungsdatum < $1.rechnungsdatum }.prefix(limit)
-            return csv(kopf(["datum", "rechnungsnummer", "kunde", "brutto"]),
-                       rows.map { zeile($0, [tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde, g($0.brutto)]) })
+            return csv(
+                kopf(["datum", "rechnungsnummer", "kunde", "brutto"]),
+                rows.map { zeile($0, [tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde, g($0.brutto)]) })
         case "ausgaben":
             let rows = alle(ExpenseEntry.self, ctx).filter { imZeitraum($0.datum) }
                 .sorted { $0.datum < $1.datum }.prefix(limit)
-            return csv(kopf(["datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg"]),
-                       rows.map { zeile($0, [tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
-                                   $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? ""]) })
+            return csv(
+                kopf([
+                    "datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg",
+                ]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
+                            $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? "",
+                        ])
+                })
         case "fixkosten", "subscriptions":
             // Datierte Buchungen (Fixkosten/Subscriptions) – nach Art gefiltert, mit Zeitraum.
             let zielArt: AusgabeArt = (typ == "subscriptions") ? .subscription : .fixkosten
             let rows = alle(ExpenseEntry.self, ctx).filter { $0.artEffektiv == zielArt && imZeitraum($0.datum) }
                 .sorted { $0.datum < $1.datum }.prefix(limit)
-            return csv(kopf(["datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg"]),
-                       rows.map { zeile($0, [tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
-                                   $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? ""]) })
+            return csv(
+                kopf([
+                    "datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg",
+                ]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
+                            $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? "",
+                        ])
+                })
         case "vorlagen":
             let rows = alle(Vorlage.self, ctx).sorted { $0.bezeichnung < $1.bezeichnung }.prefix(limit)
-            return csv(kopf(["bezeichnung", "anbieter", "brutto", "art", "steuerart", "betrieblich"]),
-                       rows.map { zeile($0, [$0.bezeichnung, $0.anbieter, g($0.betragBrutto), $0.art.rawValue,
-                                   $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein"]) })
+            return csv(
+                kopf(["bezeichnung", "anbieter", "brutto", "art", "steuerart", "betrieblich"]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            $0.bezeichnung, $0.anbieter, g($0.betragBrutto), $0.art.rawValue,
+                            $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein",
+                        ])
+                })
         case "aufgaben":
             let rows = alle(MonthlyTask.self, ctx).filter { imZeitraum($0.monat) }
                 .sorted { $0.monat < $1.monat }.prefix(limit)
-            return csv(kopf(["faellig", "titel", "intervall", "erledigt", "faelligTag"]),
-                       rows.map { zeile($0, [tagText($0.monat), $0.titel, $0.intervall.rawValue, $0.erledigt ? "ja" : "nein", String($0.faelligTag)]) })
+            return csv(
+                kopf(["faellig", "titel", "intervall", "erledigt", "faelligTag"]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            tagText($0.monat), $0.titel, $0.intervall.rawValue, $0.erledigt ? "ja" : "nein",
+                            String($0.faelligTag),
+                        ])
+                })
         case "lebensmittel":
             let rows = alle(GroceryEntry.self, ctx).filter { imZeitraum($0.datum) }
                 .sorted { $0.datum < $1.datum }.prefix(limit)
-            return csv(kopf(["datum", "ort", "betrag"]), rows.map { zeile($0, [tagText($0.datum), $0.ort, g($0.betrag)]) })
+            return csv(
+                kopf(["datum", "ort", "betrag"]), rows.map { zeile($0, [tagText($0.datum), $0.ort, g($0.betrag)]) })
         case "einkaeufe", "anschaffungen":
             let rows = alle(PurchaseEntry.self, ctx).filter { imZeitraum($0.datum) }
                 .sorted { $0.datum < $1.datum }.prefix(limit)
-            return csv(kopf(["datum", "bezeichnung", "preis", "beleg"]), rows.map { zeile($0, [tagText($0.datum), $0.bezeichnung, g($0.preis), $0.belegPfad ?? ""]) })
+            return csv(
+                kopf(["datum", "bezeichnung", "preis", "beleg"]),
+                rows.map { zeile($0, [tagText($0.datum), $0.bezeichnung, g($0.preis), $0.belegPfad ?? ""]) })
         case "zahlungen":
             let rows = alle(TaxPayment.self, ctx)
-                .filter { (jahr == nil || $0.jahr == jahr) && (monat == nil || appKalender.component(.month, from: $0.faellig) == monat) }
+                .filter {
+                    (jahr == nil || $0.jahr == jahr)
+                        && (monat == nil || appKalender.component(.month, from: $0.faellig) == monat)
+                }
                 .sorted { $0.faellig < $1.faellig }.prefix(limit)
-            return csv(kopf(["faellig", "art", "jahr", "betrag", "bezahlt", "bezahltAm", "bemerkung"]),
-                       rows.map { zeile($0, [tagText($0.faellig), $0.kind.rawValue, String($0.jahr), g($0.betrag),
-                                   $0.bezahlt ? "ja" : "nein", $0.bezahltAm.map(tagText) ?? "", $0.bemerkung]) })
+            return csv(
+                kopf(["faellig", "art", "jahr", "betrag", "bezahlt", "bezahltAm", "bemerkung"]),
+                rows.map {
+                    zeile(
+                        $0,
+                        [
+                            tagText($0.faellig), $0.kind.rawValue, String($0.jahr), g($0.betrag),
+                            $0.bezahlt ? "ja" : "nein", $0.bezahltAm.map(tagText) ?? "", $0.bemerkung,
+                        ])
+                })
         case "ksk":
             // KSK (Soll) ist ein Monatswert auf YearSettings – **kein** eigenständiger Datensatz,
             // daher read-only und ohne id-Spalte. Je Monat KV/RV/PV/JAE/Summe des Jahres.
@@ -339,12 +447,16 @@ enum KontorMCP {
                 return csv(kskKopf, [])
             }
             let monate = monat.map { [$0] } ?? Array(1...12)
-            return csv(kskKopf, monate.map { m in
-                let t = s.kskTeile(monat: m)
-                return [String(j), String(m), g(t.kv), g(t.rv), g(t.pv), g(s.jae(monat: m)), g(s.ksk(monat: m))]
-            })
+            return csv(
+                kskKopf,
+                monate.map { m in
+                    let t = s.kskTeile(monat: m)
+                    return [String(j), String(m), g(t.kv), g(t.rv), g(t.pv), g(s.jae(monat: m)), g(s.ksk(monat: m))]
+                })
         default:
-            throw MCPFehler("Unbekannter typ '\(typ)'. Erlaubt: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe")
+            throw MCPFehler(
+                "Unbekannter typ '\(typ)'. Erlaubt: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe"
+            )
         }
     }
 
@@ -359,8 +471,10 @@ enum KontorMCP {
         switch typ {
         case "einnahmen", "einnahme":
             guard let kunde = f["kunde"] as? String, let netto = dezArg(f["rnNetto"]),
-                  let ust = dezArg(f["ust"]), let rdat = datum(f["rechnungsdatum"]) else {
-                throw fehlt("einnahmen", "kunde, rnNetto, ust, rechnungsdatum") }
+                let ust = dezArg(f["ust"]), let rdat = datum(f["rechnungsdatum"])
+            else {
+                throw fehlt("einnahmen", "kunde, rnNetto, ust, rechnungsdatum")
+            }
             let s: InvoiceStatus = enumWert(f["status"]) ?? .offen
             // Status/Datum konsistent halten: Eine ausgefallene Rechnung **ohne** Ausfalldatum
             // ist ein Widerspruch – die gesamte §17-Logik (ustKorrekturAusfall, ausfallNetto,
@@ -369,65 +483,86 @@ enum KontorMCP {
             // Fällt kein Datum, gilt der Zeitpunkt der Feststellung – wie `setze(status:)` es
             // in der UI auch macht (der Raw-Init hier umging das).
             let ausfall = datum(f["ausfalldatum"]) ?? (s == .ausgefallen ? Date() : nil)
-            obj = Income(kunde: kunde, rnNetto: netto, ust: ust, rechnungsdatum: rdat,
-                         zahlungsdatum: datum(f["zahlungsdatum"]) ?? (s == .bezahlt ? rdat : nil),
-                         status: s, ausfalldatum: ausfall,
-                         rechnungsnummer: f["rechnungsnummer"] as? String,
-                         satz: enumWert(f["satz"]),
-                         rnNetto2: dezArg(f["rnNetto2"]) ?? 0, ust2: dezArg(f["ust2"]) ?? 0,
-                         satz2: enumWert(f["satz2"]))
+            obj = Income(
+                kunde: kunde, rnNetto: netto, ust: ust, rechnungsdatum: rdat,
+                zahlungsdatum: datum(f["zahlungsdatum"]) ?? (s == .bezahlt ? rdat : nil),
+                status: s, ausfalldatum: ausfall,
+                rechnungsnummer: f["rechnungsnummer"] as? String,
+                satz: enumWert(f["satz"]),
+                rnNetto2: dezArg(f["rnNetto2"]) ?? 0, ust2: dezArg(f["ust2"]) ?? 0,
+                satz2: enumWert(f["satz2"]))
         case "ausgaben", "ausgabe":
-            guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let brutto = dezArg(f["brutto"]) else {
-                throw fehlt("ausgaben", "datum, bezeichnung, brutto") }
+            guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let brutto = dezArg(f["brutto"])
+            else {
+                throw fehlt("ausgaben", "datum, bezeichnung, brutto")
+            }
             let st: Steuerart = enumWert(f["steuerart"]) ?? .inland19
-            obj = ExpenseEntry(datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
-                               brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
-                               steuerart: st,
-                               betrieblich: f["betrieblich"] as? Bool ?? true,
-                               umlagefaehig: f["umlagefaehig"] as? Bool ?? false,
-                               // `art` **explizit** setzen. Das war der einzige Erzeuger-Pfad im
-                               // Projekt, der es wegließ – und `art == nil` greift `ArtNachtrag`
-                               // beim nächsten Start auf und rät die Art aus dem Namen: Eine per
-                               // MCP gebuchte einmalige Ausgabe namens „Adobe" wurde so still zur
-                               // `.subscription` und von „Vormonat duplizieren" mitgeschleppt.
-                               art: .betriebsausgabe)
+            obj = ExpenseEntry(
+                datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
+                brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
+                steuerart: st,
+                betrieblich: f["betrieblich"] as? Bool ?? true,
+                umlagefaehig: f["umlagefaehig"] as? Bool ?? false,
+                // `art` **explizit** setzen. Das war der einzige Erzeuger-Pfad im
+                // Projekt, der es wegließ – und `art == nil` greift `ArtNachtrag`
+                // beim nächsten Start auf und rät die Art aus dem Namen: Eine per
+                // MCP gebuchte einmalige Ausgabe namens „Adobe" wurde so still zur
+                // `.subscription` und von „Vormonat duplizieren" mitgeschleppt.
+                art: .betriebsausgabe)
         case "fixkosten", "subscriptions", "subscription":
             guard let bez = f["bezeichnung"] as? String,
-                  let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]),
-                  let dat = datum(f["datum"]) else { throw fehlt(typ, "bezeichnung, betrag, datum") }
+                let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]),
+                let dat = datum(f["datum"])
+            else { throw fehlt(typ, "bezeichnung, betrag, datum") }
             let st: Steuerart = enumWert(f["steuerart"]) ?? .steuerfrei
             let zielArt: AusgabeArt = (typ == "fixkosten") ? .fixkosten : .subscription
-            obj = ExpenseEntry(datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
-                               brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
-                               steuerart: st,
-                               betrieblich: f["betrieblich"] as? Bool ?? false,
-                               umlagefaehig: f["umlagefaehig"] as? Bool ?? false, art: zielArt)
+            obj = ExpenseEntry(
+                datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
+                brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
+                steuerart: st,
+                betrieblich: f["betrieblich"] as? Bool ?? false,
+                umlagefaehig: f["umlagefaehig"] as? Bool ?? false, art: zielArt)
         case "vorlagen", "vorlage":
             guard let bez = f["bezeichnung"] as? String,
-                  let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]) else {
-                throw fehlt("vorlagen", "bezeichnung, betrag") }
-            obj = Vorlage(bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "", betragBrutto: brutto,
-                          steuerart: enumWert(f["steuerart"]) ?? .steuerfrei,
-                          betrieblich: f["betrieblich"] as? Bool ?? false,
-                          art: (f["art"] as? String == "subscription") ? .subscription : .fixkosten,
-                          umlagefaehig: f["umlagefaehig"] as? Bool ?? false)
+                let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"])
+            else {
+                throw fehlt("vorlagen", "bezeichnung, betrag")
+            }
+            obj = Vorlage(
+                bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "", betragBrutto: brutto,
+                steuerart: enumWert(f["steuerart"]) ?? .steuerfrei,
+                betrieblich: f["betrieblich"] as? Bool ?? false,
+                art: (f["art"] as? String == "subscription") ? .subscription : .fixkosten,
+                umlagefaehig: f["umlagefaehig"] as? Bool ?? false)
         case "zahlungen", "zahlung":
-            guard let kind: SteuerKind = enumWert(f["kind"]), let jahr = intArg(f["jahr"]), let fae = datum(f["faellig"]) else {
-                throw fehlt("zahlungen", "kind, jahr, faellig") }
-            obj = TaxPayment(kind: kind, jahr: jahr, faellig: fae, betrag: dezArg(f["betrag"]) ?? 0,
-                             bezahlt: f["bezahlt"] as? Bool ?? false, bezahltAm: datum(f["bezahltAm"]),
-                             bemerkung: f["bemerkung"] as? String ?? "")
+            guard let kind: SteuerKind = enumWert(f["kind"]), let jahr = intArg(f["jahr"]),
+                let fae = datum(f["faellig"])
+            else {
+                throw fehlt("zahlungen", "kind, jahr, faellig")
+            }
+            obj = TaxPayment(
+                kind: kind, jahr: jahr, faellig: fae, betrag: dezArg(f["betrag"]) ?? 0,
+                bezahlt: f["bezahlt"] as? Bool ?? false, bezahltAm: datum(f["bezahltAm"]),
+                bemerkung: f["bemerkung"] as? String ?? "")
         case "aufgaben", "aufgabe":
-            guard let titel = f["titel"] as? String, let m = datum(f["monat"] ?? f["faellig"]) else { throw fehlt("aufgaben", "titel, monat") }
+            guard let titel = f["titel"] as? String, let m = datum(f["monat"] ?? f["faellig"]) else {
+                throw fehlt("aufgaben", "titel, monat")
+            }
             let qm = (f["quartalsMonate"] as? [Any])?.compactMap { intArg($0) } ?? []
-            obj = MonthlyTask(titel: titel, monat: m, erledigt: f["erledigt"] as? Bool ?? false,
-                              intervall: enumWert(f["intervall"]) ?? .einmalig, faelligTag: intArg(f["faelligTag"]) ?? 1, quartalsMonate: qm)
+            obj = MonthlyTask(
+                titel: titel, monat: m, erledigt: f["erledigt"] as? Bool ?? false,
+                intervall: enumWert(f["intervall"]) ?? .einmalig, faelligTag: intArg(f["faelligTag"]) ?? 1,
+                quartalsMonate: qm)
         case "lebensmittel":
-            guard let dat = datum(f["datum"]), let betrag = dezArg(f["betrag"]) else { throw fehlt("lebensmittel", "datum, betrag") }
+            guard let dat = datum(f["datum"]), let betrag = dezArg(f["betrag"]) else {
+                throw fehlt("lebensmittel", "datum, betrag")
+            }
             obj = GroceryEntry(datum: dat, betrag: betrag, ort: f["ort"] as? String ?? "")
         case "einkaeufe", "einkauf", "anschaffungen", "anschaffung":
-            guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let preis = dezArg(f["preis"]) else {
-                throw fehlt("einkaeufe", "datum, bezeichnung, preis") }
+            guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let preis = dezArg(f["preis"])
+            else {
+                throw fehlt("einkaeufe", "datum, bezeichnung, preis")
+            }
             obj = PurchaseEntry(datum: dat, bezeichnung: bez, preis: preis)
         default:
             throw MCPFehler("Unbekannter typ '\(typ)' für kontor_anlegen.")
@@ -440,7 +575,9 @@ enum KontorMCP {
     @MainActor
     static func aktualisieren(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
-        guard let id = a["id"] as? String, !id.isEmpty else { throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).") }
+        guard let id = a["id"] as? String, !id.isEmpty else {
+            throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).")
+        }
         let f = a["felder"] as? [String: Any] ?? [:]
         guard !f.isEmpty else { throw MCPFehler("Keine 'felder' zum Ändern übergeben.") }
         try KISicherung.sichereVorSchreibzugriff(ctx)
@@ -528,18 +665,21 @@ enum KontorMCP {
     @MainActor
     static func loeschen(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
-        guard let id = a["id"] as? String, !id.isEmpty else { throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).") }
+        guard let id = a["id"] as? String, !id.isEmpty else {
+            throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).")
+        }
         try KISicherung.sichereVorSchreibzugriff(ctx)
         switch typ {
-        case "einnahmen", "einnahme":                          ctx.delete(try modell(Income.self, id: id, ctx))
+        case "einnahmen", "einnahme": ctx.delete(try modell(Income.self, id: id, ctx))
         case "ausgaben", "ausgabe",
-             "fixkosten", "subscriptions", "subscription", "fixkosten_eintrag":
-                                                               ctx.delete(try modell(ExpenseEntry.self, id: id, ctx))
-        case "vorlagen", "vorlage":                            ctx.delete(try modell(Vorlage.self, id: id, ctx))
-        case "zahlungen", "zahlung":                           ctx.delete(try modell(TaxPayment.self, id: id, ctx))
-        case "aufgaben", "aufgabe":                            ctx.delete(try modell(MonthlyTask.self, id: id, ctx))
-        case "lebensmittel":                                   ctx.delete(try modell(GroceryEntry.self, id: id, ctx))
-        case "einkaeufe", "einkauf", "anschaffungen", "anschaffung": ctx.delete(try modell(PurchaseEntry.self, id: id, ctx))
+            "fixkosten", "subscriptions", "subscription", "fixkosten_eintrag":
+            ctx.delete(try modell(ExpenseEntry.self, id: id, ctx))
+        case "vorlagen", "vorlage": ctx.delete(try modell(Vorlage.self, id: id, ctx))
+        case "zahlungen", "zahlung": ctx.delete(try modell(TaxPayment.self, id: id, ctx))
+        case "aufgaben", "aufgabe": ctx.delete(try modell(MonthlyTask.self, id: id, ctx))
+        case "lebensmittel": ctx.delete(try modell(GroceryEntry.self, id: id, ctx))
+        case "einkaeufe", "einkauf", "anschaffungen", "anschaffung":
+            ctx.delete(try modell(PurchaseEntry.self, id: id, ctx))
         default: throw MCPFehler("Unbekannter typ '\(typ)' für kontor_loeschen.")
         }
         try ctx.save()
@@ -554,7 +694,9 @@ enum KontorMCP {
     @MainActor
     static func beleg(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
-        guard let id = a["id"] as? String, !id.isEmpty else { throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).") }
+        guard let id = a["id"] as? String, !id.isEmpty else {
+            throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).")
+        }
         let entfernen = a["entfernen"] as? Bool ?? false
 
         let jahr: Int
@@ -564,15 +706,18 @@ enum KontorMCP {
         case "einnahmen", "einnahme":
             let o = try modell(Income.self, id: id, ctx)
             jahr = appKalender.component(.year, from: o.rechnungsdatum)
-            aktuellerPfad = o.belegPfad; setze = { o.belegPfad = $0 }
+            aktuellerPfad = o.belegPfad
+            setze = { o.belegPfad = $0 }
         case "ausgaben", "ausgabe":
             let o = try modell(ExpenseEntry.self, id: id, ctx)
             jahr = appKalender.component(.year, from: o.datum)
-            aktuellerPfad = o.belegPfad; setze = { o.belegPfad = $0 }
+            aktuellerPfad = o.belegPfad
+            setze = { o.belegPfad = $0 }
         case "einkaeufe", "einkauf", "anschaffungen", "anschaffung":
             let o = try modell(PurchaseEntry.self, id: id, ctx)
             jahr = appKalender.component(.year, from: o.datum)
-            aktuellerPfad = o.belegPfad; setze = { o.belegPfad = $0 }
+            aktuellerPfad = o.belegPfad
+            setze = { o.belegPfad = $0 }
         default:
             throw MCPFehler("typ '\(typ)' führt keinen Beleg. Erlaubt: einnahmen | ausgaben | einkaeufe.")
         }
@@ -604,8 +749,12 @@ enum KontorMCP {
     @MainActor private static func alle<T: PersistentModel>(_ t: T.Type, _ ctx: ModelContext) -> [T] {
         (try? ctx.fetch(FetchDescriptor<T>())) ?? []
     }
-    @MainActor private static func einnahmenPosten(_ ctx: ModelContext) -> [EinnahmePosten] { alle(Income.self, ctx).flatMap(\.postenListe) }
-    @MainActor private static func ausgabenPosten(_ ctx: ModelContext) -> [AusgabePosten] { alle(ExpenseEntry.self, ctx).map(\.posten) }
+    @MainActor private static func einnahmenPosten(_ ctx: ModelContext) -> [EinnahmePosten] {
+        alle(Income.self, ctx).flatMap(\.postenListe)
+    }
+    @MainActor private static func ausgabenPosten(_ ctx: ModelContext) -> [AusgabePosten] {
+        alle(ExpenseEntry.self, ctx).map(\.posten)
+    }
 
     @MainActor private static func naechsteFrist(_ ctx: ModelContext) -> TaxPayment? {
         let heute = appKalender.startOfDay(for: Date())
@@ -623,8 +772,10 @@ enum KontorMCP {
     private static var heuteMonat: Int { appKalender.component(.month, from: Date()) }
 
     private static let mcpTag: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        f.calendar = appKalender; f.timeZone = appKalender.timeZone
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.calendar = appKalender
+        f.timeZone = appKalender.timeZone
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
@@ -635,7 +786,9 @@ enum KontorMCP {
         let n = NSDecimalNumber(decimal: d.gerundet(2))
         let f = NumberFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.minimumFractionDigits = 2; f.maximumFractionDigits = 2; f.usesGroupingSeparator = false
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        f.usesGroupingSeparator = false
         return f.string(from: n) ?? "\(d)"
     }
 
@@ -664,12 +817,17 @@ enum KontorMCP {
         return nil
     }
     private static func dezArg(_ v: Any?) -> Decimal? {
-        if let s = v as? String { return Decimal(string: s.replacingOccurrences(of: ",", with: "."), locale: Locale(identifier: "en_US_POSIX")) }
+        if let s = v as? String {
+            return Decimal(
+                string: s.replacingOccurrences(of: ",", with: "."), locale: Locale(identifier: "en_US_POSIX"))
+        }
         if let n = v as? NSNumber { return Decimal(string: n.stringValue, locale: Locale(identifier: "en_US_POSIX")) }
         return nil
     }
     private static func pflichtInt(_ a: [String: Any], _ schluessel: String) throws -> Int {
-        guard let i = intArg(a[schluessel]) else { throw MCPFehler("Pflichtfeld '\(schluessel)' fehlt oder ist keine Zahl.") }
+        guard let i = intArg(a[schluessel]) else {
+            throw MCPFehler("Pflichtfeld '\(schluessel)' fehlt oder ist keine Zahl.")
+        }
         return i
     }
 
@@ -683,7 +841,8 @@ enum KontorMCP {
     private static func pflichtInt(_ a: [String: Any], _ schluessel: String, bereich: ClosedRange<Int>) throws -> Int {
         let i = try pflichtInt(a, schluessel)
         guard bereich.contains(i) else {
-            throw MCPFehler("'\(schluessel)' muss zwischen \(bereich.lowerBound) und \(bereich.upperBound) liegen (war \(i)).")
+            throw MCPFehler(
+                "'\(schluessel)' muss zwischen \(bereich.lowerBound) und \(bereich.upperBound) liegen (war \(i)).")
         }
         return i
     }
@@ -712,7 +871,8 @@ enum KontorMCP {
         guard let s = v as? String else { return nil }
         let teile = s.split(separator: "-")
         guard teile.count == 3, teile[0].count == 4,
-              let j = Int(teile[0]), let m = Int(teile[1]), let t = Int(teile[2]) else { return nil }
+            let j = Int(teile[0]), let m = Int(teile[1]), let t = Int(teile[2])
+        else { return nil }
         let komponenten = DateComponents(year: j, month: m, day: t)
         guard komponenten.isValidDate(in: appKalender) else { return nil }
         return appKalender.date(from: komponenten)
@@ -753,7 +913,8 @@ enum KontorMCP {
     }
     private static func modell<T: PersistentModel>(_ t: T.Type, id: String, _ ctx: ModelContext) throws -> T {
         guard let data = Data(base64Encoded: id),
-              let pid = try? JSONDecoder().decode(PersistentIdentifier.self, from: data) else {
+            let pid = try? JSONDecoder().decode(PersistentIdentifier.self, from: data)
+        else {
             throw MCPFehler("Ungültige id – bitte aus kontor_liste (mit_id=true) übernehmen.")
         }
         // Über einen Fetch statt `ctx.model(for:)`: Letzteres **trappt** bei einem unbekannten
@@ -777,6 +938,7 @@ enum KontorMCP {
     private static func zahl(_ d: String) -> [String: Any] { ["type": "number", "description": d] }
     private static func text(_ d: String) -> [String: Any] { ["type": "string", "description": d] }
     private static func flag(_ d: String) -> [String: Any] { ["type": "boolean", "description": d] }
-    private static func freiObj(_ d: String) -> [String: Any] { ["type": "object", "description": d, "additionalProperties": true] }
+    private static func freiObj(_ d: String) -> [String: Any] {
+        ["type": "object", "description": d, "additionalProperties": true]
+    }
 }
-

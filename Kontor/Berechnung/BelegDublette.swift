@@ -23,8 +23,9 @@ enum BelegDublette {
         if let treffer = perRechnungsnummer(rechnungsnummer, in: liste, rechnungsnummerVon: rechnungsnummerVon) {
             return treffer
         }
-        return perBetragDatum(brutto, datum, in: liste, toleranzTage: toleranzTage,
-                              betragVon: bruttoVon, datumVon: datumVon)
+        return perBetragDatum(
+            brutto, datum, in: liste, toleranzTage: toleranzTage,
+            betragVon: bruttoVon, datumVon: datumVon)
     }
 
     // MARK: - Bausteine
@@ -36,15 +37,19 @@ enum BelegDublette {
         return d.count >= 4 ? d : nil
     }
 
-    static func perRechnungsnummer<T>(_ rn: String?, in liste: [T],
-                                      rechnungsnummerVon: (T) -> String?) -> T? {
+    static func perRechnungsnummer<T>(
+        _ rn: String?, in liste: [T],
+        rechnungsnummerVon: (T) -> String?
+    ) -> T? {
         guard let neu = ziffern(rn) else { return nil }
         return liste.first { ziffern(rechnungsnummerVon($0)) == neu }
     }
 
-    static func perBetragDatum<T>(_ betrag: Decimal, _ datum: Date, in liste: [T],
-                                  toleranzTage: Int,
-                                  betragVon: (T) -> Decimal, datumVon: (T) -> Date) -> T? {
+    static func perBetragDatum<T>(
+        _ betrag: Decimal, _ datum: Date, in liste: [T],
+        toleranzTage: Int,
+        betragVon: (T) -> Decimal, datumVon: (T) -> Date
+    ) -> T? {
         // **0 ist kein Indiz.** Der Betrag ist hier das einzige Identitätsmerkmal – und 0 entsteht
         // gleich auf zwei Wegen ohne jede Aussage: bei fehlgeschlagener OCR (Betrag nicht erkannt)
         // und bei jeder frisch per „+" angelegten Leerzeile. Ohne diesen Guard matchte ein

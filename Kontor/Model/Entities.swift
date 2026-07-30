@@ -94,12 +94,17 @@ final class YearSettings {
 
     /// KV/RV/PV-Monatsbeiträge des Monats – jeder Zweig erbt unabhängig vom Vormonat; sonst 0.
     func kskTeile(monat: Int) -> (kv: Decimal, rv: Decimal, pv: Decimal) {
-        (geerbt(kskKVProMonat, monat: monat) ?? 0,
-         geerbt(kskRVProMonat, monat: monat) ?? 0,
-         geerbt(kskPVProMonat, monat: monat) ?? 0)
+        (
+            geerbt(kskKVProMonat, monat: monat) ?? 0,
+            geerbt(kskRVProMonat, monat: monat) ?? 0,
+            geerbt(kskPVProMonat, monat: monat) ?? 0
+        )
     }
     /// Effektiver KSK-Monatsbeitrag = KV + RV + PV; 0 wenn nichts hinterlegt.
-    func ksk(monat: Int) -> Decimal { let t = kskTeile(monat: monat); return t.kv + t.rv + t.pv }
+    func ksk(monat: Int) -> Decimal {
+        let t = kskTeile(monat: monat)
+        return t.kv + t.rv + t.pv
+    }
     /// Hat der Monat eigene KSK-Angaben (JAE oder einen Zweig-Betrag)?
     func hatEigenenKSK(monat: Int) -> Bool {
         let k = String(monat)
@@ -119,7 +124,9 @@ final class YearSettings {
     func loescheKSK(monat: Int) {
         let k = String(monat)
         kskJAEProMonat[k] = nil
-        kskRVProMonat[k] = nil; kskKVProMonat[k] = nil; kskPVProMonat[k] = nil
+        kskRVProMonat[k] = nil
+        kskKVProMonat[k] = nil
+        kskPVProMonat[k] = nil
     }
 
     /// Voraussichtliches Jahresarbeitseinkommen des Monats – nur Info (erbt vom Vormonat; sonst 0).
@@ -237,9 +244,11 @@ final class Vorlage {
     var art: AusgabeArt
     var umlagefaehig: Bool
 
-    init(bezeichnung: String, anbieter: String = "", betragBrutto: Decimal,
-         steuerart: Steuerart = .steuerfrei, betrieblich: Bool = false,
-         art: AusgabeArt = .fixkosten, umlagefaehig: Bool = false) {
+    init(
+        bezeichnung: String, anbieter: String = "", betragBrutto: Decimal,
+        steuerart: Steuerart = .steuerfrei, betrieblich: Bool = false,
+        art: AusgabeArt = .fixkosten, umlagefaehig: Bool = false
+    ) {
         self.bezeichnung = bezeichnung
         self.anbieter = anbieter
         self.betragBrutto = betragBrutto
@@ -364,9 +373,15 @@ final class Income {
     func setze(status neu: InvoiceStatus) {
         status = neu
         switch neu {
-        case .bezahlt:     if zahlungsdatum == nil { zahlungsdatum = Date() }; ausfalldatum = nil
-        case .offen:       zahlungsdatum = nil; ausfalldatum = nil
-        case .ausgefallen: zahlungsdatum = nil; if ausfalldatum == nil { ausfalldatum = Date() }
+        case .bezahlt:
+            if zahlungsdatum == nil { zahlungsdatum = Date() }
+            ausfalldatum = nil
+        case .offen:
+            zahlungsdatum = nil
+            ausfalldatum = nil
+        case .ausgefallen:
+            zahlungsdatum = nil
+            if ausfalldatum == nil { ausfalldatum = Date() }
         }
     }
 }
@@ -383,8 +398,10 @@ final class TaxPayment {
     var bezahltAm: Date?
     var bemerkung: String
 
-    init(kind: SteuerKind, jahr: Int, faellig: Date, betrag: Decimal = 0,
-         bezahlt: Bool = false, bezahltAm: Date? = nil, bemerkung: String = "") {
+    init(
+        kind: SteuerKind, jahr: Int, faellig: Date, betrag: Decimal = 0,
+        bezahlt: Bool = false, bezahltAm: Date? = nil, bemerkung: String = ""
+    ) {
         self.kind = kind
         self.jahr = jahr
         self.faellig = faellig
@@ -434,19 +451,19 @@ enum TaskIntervall: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var bezeichnung: String {
         switch self {
-        case .einmalig:      "einmalig"
-        case .monatlich:     "monatlich"
+        case .einmalig: "einmalig"
+        case .monatlich: "monatlich"
         case .quartalsweise: "quartalsweise"
-        case .jaehrlich:     "jährlich"
+        case .jaehrlich: "jährlich"
         }
     }
     /// Sortierrang nach Häufigkeit (für sortierbare Tabellenspalte „Wiederholung").
     var sortRang: Int {
         switch self {
-        case .einmalig:      0
-        case .monatlich:     1
+        case .einmalig: 0
+        case .monatlich: 1
         case .quartalsweise: 2
-        case .jaehrlich:     3
+        case .jaehrlich: 3
         }
     }
 
@@ -476,8 +493,10 @@ final class MonthlyTask {
     /// Sortierschlüssel der Checkbox-Spalte (Bool ist nicht `Comparable`): offen vor erledigt.
     var erledigtSort: Int { erledigt ? 1 : 0 }
 
-    init(titel: String, monat: Date, erledigt: Bool = false,
-         intervall: TaskIntervall = .einmalig, faelligTag: Int = 1, quartalsMonate: [Int] = []) {
+    init(
+        titel: String, monat: Date, erledigt: Bool = false,
+        intervall: TaskIntervall = .einmalig, faelligTag: Int = 1, quartalsMonate: [Int] = []
+    ) {
         self.titel = titel
         self.monat = monat
         self.erledigt = erledigt
@@ -493,7 +512,7 @@ final class MonthlyTask {
 /// (oder Ändern) eines Vorschlags per Upsert aktualisiert → nächster Import nutzt sie als Default.
 @Model
 final class ZuordnungsRegel {
-    @Attribute(.unique) var schluessel: String   // Bankbuchung.haendlerSchluessel
+    @Attribute(.unique) var schluessel: String  // Bankbuchung.haendlerSchluessel
     var kategorie: ImportKategorie
     var betrieblich: Bool
     var steuerart: Steuerart
@@ -503,8 +522,10 @@ final class ZuordnungsRegel {
     var steuerKind: SteuerKind?
     var aktualisiert: Date
 
-    init(schluessel: String, kategorie: ImportKategorie, betrieblich: Bool,
-         steuerart: Steuerart = .inland19, steuerKind: SteuerKind = .ustVz, aktualisiert: Date = Date()) {
+    init(
+        schluessel: String, kategorie: ImportKategorie, betrieblich: Bool,
+        steuerart: Steuerart = .inland19, steuerKind: SteuerKind = .ustVz, aktualisiert: Date = Date()
+    ) {
         self.schluessel = schluessel
         self.kategorie = kategorie
         self.betrieblich = betrieblich
@@ -518,7 +539,7 @@ final class ZuordnungsRegel {
 /// Bank-Schlüssel) – macht den Import idempotent und merkt sich „abgehakt".
 @Model
 final class ImportBuchung {
-    @Attribute(.unique) var schluessel: String   // Bankbuchung.dedupSchluessel
+    @Attribute(.unique) var schluessel: String  // Bankbuchung.dedupSchluessel
     var buchungstag: Date
     var betrag: Decimal
     var gegenpartei: String
@@ -526,8 +547,10 @@ final class ImportBuchung {
     var betrieblich: Bool
     var erstellt: Date
 
-    init(schluessel: String, buchungstag: Date, betrag: Decimal, gegenpartei: String,
-         kategorie: ImportKategorie, betrieblich: Bool, erstellt: Date = Date()) {
+    init(
+        schluessel: String, buchungstag: Date, betrag: Decimal, gegenpartei: String,
+        kategorie: ImportKategorie, betrieblich: Bool, erstellt: Date = Date()
+    ) {
         self.schluessel = schluessel
         self.buchungstag = buchungstag
         self.betrag = betrag

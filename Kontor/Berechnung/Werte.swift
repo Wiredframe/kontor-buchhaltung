@@ -40,8 +40,9 @@ struct MonatsSnapshot: Codable, Hashable {
 
 extension ExpenseEntry {
     var posten: AusgabePosten {
-        AusgabePosten(brutto: brutto, vst: vst, steuerart: steuerart,
-                      betrieblich: betrieblich, datum: datum)
+        AusgabePosten(
+            brutto: brutto, vst: vst, steuerart: steuerart,
+            betrieblich: betrieblich, datum: datum)
     }
 }
 
@@ -50,13 +51,18 @@ extension Income {
     /// Mischrechnung (`satz2 != nil` und Beträge ≠ 0). Beide erben Rechnungs-/Zahlungs-/Ausfalldatum und
     /// Status – so rechnet die Engine je Satz getrennt (KZ 81/86, §17) ganz ohne Sonderfall-Code.
     var postenListe: [EinnahmePosten] {
-        var liste = [EinnahmePosten(rnNetto: rnNetto, ust: ust, satz: satzEffektiv,
-                                    rechnungsdatum: rechnungsdatum, zahlungsdatum: zahlungsdatum,
-                                    status: status, ausfalldatum: ausfalldatum)]
+        var liste = [
+            EinnahmePosten(
+                rnNetto: rnNetto, ust: ust, satz: satzEffektiv,
+                rechnungsdatum: rechnungsdatum, zahlungsdatum: zahlungsdatum,
+                status: status, ausfalldatum: ausfalldatum)
+        ]
         if let s2 = satz2, rnNetto2 != 0 || ust2 != 0 {
-            liste.append(EinnahmePosten(rnNetto: rnNetto2, ust: ust2, satz: s2,
-                                        rechnungsdatum: rechnungsdatum, zahlungsdatum: zahlungsdatum,
-                                        status: status, ausfalldatum: ausfalldatum))
+            liste.append(
+                EinnahmePosten(
+                    rnNetto: rnNetto2, ust: ust2, satz: s2,
+                    rechnungsdatum: rechnungsdatum, zahlungsdatum: zahlungsdatum,
+                    status: status, ausfalldatum: ausfalldatum))
         }
         return liste
     }
@@ -67,14 +73,14 @@ extension Income {
 /// Kennzahlen einer Umsatzsteuer-Voranmeldung für eine Periode – benannt wie im
 /// ELSTER-Formular, damit die Werte direkt übertragbar sind.
 struct UStVAErgebnis: Hashable {
-    var kz81: Decimal    // KZ 81: Bemessungsgrundlage (netto) der zu 19 % steuerpflichtigen Umsätze
-    var ust81: Decimal   // darauf entfallende USt 19 % (im Formular automatisch berechnet)
-    var kz86: Decimal    // KZ 86: Bemessungsgrundlage (netto) der zu 7 % (ermäßigt) steuerpflichtigen Umsätze
-    var ust86: Decimal   // darauf entfallende USt 7 % (im Formular automatisch berechnet)
-    var kz66: Decimal    // KZ 66: abziehbare Vorsteuer aus Rechnungen anderer Unternehmer (Inland)
-    var kz84: Decimal    // KZ 84: §13b Reverse-Charge – Netto-Bemessung der bezogenen Leistungen
-    var kz85: Decimal    // KZ 85: §13b – darauf geschuldete USt (immer 19 %)
-    var kz67: Decimal    // KZ 67: Vorsteuer aus §13b-Leistungen (= KZ 85, zugleich abziehbar)
+    var kz81: Decimal  // KZ 81: Bemessungsgrundlage (netto) der zu 19 % steuerpflichtigen Umsätze
+    var ust81: Decimal  // darauf entfallende USt 19 % (im Formular automatisch berechnet)
+    var kz86: Decimal  // KZ 86: Bemessungsgrundlage (netto) der zu 7 % (ermäßigt) steuerpflichtigen Umsätze
+    var ust86: Decimal  // darauf entfallende USt 7 % (im Formular automatisch berechnet)
+    var kz66: Decimal  // KZ 66: abziehbare Vorsteuer aus Rechnungen anderer Unternehmer (Inland)
+    var kz84: Decimal  // KZ 84: §13b Reverse-Charge – Netto-Bemessung der bezogenen Leistungen
+    var kz85: Decimal  // KZ 85: §13b – darauf geschuldete USt (immer 19 %)
+    var kz67: Decimal  // KZ 67: Vorsteuer aus §13b-Leistungen (= KZ 85, zugleich abziehbar)
 
     /// §17-Korrektur (negativ) aus Forderungsausfällen – **nur zur Erläuterung**.
     ///

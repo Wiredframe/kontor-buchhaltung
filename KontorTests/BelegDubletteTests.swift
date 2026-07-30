@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import Kontor
 
 /// Regression: Der Betrag ist bei der Betrag/Datum-Suche das einzige Identitätsmerkmal –
@@ -7,16 +8,21 @@ import Foundation
 /// angelegten Leerzeile. Ohne Guard matchte ein 0-Euro-Entwurf den erstbesten anderen
 /// 0-Euro-Eintrag, und „Zusammenführen" verschmolz unabhängige Belege.
 struct BelegDubletteNullbetragTests {
-    private struct Eintrag { var rn: String?; var brutto: Decimal; var datum: Date }
+    private struct Eintrag {
+        var rn: String?
+        var brutto: Decimal
+        var datum: Date
+    }
 
     private let bestand = [
-        Eintrag(rn: nil, brutto: 0, datum: tag(2026, 6, 10)),          // Leerzeile aus „+"
+        Eintrag(rn: nil, brutto: 0, datum: tag(2026, 6, 10)),  // Leerzeile aus „+"
         Eintrag(rn: nil, brutto: dez("238"), datum: tag(2026, 6, 11)),
     ]
 
     private func finde(_ brutto: Decimal, _ datum: Date, rn: String? = nil) -> Eintrag? {
-        BelegDublette.finde(rechnungsnummer: rn, brutto: brutto, datum: datum, in: bestand,
-                            rechnungsnummerVon: { $0.rn }, bruttoVon: { $0.brutto }, datumVon: { $0.datum })
+        BelegDublette.finde(
+            rechnungsnummer: rn, brutto: brutto, datum: datum, in: bestand,
+            rechnungsnummerVon: { $0.rn }, bruttoVon: { $0.brutto }, datumVon: { $0.datum })
     }
 
     @Test func nullBetragMatchtNichtDieLeerzeile() {
@@ -36,9 +42,10 @@ struct BelegDubletteNullbetragTests {
     /// Die Rechnungsnummer bleibt der stärkere Treffer – auch bei Betrag 0.
     @Test func rechnungsnummerGreiftAuchOhneBetrag() throws {
         let liste = [Eintrag(rn: "RE-2026-0815", brutto: 0, datum: tag(2026, 6, 10))]
-        let t = BelegDublette.finde(rechnungsnummer: "2026-0815", brutto: 0, datum: tag(2026, 6, 12),
-                                    in: liste, rechnungsnummerVon: { $0.rn },
-                                    bruttoVon: { $0.brutto }, datumVon: { $0.datum })
+        let t = BelegDublette.finde(
+            rechnungsnummer: "2026-0815", brutto: 0, datum: tag(2026, 6, 12),
+            in: liste, rechnungsnummerVon: { $0.rn },
+            bruttoVon: { $0.brutto }, datumVon: { $0.datum })
         #expect(t != nil)
     }
 }
@@ -51,11 +58,14 @@ struct BelegDubletteTests {
         var datum: Date
     }
 
-    private func finde(rechnungsnummer: String?, brutto: Decimal, datum: Date,
-                       in liste: [Eintrag], toleranzTage: Int = 14) -> Eintrag? {
-        BelegDublette.finde(rechnungsnummer: rechnungsnummer, brutto: brutto, datum: datum,
-                            in: liste, toleranzTage: toleranzTage,
-                            rechnungsnummerVon: { $0.rn }, bruttoVon: { $0.brutto }, datumVon: { $0.datum })
+    private func finde(
+        rechnungsnummer: String?, brutto: Decimal, datum: Date,
+        in liste: [Eintrag], toleranzTage: Int = 14
+    ) -> Eintrag? {
+        BelegDublette.finde(
+            rechnungsnummer: rechnungsnummer, brutto: brutto, datum: datum,
+            in: liste, toleranzTage: toleranzTage,
+            rechnungsnummerVon: { $0.rn }, bruttoVon: { $0.brutto }, datumVon: { $0.datum })
     }
 
     @Test func trefferUeberRechnungsnummer() {
@@ -74,8 +84,8 @@ struct BelegDubletteTests {
 
     @Test func trefferUeberBetragImFenster() {
         let liste = [Eintrag(rn: nil, brutto: dez("119"), datum: tag(2026, 6, 1))]
-        #expect(finde(rechnungsnummer: nil, brutto: dez("119"), datum: tag(2026, 6, 10), in: liste) != nil)   // 9 Tage
-        #expect(finde(rechnungsnummer: nil, brutto: dez("119"), datum: tag(2026, 7, 1), in: liste) == nil)    // 30 Tage > 14
-        #expect(finde(rechnungsnummer: nil, brutto: dez("120"), datum: tag(2026, 6, 1), in: liste) == nil)    // Betrag ≠
+        #expect(finde(rechnungsnummer: nil, brutto: dez("119"), datum: tag(2026, 6, 10), in: liste) != nil)  // 9 Tage
+        #expect(finde(rechnungsnummer: nil, brutto: dez("119"), datum: tag(2026, 7, 1), in: liste) == nil)  // 30 Tage > 14
+        #expect(finde(rechnungsnummer: nil, brutto: dez("120"), datum: tag(2026, 6, 1), in: liste) == nil)  // Betrag ≠
     }
 }

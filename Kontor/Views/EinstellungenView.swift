@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import AppKit
+import SwiftData
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct EinstellungenView: View {
@@ -55,7 +55,9 @@ private struct EinstellungenForm: View {
     private var grundfreibetragBinding: Binding<Decimal> {
         Binding {
             settings.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: settings.jahr)
-        } set: { settings.grundfreibetrag = $0 }
+        } set: {
+            settings.grundfreibetrag = $0
+        }
     }
 
     /// Selbsttest ohne externen Client: schickt eine echte MCP-Anfrage (kontor_uebersicht)
@@ -74,10 +76,11 @@ private struct EinstellungenForm: View {
         Task { @MainActor in
             defer { selbsttestLaeuft = false }
             guard let body = try? JSONSerialization.data(withJSONObject: anfrage),
-                  let antwort = await MCPProtokoll.verarbeite(body, container: container, sitzung: "selbsttest"),
-                  let obj = try? JSONSerialization.jsonObject(with: antwort) as? [String: Any],
-                  let result = obj["result"] as? [String: Any],
-                  let inhalt = (result["content"] as? [[String: Any]])?.first?["text"] as? String else {
+                let antwort = await MCPProtokoll.verarbeite(body, container: container, sitzung: "selbsttest"),
+                let obj = try? JSONSerialization.jsonObject(with: antwort) as? [String: Any],
+                let result = obj["result"] as? [String: Any],
+                let inhalt = (result["content"] as? [[String: Any]])?.first?["text"] as? String
+            else {
                 selbsttestErgebnis = "Selbsttest fehlgeschlagen: keine Antwort vom lokalen MCP-Endpoint."
                 return
             }
@@ -94,8 +97,10 @@ private struct EinstellungenForm: View {
                 Toggle("Dauerfristverlängerung", isOn: $settings.dauerfristverlaengerung)
                 LabeledContent("Versteuerung", value: "Soll (vereinbarte Entgelte)")
                 TextField("Grundfreibetrag (ESt)", value: grundfreibetragBinding, format: .currency(code: "EUR"))
-                Text("Für die jahresbasierte ESt-Schätzung in der Jahresübersicht. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag).")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Für die jahresbasierte ESt-Schätzung in der Jahresübersicht. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag)."
+                )
+                .font(.caption).foregroundStyle(.secondary)
                 Text("KSK-Beitrag und ESt-Satz werden pro Monat im Monatsabschluss gepflegt (Sidebar-Tab „Werte“).")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -107,42 +112,60 @@ private struct EinstellungenForm: View {
             }
 
             Section("Komplett-Backup (mit Belegen)") {
-                Button { exportiereKomplett() } label: {
+                Button {
+                    exportiereKomplett()
+                } label: {
                     Label("Komplett-Backup exportieren …", systemImage: "square.and.arrow.up.on.square")
                 }
-                Button { importiereKomplett() } label: {
+                Button {
+                    importiereKomplett()
+                } label: {
                     Label("Komplett-Backup importieren …", systemImage: "square.and.arrow.down.on.square")
                 }
-                Text("Sichert alle Daten **samt Belegen** als Ordner (kontor.json + Belege/). Empfohlen für Umzug oder vollständige Wiederherstellung.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Sichert alle Daten **samt Belegen** als Ordner (kontor.json + Belege/). Empfohlen für Umzug oder vollständige Wiederherstellung."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Nur Daten (JSON)") {
-                Button { exportieren() } label: {
+                Button {
+                    exportieren()
+                } label: {
                     Label("Als JSON exportieren …", systemImage: "square.and.arrow.up")
                 }
-                Button { importiereJSON() } label: {
+                Button {
+                    importiereJSON()
+                } label: {
                     Label("Aus JSON-Backup importieren …", systemImage: "tray.and.arrow.down.fill")
                 }
-                Text("Leichtgewichtig, ohne Belege. Import ohne Überschreiben (Dedup über Rechnungsnummer bzw. Schlüssel).")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Leichtgewichtig, ohne Belege. Import ohne Überschreiben (Dedup über Rechnungsnummer bzw. Schlüssel)."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Auto-Backup") {
-                Button { if let u = Backup.backupOrdner() { NSWorkspace.shared.open(u) } } label: {
+                Button {
+                    if let u = Backup.backupOrdner() { NSWorkspace.shared.open(u) }
+                } label: {
                     Label("Auto-Backup-Ordner öffnen …", systemImage: "folder")
                 }
-                Text("Beim Start wird automatisch ein tägliches Backup angelegt (JSON, letzte 14 Tage). Hinweis: Auto-Backups enthalten keine Beleg-Dateien – dafür das Komplett-Backup nutzen.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Beim Start wird automatisch ein tägliches Backup angelegt (JSON, letzte 14 Tage). Hinweis: Auto-Backups enthalten keine Beleg-Dateien – dafür das Komplett-Backup nutzen."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("KI-Zugriff (MCP)") {
-                Toggle("Lokalen MCP-Server aktivieren", isOn: Binding(
-                    get: { mcp.aktiv },
-                    set: { an in
-                        if an { mcp.starten() } else { mcp.stoppen() }
-                        UserDefaults.standard.set(an, forKey: "mcpAktiv")
-                    }))
+                Toggle(
+                    "Lokalen MCP-Server aktivieren",
+                    isOn: Binding(
+                        get: { mcp.aktiv },
+                        set: { an in
+                            if an { mcp.starten() } else { mcp.stoppen() }
+                            UserDefaults.standard.set(an, forKey: "mcpAktiv")
+                        }))
                 if mcp.aktiv {
                     LabeledContent("Adresse", value: mcp.url)
                     Button {
@@ -169,10 +192,14 @@ private struct EinstellungenForm: View {
                     Label(fehler, systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange)
                 }
-                Text("Erlaubt einem externen KI-Client (z. B. Claude Code) Zugriff auf deine Daten – nur lokal (127.0.0.1), Token-geschützt. Lesen (Engine-Zahlen/CSV) **und** sparsames Schreiben (Ausgabe anlegen, Rechnung bezahlt); vor dem ersten Schreibzugriff je Sitzung wird automatisch ein Backup im Ordner „KI-Backups“ abgelegt.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("Der Server ist standardmäßig aus und läuft nur, solange dieser Schalter an ist; beim Beenden der App stoppt er. Der Selbsttest führt lokal eine Beispielabfrage aus, ganz ohne externen Client.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Erlaubt einem externen KI-Client (z. B. Claude Code) Zugriff auf deine Daten – nur lokal (127.0.0.1), Token-geschützt. Lesen (Engine-Zahlen/CSV) **und** sparsames Schreiben (Ausgabe anlegen, Rechnung bezahlt); vor dem ersten Schreibzugriff je Sitzung wird automatisch ein Backup im Ordner „KI-Backups“ abgelegt."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Der Server ist standardmäßig aus und läuft nur, solange dieser Schalter an ist; beim Beenden der App stoppt er. Der Selbsttest führt lokal eine Beispielabfrage aus, ganz ohne externen Client."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             #if !APPSTORE
@@ -184,14 +211,18 @@ private struct EinstellungenForm: View {
                 } label: {
                     Label("Kontor unterstützen …", systemImage: "heart")
                 }
-                Text("Kontor ist kostenlos. Über eine freiwillige Spende freue ich mich sehr – der Link öffnet die Spendenseite im Browser.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Kontor ist kostenlos. Über eine freiwillige Spende freue ich mich sehr – der Link öffnet die Spendenseite im Browser."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
             #endif
 
             Section("Rechtliches") {
                 Button {
-                    if let url = URL(string: "https://www.wiredframe.de/impressum.html") { NSWorkspace.shared.open(url) }
+                    if let url = URL(string: "https://www.wiredframe.de/impressum.html") {
+                        NSWorkspace.shared.open(url)
+                    }
                 } label: {
                     Label("Impressum", systemImage: "info.circle")
                 }
@@ -203,8 +234,10 @@ private struct EinstellungenForm: View {
             }
 
             Section("Datenbank") {
-                Text("Deine Einträge bleiben dauerhaft gespeichert – die App setzt beim Bauen oder Starten nichts zurück. Sicherung und Wiederherstellung laufen über die Backup-/Import-Funktionen oben.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    "Deine Einträge bleiben dauerhaft gespeichert – die App setzt beim Bauen oder Starten nichts zurück. Sicherung und Wiederherstellung laufen über die Backup-/Import-Funktionen oben."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             if let status {
@@ -230,25 +263,30 @@ private struct EinstellungenForm: View {
 
     private func exportiereKomplett() {
         let panel = NSOpenPanel()
-        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
         panel.message = "Zielordner für das Komplett-Backup wählen"
         panel.prompt = "Hier sichern"
         guard panel.runModal() == .OK, let ordner = panel.url else { return }
         let scoped = ordner.startAccessingSecurityScopedResource()
         defer { if scoped { ordner.stopAccessingSecurityScopedResource() } }
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
         let ziel = ordner.appendingPathComponent("Kontor-Backup-\(df.string(from: Date()))")
         do {
             try Backup.exportiereKomplett(context, nach: ziel)
             status = "Komplett-Backup gespeichert: \(ziel.lastPathComponent) (inkl. Belege)."
         } catch {
-            status = "Export fehlgeschlagen: \(error.localizedDescription)"; NSSound.beep()
+            status = "Export fehlgeschlagen: \(error.localizedDescription)"
+            NSSound.beep()
         }
     }
 
     private func importiereKomplett() {
         let panel = NSOpenPanel()
-        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
         panel.message = "Komplett-Backup-Ordner wählen (enthält kontor.json)"
         panel.prompt = "Importieren"
         guard panel.runModal() == .OK, let ordner = panel.url else { return }
@@ -258,7 +296,8 @@ private struct EinstellungenForm: View {
             let r = try Backup.importiereKomplett(context, von: ordner)
             status = "Komplett-Import: \(r.neu) neu, \(r.uebersprungen) übersprungen (inkl. Belege)."
         } catch {
-            status = "Import fehlgeschlagen: \(error.localizedDescription)"; NSSound.beep()
+            status = "Import fehlgeschlagen: \(error.localizedDescription)"
+            NSSound.beep()
         }
     }
 
@@ -269,7 +308,8 @@ private struct EinstellungenForm: View {
             let r = try Backup.importData(data, in: context)
             status = "Import: \(r.neu) Datensätze neu, \(r.uebersprungen) übersprungen."
         } catch {
-            status = "Import fehlgeschlagen: \(error.localizedDescription)"; NSSound.beep()
+            status = "Import fehlgeschlagen: \(error.localizedDescription)"
+            NSSound.beep()
         }
     }
 

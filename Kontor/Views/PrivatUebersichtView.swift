@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import Charts
+import SwiftData
+import SwiftUI
 
 struct PrivatUebersichtView: View {
     @Query private var alleAusgaben: [ExpenseEntry]
@@ -16,8 +16,20 @@ struct PrivatUebersichtView: View {
     private enum PrivatMetrik: String, CaseIterable, Identifiable {
         case gesamt, lebensmittel, einkaeufe
         var id: String { rawValue }
-        var kurz: String { switch self { case .gesamt: "Gesamt"; case .lebensmittel: "Lebensmittel"; case .einkaeufe: "Einkäufe" } }
-        var lang: String { switch self { case .gesamt: "Privatausgaben gesamt"; case .lebensmittel: "Lebensmittel"; case .einkaeufe: "Einkäufe" } }
+        var kurz: String {
+            switch self {
+            case .gesamt: "Gesamt"
+            case .lebensmittel: "Lebensmittel"
+            case .einkaeufe: "Einkäufe"
+            }
+        }
+        var lang: String {
+            switch self {
+            case .gesamt: "Privatausgaben gesamt"
+            case .lebensmittel: "Lebensmittel"
+            case .einkaeufe: "Einkäufe"
+            }
+        }
     }
 
     private var periode: Periode { Periode.monat(jahr, monat) }
@@ -52,16 +64,17 @@ struct PrivatUebersichtView: View {
     // Verlauf über das gewählte Jahr – je Monat die tatsächlich erfassten Beträge.
     private var chartDaten: [(name: String, wert: Double)] {
         (1...12).compactMap { m in
-            guard !istZukunftsmonat(m, jahr: jahr) else { return nil }   // keine Balken für künftige Monate
+            guard !istZukunftsmonat(m, jahr: jahr) else { return nil }  // keine Balken für künftige Monate
             let p = Periode.monat(jahr, m)
             let lm = lebensmittel.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.betrag }
             let ek = anschaffungen.filter { p.enthaelt($0.datum) }.reduce(Decimal(0)) { $0 + $1.preis }
             let fix = alleAusgaben.wiederkehrendBrutto(jahr: jahr, monat: m, betrieblich: false)
-            let d: Decimal = switch chartMetrik {
-                case .gesamt:       fix + lm + ek
+            let d: Decimal =
+                switch chartMetrik {
+                case .gesamt: fix + lm + ek
                 case .lebensmittel: lm
-                case .einkaeufe:    ek
-            }
+                case .einkaeufe: ek
+                }
             return (name: kurzMonat(m), wert: (d as NSDecimalNumber).doubleValue)
         }
     }
@@ -80,7 +93,9 @@ struct PrivatUebersichtView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
                         Kennzahl(titel: "Fixkosten (\(monatsName(monat)))", wert: summeFixkosten, symbol: "house")
-                        Kennzahl(titel: "Subscriptions (\(monatsName(monat)))", wert: summeAbos, symbol: "arrow.triangle.2.circlepath")
+                        Kennzahl(
+                            titel: "Subscriptions (\(monatsName(monat)))", wert: summeAbos,
+                            symbol: "arrow.triangle.2.circlepath")
                         Kennzahl(titel: "Lebensmittel (\(monatsName(monat)))", wert: lebensmittelMonat, symbol: "cart")
                         Kennzahl(titel: "Einkäufe (\(monatsName(monat)))", wert: einkaeufeMonat, symbol: "bag")
                     }
@@ -88,22 +103,40 @@ struct PrivatUebersichtView: View {
                     diagramm
 
                     HStack(alignment: .top, spacing: 14) {
-                        Panel(titel: "Private Fixkosten",
-                              aktion: { nav.zeigeAusgaben(jahr: jahr, monat: monat, art: .fixkosten, betrieblich: false, zeit: zeit) }) {
-                            if fixkosten.isEmpty { leer() }
-                            else { VStack(spacing: 2) { ForEach(fixkosten) { zeile($0.bezeichnung, $0.brutto) } } }
+                        Panel(
+                            titel: "Private Fixkosten",
+                            aktion: {
+                                nav.zeigeAusgaben(
+                                    jahr: jahr, monat: monat, art: .fixkosten, betrieblich: false, zeit: zeit)
+                            }
+                        ) {
+                            if fixkosten.isEmpty {
+                                leer()
+                            } else {
+                                VStack(spacing: 2) { ForEach(fixkosten) { zeile($0.bezeichnung, $0.brutto) } }
+                            }
                         }
                         .frame(maxWidth: .infinity)
-                        Panel(titel: "Private Subscriptions",
-                              aktion: { nav.zeigeAusgaben(jahr: jahr, monat: monat, art: .subscription, betrieblich: false, zeit: zeit) }) {
-                            if abos.isEmpty { leer() }
-                            else { VStack(spacing: 2) { ForEach(abos) { zeile($0.bezeichnung, $0.brutto) } } }
+                        Panel(
+                            titel: "Private Subscriptions",
+                            aktion: {
+                                nav.zeigeAusgaben(
+                                    jahr: jahr, monat: monat, art: .subscription, betrieblich: false, zeit: zeit)
+                            }
+                        ) {
+                            if abos.isEmpty {
+                                leer()
+                            } else {
+                                VStack(spacing: 2) { ForEach(abos) { zeile($0.bezeichnung, $0.brutto) } }
+                            }
                         }
                         .frame(maxWidth: .infinity)
                     }
 
-                    Text("Fixkosten und Subscriptions sind die im gewählten Monat erfassten wiederkehrenden Buchungen (Sparte privat); Lebensmittel und Einkäufe zeigen die im jeweiligen Monat erfassten Ausgaben.")
-                        .font(.footnote).foregroundStyle(.tertiary)
+                    Text(
+                        "Fixkosten und Subscriptions sind die im gewählten Monat erfassten wiederkehrenden Buchungen (Sparte privat); Lebensmittel und Einkäufe zeigen die im jeweiligen Monat erfassten Ausgaben."
+                    )
+                    .font(.footnote).foregroundStyle(.tertiary)
                 }
                 .padding()
             }
@@ -130,8 +163,8 @@ struct PrivatUebersichtView: View {
                         }
                 }
                 .chartXScale(domain: (1...12).map { kurzMonat($0) })
-                .chartYScale(domain: yBereich)   // Kopfraum für die Wert-Labels über den Balken
-                .chartYAxis(.hidden)   // Höhe per Quadratwurzel gestaucht; exakte Werte stehen an den Balken
+                .chartYScale(domain: yBereich)  // Kopfraum für die Wert-Labels über den Balken
+                .chartYAxis(.hidden)  // Höhe per Quadratwurzel gestaucht; exakte Werte stehen an den Balken
                 .frame(height: 240)
             }
         }
@@ -149,7 +182,9 @@ struct PrivatUebersichtView: View {
         Text("Keine Einträge.").font(.callout).foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
     }
-    private func kompakt(_ d: Double) -> String { Int(d.rounded()).formatted(.number.locale(Locale(identifier: "de_DE"))) }
+    private func kompakt(_ d: Double) -> String {
+        Int(d.rounded()).formatted(.number.locale(Locale(identifier: "de_DE")))
+    }
     /// Signierte Quadratwurzel: staucht Ausreißer (Mittelweg linear↔log), behält das Vorzeichen.
     private func wurzel(_ w: Double) -> Double { copysign(sqrt(abs(w)), w) }
     /// Y-Bereich mit Kopf-/Fußraum, damit die Wert-Labels über den Balken Platz haben.

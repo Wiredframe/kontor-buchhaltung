@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct UStVAView: View {
     @Query private var einnahmen: [Income]
@@ -28,9 +28,10 @@ struct UStVAView: View {
         quartal = (monat - 1) / 3 + 1
     }
     private var e: UStVAErgebnis {
-        Steuer.ustva(einnahmen: einnahmen.flatMap(\.postenListe),
-                     ausgaben: ausgaben.map(\.posten),
-                     periode: periode)
+        Steuer.ustva(
+            einnahmen: einnahmen.flatMap(\.postenListe),
+            ausgaben: ausgaben.map(\.posten),
+            periode: periode)
     }
 
     private func hinweis(_ titel: String, _ text: String) -> some View {
@@ -77,65 +78,94 @@ struct UStVAView: View {
 
                     Panel(titel: "Umsätze · geschuldete USt") {
                         VStack(spacing: 0) {
-                            UStVAZeile(kz: "81", label: "Steuerpflichtige Umsätze 19 % (netto)",
-                                       erklaerung: "Summe deiner Netto-Honorare mit 19 % USt – nach Rechnungsdatum (Soll-Versteuerung).",
-                                       wert: e.kz81)
+                            UStVAZeile(
+                                kz: "81", label: "Steuerpflichtige Umsätze 19 % (netto)",
+                                erklaerung:
+                                    "Summe deiner Netto-Honorare mit 19 % USt – nach Rechnungsdatum (Soll-Versteuerung).",
+                                wert: e.kz81)
                             Divider()
-                            UStVAZeile(kz: nil, label: "darauf USt 19 %",
-                                       erklaerung: "Berechnet ELSTER automatisch aus KZ 81 – hier zur Kontrolle.",
-                                       wert: e.ust81, unterzeile: true)
+                            UStVAZeile(
+                                kz: nil, label: "darauf USt 19 %",
+                                erklaerung: "Berechnet ELSTER automatisch aus KZ 81 – hier zur Kontrolle.",
+                                wert: e.ust81, unterzeile: true)
                             Divider()
-                            UStVAZeile(kz: "86", label: "Steuerpflichtige Umsätze 7 % (netto)",
-                                       erklaerung: "Netto-Honorare mit ermäßigten 7 % USt (z. B. Einräumung von Nutzungsrechten) – nach Rechnungsdatum (Soll).",
-                                       wert: e.kz86)
+                            UStVAZeile(
+                                kz: "86", label: "Steuerpflichtige Umsätze 7 % (netto)",
+                                erklaerung:
+                                    "Netto-Honorare mit ermäßigten 7 % USt (z. B. Einräumung von Nutzungsrechten) – nach Rechnungsdatum (Soll).",
+                                wert: e.kz86)
                             Divider()
-                            UStVAZeile(kz: nil, label: "darauf USt 7 %",
-                                       erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
-                                       wert: e.ust86, unterzeile: true)
+                            UStVAZeile(
+                                kz: nil, label: "darauf USt 7 %",
+                                erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
+                                wert: e.ust86, unterzeile: true)
                             Divider()
-                            UStVAZeile(kz: "84", label: "§13b Reverse-Charge (netto)",
-                                       erklaerung: "Netto aus Auslands-Leistungen (z. B. Figma, Adobe), für die du die USt selbst schuldest.",
-                                       wert: e.kz84)
+                            UStVAZeile(
+                                kz: "84", label: "§13b Reverse-Charge (netto)",
+                                erklaerung:
+                                    "Netto aus Auslands-Leistungen (z. B. Figma, Adobe), für die du die USt selbst schuldest.",
+                                wert: e.kz84)
                             Divider()
-                            UStVAZeile(kz: "85", label: "§13b – USt 19 %",
-                                       erklaerung: "USt auf KZ 84 – schuldest du, ziehst sie aber unten (KZ 67) wieder ab → Saldo 0.",
-                                       wert: e.kz85)
+                            UStVAZeile(
+                                kz: "85", label: "§13b – USt 19 %",
+                                erklaerung:
+                                    "USt auf KZ 84 – schuldest du, ziehst sie aber unten (KZ 67) wieder ab → Saldo 0.",
+                                wert: e.kz85)
                             if e.korrektur17 != 0 {
                                 Divider()
-                                UStVAZeile(kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
-                                           erklaerung: "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
-                                                     + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
-                                                     + "Erstattung daraus selbst aus.",
-                                           wert: e.korrektur17)
+                                UStVAZeile(
+                                    kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
+                                    erklaerung:
+                                        "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
+                                        + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
+                                        + "Erstattung daraus selbst aus.",
+                                    wert: e.korrektur17)
                             }
                         }
                     }
 
                     Panel(titel: "Vorsteuer · abziehbar") {
                         VStack(spacing: 0) {
-                            UStVAZeile(kz: "66", label: "Vorsteuer Inland",
-                                       erklaerung: "USt aus Eingangsrechnungen deutscher Lieferanten (betriebliche Ausgaben).",
-                                       wert: e.kz66)
+                            UStVAZeile(
+                                kz: "66", label: "Vorsteuer Inland",
+                                erklaerung: "USt aus Eingangsrechnungen deutscher Lieferanten (betriebliche Ausgaben).",
+                                wert: e.kz66)
                             Divider()
-                            UStVAZeile(kz: "67", label: "Vorsteuer aus §13b-Leistungen",
-                                       erklaerung: "= KZ 85. Macht Reverse-Charge unterm Strich neutral.",
-                                       wert: e.kz67)
+                            UStVAZeile(
+                                kz: "67", label: "Vorsteuer aus §13b-Leistungen",
+                                erklaerung: "= KZ 85. Macht Reverse-Charge unterm Strich neutral.",
+                                wert: e.kz67)
                         }
                     }
 
                     Panel(titel: "Ergebnis") {
-                        Summenzeile(label: "KZ 83 · USt-Vorauszahlung", wert: e.zahllast,
-                                    farbe: e.zahllast >= 0 ? Stil.steuer : .green)
-                        Text(e.zahllast >= 0 ? "Betrag, den du ans Finanzamt überweist." : "Erstattungsbetrag (Vorsteuer-Überhang) vom Finanzamt.")
-                            .font(.caption).foregroundStyle(.tertiary)
+                        Summenzeile(
+                            label: "KZ 83 · USt-Vorauszahlung", wert: e.zahllast,
+                            farbe: e.zahllast >= 0 ? Stil.steuer : .green)
+                        Text(
+                            e.zahllast >= 0
+                                ? "Betrag, den du ans Finanzamt überweist."
+                                : "Erstattungsbetrag (Vorsteuer-Überhang) vom Finanzamt."
+                        )
+                        .font(.caption).foregroundStyle(.tertiary)
                     }
 
                     Panel(titel: "Hinweise zum Ausfüllen") {
                         VStack(alignment: .leading, spacing: 8) {
-                            hinweis("Soll-Versteuerung", "Maßgeblich ist das Rechnungsdatum, nicht der Zahlungseingang.")
-                            hinweis("Reverse-Charge (§13b)", "Bei Auslands-Tools schuldest du die USt selbst (KZ 84/85) und ziehst sie zugleich als Vorsteuer ab (KZ 67) – Saldo 0. Der Netto-Betrag bleibt trotzdem Betriebsausgabe in der EÜR.")
-                            hinweis("Steuersätze", "Ausgangsseitig 19 % (Regelsatz) oder 7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten) – kein steuerfreier Ausgang (außer USt = 0). Mischrechnungen mit beiden Sätzen sind möglich (zweiter Satz je Rechnung).")
-                            hinweis("Vorsteuer", "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf.")
+                            hinweis(
+                                "Soll-Versteuerung", "Maßgeblich ist das Rechnungsdatum, nicht der Zahlungseingang.")
+                            hinweis(
+                                "Reverse-Charge (§13b)",
+                                "Bei Auslands-Tools schuldest du die USt selbst (KZ 84/85) und ziehst sie zugleich als Vorsteuer ab (KZ 67) – Saldo 0. Der Netto-Betrag bleibt trotzdem Betriebsausgabe in der EÜR."
+                            )
+                            hinweis(
+                                "Steuersätze",
+                                "Ausgangsseitig 19 % (Regelsatz) oder 7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten) – kein steuerfreier Ausgang (außer USt = 0). Mischrechnungen mit beiden Sätzen sind möglich (zweiter Satz je Rechnung)."
+                            )
+                            hinweis(
+                                "Vorsteuer",
+                                "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf."
+                            )
                         }
                     }
                 }

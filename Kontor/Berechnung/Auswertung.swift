@@ -6,16 +6,16 @@ import Foundation
 /// „Frei verfügbar" war zuvor dreimal unabhängig codiert (Monatsabschluss, Dashboard und
 /// `Steuer.verfuegbar` für den MCP) – und die MCP-Variante rechnete etwas ganz anderes.
 struct MonatsAuswertung: Hashable {
-    var rn: Decimal              // Netto-Umsatz (Soll, nach Rechnungsdatum)
+    var rn: Decimal  // Netto-Umsatz (Soll, nach Rechnungsdatum)
     var ust: Decimal
     var vst: Decimal
-    var ustKorrektur: Decimal    // §17 (negativ) aus Forderungsausfällen mit Ausfalldatum im Monat
+    var ustKorrektur: Decimal  // §17 (negativ) aus Forderungsausfällen mit Ausfalldatum im Monat
     var ksk: Decimal
-    var est: Decimal             // gebildete ESt-Rücklage (Soll-Basis, ohne Ausfall-Korrektur)
-    var estKorrektur: Decimal    // ESt-Auflösung (negativ) für Ausfälle mit Ausfalldatum im Monat
+    var est: Decimal  // gebildete ESt-Rücklage (Soll-Basis, ohne Ausfall-Korrektur)
+    var estKorrektur: Decimal  // ESt-Auflösung (negativ) für Ausfälle mit Ausfalldatum im Monat
     var betriebsausgabenNetto: Decimal
-    var fixkostenPrivat: Decimal   // wiederkehrende private Kosten (Fixkosten + Subscriptions), brutto
-    var privatVariabel: Decimal    // Lebensmittel + Anschaffungen des Monats
+    var fixkostenPrivat: Decimal  // wiederkehrende private Kosten (Fixkosten + Subscriptions), brutto
+    var privatVariabel: Decimal  // Lebensmittel + Anschaffungen des Monats
 
     var brutto: Decimal { rn + ust }
     var ustZahllast: Decimal { ust - vst + ustKorrektur }
@@ -68,8 +68,9 @@ extension Steuer {
         // ESt-Rücklage pauschal: (betrieblicher Gewinn − KSK) × Satz; ein Forderungsausfall
         // löst sie im Ausfallmonat anteilig wieder auf (Anteil am Umsatz des Rechnungsmonats).
         // `estGebildet` ist die gemeinsame Quelle von Bildung und Auflösung.
-        let gebildet = estGebildet(jahr: jahr, monat: monat, einnahmen: einnahmen, ausgaben: ausgaben,
-                                   kskFuer: kskFuer, satzFuer: pauschalSatz)
+        let gebildet = estGebildet(
+            jahr: jahr, monat: monat, einnahmen: einnahmen, ausgaben: ausgaben,
+            kskFuer: kskFuer, satzFuer: pauschalSatz)
         return MonatsAuswertung(
             rn: gebildet.rn,
             ust: ustSoll(einnahmen, in: p),
@@ -77,8 +78,9 @@ extension Steuer {
             ustKorrektur: ustKorrekturAusfall(einnahmen, in: p),
             ksk: kskFuer(jahr, monat),
             est: gebildet.est,
-            estKorrektur: estAusfallKorrektur(einnahmen, in: p, ausgaben: ausgaben,
-                                              kskFuer: kskFuer, satzFuer: pauschalSatz),
+            estKorrektur: estAusfallKorrektur(
+                einnahmen, in: p, ausgaben: ausgaben,
+                kskFuer: kskFuer, satzFuer: pauschalSatz),
             betriebsausgabenNetto: betrieblichNetto(ausgaben, in: p),
             fixkostenPrivat: fixkostenPrivat,
             privatVariabel: privatVariabel)
@@ -103,13 +105,17 @@ extension Steuer {
 
     /// USt-Jahres-Zahllast (Soll) = Σ der vier Quartals-Zahllasten.
     static func ustZahllastJahr(jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten]) -> Decimal {
-        (1...4).reduce(Decimal(0)) { $0 + ustva(einnahmen: einnahmen, ausgaben: ausgaben, periode: Periode.quartal(jahr, $1)).zahllast }
+        (1...4).reduce(Decimal(0)) {
+            $0 + ustva(einnahmen: einnahmen, ausgaben: ausgaben, periode: Periode.quartal(jahr, $1)).zahllast
+        }
     }
 
     /// EÜR-Jahresauswertung (Einnahmen nach Zufluss, betriebliche Ausgaben netto).
-    static func jahresauswertung(jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten]) -> JahresAuswertung {
+    static func jahresauswertung(jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten]) -> JahresAuswertung
+    {
         let p = Periode.jahr(jahr)
-        let einnahmenBezahlt = einnahmen
+        let einnahmenBezahlt =
+            einnahmen
             .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
         let betrieblich = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }
