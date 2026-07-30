@@ -16,8 +16,8 @@ DERIVED="$OUT/dd"
 ENTITLEMENTS="Kontor/Kontor.entitlements"
 APP="$OUT/Kontor.app"
 
-echo "▸ 1/5  PII-Check (kein Release mit eingecheckten Personendaten)"
-./scripts/pii-check.sh
+echo "▸ 1/5  QA (Quote-Check, PII-Check, Format-Check)"
+./scripts/qa.sh --fast
 
 echo "▸ 2/5  Tests"
 xcodebuild test -scheme Kontor -destination 'platform=macOS' \

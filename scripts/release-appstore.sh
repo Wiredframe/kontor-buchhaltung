@@ -26,8 +26,8 @@ EXPORT="$OUT/export"
 TEAM="7RN999S858"
 ENTITLEMENTS="Kontor/Kontor-AppStore.entitlements"
 
-echo "* 1/4  PII-Check (kein Build mit eingecheckten Personendaten)"
-./scripts/pii-check.sh
+echo "* 1/4  QA (Quote-Check, PII-Check, Format-Check)"
+./scripts/qa.sh --fast
 
 echo "* 2/4  Tests (Normal-Build, MCP vorhanden)"
 xcodebuild test -scheme Kontor -destination 'platform=macOS' \
