@@ -51,9 +51,31 @@ let appKalender: Calendar = {
     return kalender
 }()
 
-/// Kurzschreibweise für ein Datum (Tagesanfang).
+/// Jahr auf einen sicher darstellbaren Bereich klemmen.
+///
+/// Die gregorianische Datumskonstruktion liefert erst bei absurden Jahren `nil`
+/// (empirisch z. B. 999999 oder Int.min); reale Buchungsdaten liegen weit darin.
+/// Das Klemmen macht `tag(...)` total (nie `nil`), statt bei einem korrupten
+/// Jahreswert die App per Force-Unwrap abstürzen zu lassen.
+private func klemmeJahr(_ jahr: Int) -> Int { min(max(jahr, 1), 9999) }
+
+/// Kurzschreibweise für ein Datum (Tagesanfang). Robust: crasht nie, auch nicht
+/// bei extremen/korrupten Jahreswerten (siehe `klemmeJahr`).
 func tag(_ jahr: Int, _ monat: Int, _ tag: Int) -> Date {
-    appKalender.date(from: DateComponents(year: jahr, month: monat, day: tag))!
+    let j = klemmeJahr(jahr)
+    if let d = appKalender.date(from: DateComponents(year: j, month: monat, day: tag)) {
+        return d
+    }
+    // Praktisch unerreichbar (geklemmtes Jahr + gängiger Monat), aber ohne Force-Unwrap:
+    // deterministischer Rückfall auf den Jahresanfang statt Absturz.
+    return appKalender.date(from: DateComponents(year: j, month: 1, day: 1))
+        ?? Date(timeIntervalSinceReferenceDate: 0)
+}
+
+/// `datum` um `anzahl` Monate verschieben. An einem gültigen Ausgangsdatum scheitert
+/// das praktisch nie; bei theoretischem `nil` bleibt das Datum unverändert (kein Crash).
+func monateNach(_ datum: Date, _ anzahl: Int) -> Date {
+    appKalender.date(byAdding: .month, value: anzahl, to: datum) ?? datum
 }
 
 /// Liegt Monat `m` im Jahr `jahr` noch in der Zukunft (nach dem laufenden Monat)?

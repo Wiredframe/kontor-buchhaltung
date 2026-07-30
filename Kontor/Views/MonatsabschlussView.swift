@@ -40,7 +40,8 @@ struct MonatsabschlussView: View {
         ausgaben.wiederkehrendBrutto(jahr: jahr, monat: m, betrieblich: true)
     }
     private var aktuellerMonatsbeginn: Date {
-        appKalender.date(from: appKalender.dateComponents([.year, .month], from: Date()))!
+        let k = appKalender.dateComponents([.year, .month], from: Date())
+        return Periode.monat(k.year ?? 2000, k.month ?? 1).von
     }
     private func istZukunft(_ m: Int) -> Bool { Periode.monat(jahr, m).von > aktuellerMonatsbeginn }
     private var istAktuell: Bool {

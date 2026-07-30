@@ -181,7 +181,7 @@ struct AusgabenView: View {
         return (appKalender.component(.year, from: Date()), appKalender.component(.month, from: Date()))
     }
     private func ersterTag(_ jahr: Int, _ monat: Int) -> Date {
-        appKalender.date(from: DateComponents(year: jahr, month: monat, day: 1))!
+        Periode.monat(jahr, monat).von
     }
 
     /// Übernimmt einen Querlink-Vorfilter (Art/Sparte) aus der Navigation und setzt ihn
@@ -463,7 +463,7 @@ struct AusgabenView: View {
     /// Kopiert die wiederkehrenden Buchungen (Fixkosten/Subscriptions) des Vormonats in den Zielmonat.
     private func vormonatDuplizieren() {
         let (zJ, zM) = zielJahrMonat
-        let quelle = appKalender.date(byAdding: .month, value: -1, to: ersterTag(zJ, zM))!
+        let quelle = monateNach(ersterTag(zJ, zM), -1)
         let qJ = appKalender.component(.year, from: quelle), qM = appKalender.component(.month, from: quelle)
         let quellPeriode = Periode.monat(qJ, qM), zielPeriode = Periode.monat(zJ, zM)
         let zielDatum = ersterTag(zJ, zM)

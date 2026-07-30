@@ -13,15 +13,13 @@ struct Periode: Hashable {
 extension Periode {
     static func monat(_ jahr: Int, _ monat: Int) -> Periode {
         let von = tag(jahr, monat, 1)
-        let bis = appKalender.date(byAdding: .month, value: 1, to: von)!
-        return Periode(von: von, bis: bis)
+        return Periode(von: von, bis: monateNach(von, 1))
     }
 
     /// Quartal `q` (1…4).
     static func quartal(_ jahr: Int, _ q: Int) -> Periode {
         let von = tag(jahr, (q - 1) * 3 + 1, 1)
-        let bis = appKalender.date(byAdding: .month, value: 3, to: von)!
-        return Periode(von: von, bis: bis)
+        return Periode(von: von, bis: monateNach(von, 3))
     }
 
     static func jahr(_ jahr: Int) -> Periode {
