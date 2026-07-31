@@ -140,6 +140,7 @@ struct DashboardView: View {
                 inhalt
             }
         }
+        .seitenGrund()
         .navigationTitle("Übersicht")
     }
 

@@ -536,6 +536,9 @@ struct Kartenzeile: View {
     let wert: Decimal
     var icon: String? = nil
     var minus: Bool = false
+    /// Untere Haarlinie als Zeilentrenner (Settings-Stil). Bei der letzten Zeile vor einem
+    /// eigenen Divider/einer Summenzeile abschaltbar, um doppelte Linien zu vermeiden.
+    var zeigeTrennlinie: Bool = true
     @State private var kopiert = false
 
     var body: some View {
@@ -553,6 +556,9 @@ struct Kartenzeile: View {
                 .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
         }
         .padding(.vertical, 7)
+        .overlay(alignment: .bottom) {
+            Divider().opacity(zeigeTrennlinie ? 1 : 0)
+        }
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")

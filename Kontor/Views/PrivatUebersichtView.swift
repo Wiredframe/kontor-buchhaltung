@@ -141,6 +141,7 @@ struct PrivatUebersichtView: View {
                 .padding()
             }
         }
+        .seitenGrund()
         .navigationTitle("Privat-Übersicht")
     }
 

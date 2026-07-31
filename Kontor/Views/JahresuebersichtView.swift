@@ -308,6 +308,7 @@ struct JahresuebersichtView: View {
                 .padding()
             }
         }
+        .seitenGrund()
         .navigationTitle("Jahresabschluss")
         .toolbar {
             ToolbarItem {

@@ -13,13 +13,20 @@ enum Stil {
 }
 
 extension View {
-    /// Flache Karten-Fläche im Settings-Stil: dezenter Systemgrund + Haarlinie, **kein Schatten**
+    /// Flache, leicht graue Gruppen-Fläche im Settings-Stil: **kein Schatten**, dezent grauer
+    /// Grund + Haarlinie, damit sich die Gruppe klar vom (helleren) Seitenhintergrund abhebt
     /// (native macOS-Apps wie Einstellungen/Mail setzen auf gruppierte Flächen ohne Elevation).
     func karte(_ radius: CGFloat = Stil.eckRadius) -> some View {
-        background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
+        background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
             .overlay(
                 RoundedRectangle(cornerRadius: radius)
                     .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+    }
+
+    /// Hellerer Seitenhintergrund, auf dem die grauen `.karte()`-Gruppen abheben (Settings-Prinzip:
+    /// Inhaltsfläche hell, gruppierte Karten etwas dunkler/abgesetzt).
+    func seitenGrund() -> some View {
+        background(Color(nsColor: .controlBackgroundColor))
     }
 }
 

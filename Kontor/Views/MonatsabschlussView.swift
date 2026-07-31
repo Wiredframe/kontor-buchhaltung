@@ -149,6 +149,7 @@ struct MonatsabschlussView: View {
             }
             if jahresansicht { jahresAnsicht } else { monatsAnsicht }
         }
+        .seitenGrund()
         .navigationTitle("Monatsabschluss")
         .toolbar {
             ToolbarItem {
