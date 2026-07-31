@@ -4,7 +4,7 @@ import SwiftUI
 /// ohne Marken-Verlauf und ohne Modul-Farbskala: Farbe steht nur für echte Aussagen
 /// (positiv/negativ), alles andere ist neutral (`.primary`/`.secondary`) bzw. der System-Akzent.
 enum Stil {
-    static let eckRadius: CGFloat = 16
+    static let eckRadius: CGFloat = 12
 
     /// Signalfarbe „positiv" (Erstattung/Gutschrift, positive Differenz).
     static let positiv = Color.green
@@ -13,13 +13,13 @@ enum Stil {
 }
 
 extension View {
-    /// Elevierte Karten-Fläche (heller Grund + weicher Schatten, kein Rahmen).
+    /// Flache Karten-Fläche im Settings-Stil: dezenter Systemgrund + Haarlinie, **kein Schatten**
+    /// (native macOS-Apps wie Einstellungen/Mail setzen auf gruppierte Flächen ohne Elevation).
     func karte(_ radius: CGFloat = Stil.eckRadius) -> some View {
-        background(
-            RoundedRectangle(cornerRadius: radius)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .shadow(color: .black.opacity(0.06), radius: 5, y: 2)
-        )
+        background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
     }
 }
 

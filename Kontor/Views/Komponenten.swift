@@ -528,7 +528,8 @@ struct KopierHaken: View {
     return alert.runModal() == .alertFirstButtonReturn
 }
 
-/// Eine Aufschlüsselungs-Zeile in einer Card: neutraler Icon-Chip (optional), Label, Wert.
+/// Eine Aufschlüsselungs-Zeile als natives `LabeledContent` (Label links, optional mit neutralem
+/// SF-Symbol; Wert rechts). In einer `Form`/`List` spreizt es korrekt und bekommt Trennlinien.
 /// Klick kopiert den Wert. `minus` stellt den Wert als Abzug dar.
 struct Kartenzeile: View {
     let label: String
@@ -542,16 +543,16 @@ struct Kartenzeile: View {
             if let icon {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    .frame(width: 26, height: 26)
+                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
             }
             Text(label)
-            Spacer()
+            Spacer(minLength: 12)
             KopierHaken(sichtbar: kopiert)
             Text((minus ? "− " : "") + wert.euro)
                 .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 7)
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
@@ -559,8 +560,9 @@ struct Kartenzeile: View {
     }
 }
 
-/// Hervorgehobene Summen-/Ergebniszeile: neutrale Hervorhebungs-Pille, Wert-Text in `farbe`
-/// (nur Signal: negativ rot, Erstattung grün; Standard neutral). Klick kopiert den Wert.
+/// Hervorgehobene Summen-/Ergebniszeile als fette `LabeledContent`-Zeile (Label links / Wert
+/// rechts). In einer `Form`/`List` tönt eine Signalfarbe (grün/rot) die ganze Zeile über
+/// `listRowBackground`; neutral bleibt ungetönt. Klick kopiert den Wert.
 struct Summenzeile: View {
     let label: String
     let wert: Decimal
@@ -568,17 +570,13 @@ struct Summenzeile: View {
     @State private var kopiert = false
 
     var body: some View {
-        // Signalfarbe (grün/rot) tönt die ganze Pille; neutral = dezent grau.
-        let pille: Color = (farbe == .primary) ? Color.secondary.opacity(0.1) : farbe.opacity(0.12)
-        return HStack {
+        HStack(spacing: 12) {
             Text(label).font(.headline)
-            Spacer()
+            Spacer(minLength: 12)
             KopierHaken(sichtbar: kopiert)
-            Text(wert.euro).font(.title3.weight(.bold)).monospacedDigit().foregroundStyle(farbe)
+            Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(farbe)
         }
-        .padding(.horizontal, 12).padding(.vertical, 11)
-        .background(pille, in: RoundedRectangle(cornerRadius: 10))
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
