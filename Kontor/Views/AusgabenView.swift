@@ -534,53 +534,21 @@ struct AusgabenView: View {
     }
 }
 
-// MARK: - Bereichswahl (Art) als Button-Gruppe mit Icons
+// MARK: - Bereichswahl (Art)
 
-/// Segmentierte Bereichswahl statt Menü-Filter: je Art ein Button mit Icon + Label.
-/// Der aktive Bereich wird mit der Akzentfarbe hinterlegt. Bei schmalem Fenster fällt
-/// die Leiste per `ViewThatFits` automatisch auf eine reine Icon-Variante zurück –
-/// so erzwingt sie keine zu hohe Mindest-Fensterbreite.
+/// Bereichswahl als nativer segmentierter Picker (Alle/Betriebsausgaben/Fixkosten/Subscriptions/
+/// Vorsorge/Steuern).
 private struct ArtLeiste: View {
     @Binding var auswahl: AusgabenView.ArtFilter
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            leiste(zeigeText: true)
-            leiste(zeigeText: false)
-        }
-    }
-
-    private func leiste(zeigeText: Bool) -> some View {
-        HStack(spacing: 2) {
+        Picker("Bereich", selection: $auswahl) {
             ForEach(AusgabenView.ArtFilter.allCases) { art in
-                let aktiv = art == auswahl
-                Button {
-                    auswahl = art
-                } label: {
-                    Group {
-                        if zeigeText {
-                            Label(art.rawValue, systemImage: art.symbol).labelStyle(.titleAndIcon)
-                        } else {
-                            Image(systemName: art.symbol)
-                        }
-                    }
-                    .font(.callout.weight(aktiv ? .semibold : .regular))
-                    .foregroundStyle(aktiv ? Color.accentColor : .secondary)
-                    .padding(.horizontal, zeigeText ? 10 : 8).padding(.vertical, 5)
-                    .background {
-                        if aktiv {
-                            RoundedRectangle(cornerRadius: 7).fill(Color.accentColor.opacity(0.14))
-                        }
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .help(art.rawValue)
+                Text(art.rawValue).tag(art)
             }
         }
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color(nsColor: .quaternarySystemFill)))
-        .fixedSize()
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 }
 

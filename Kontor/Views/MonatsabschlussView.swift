@@ -149,7 +149,6 @@ struct MonatsabschlussView: View {
             }
             if jahresansicht { jahresAnsicht } else { monatsAnsicht }
         }
-        .seitenGrund()
         .navigationTitle("Monatsabschluss")
         .toolbar {
             ToolbarItem {
@@ -287,6 +286,7 @@ struct MonatsabschlussView: View {
             }
             .padding()
         }
+        .seitenGrund()
     }
 
     /// Gewinn-Rechnung: Umsatz/USt-Kontext, dann Waterfall Umsatz − BA = Gewinn → Frei. Zeilen kopierbar.
@@ -628,79 +628,66 @@ private struct MonatsWerteEditor: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Monatswerte · \(monatName)").font(.headline)
-
-                if abgeschlossen {
+        Form {
+            if abgeschlossen {
+                Section {
                     HStack(spacing: 8) {
                         Image(systemName: "lock.fill").foregroundStyle(.secondary)
                         Text("Monat abgeschlossen – Werte sind eingefroren.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.callout).foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                         Button("entsperren") {
                             settings.abschlussProMonat[String(monat)] = nil
                             settings.loescheSnapshot(monat: monat)
                         }
-                        .buttonStyle(.link).font(.caption)
+                        .buttonStyle(.link)
                     }
-                    .padding(8).background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                 }
+            }
 
-                Group {
+            Group {
+                Section {
+                    GeldFeld("JAE", wert: jaeBinding)
+                    GeldFeld("RV", wert: kskBinding(.rv))
+                    GeldFeld("KV", wert: kskBinding(.kv))
+                    GeldFeld("PV", wert: kskBinding(.pv))
+                    LabeledContent("Monatsbeitrag") {
+                        Text(settings.ksk(monat: monat).euro).fontWeight(.semibold).monospacedDigit()
+                    }
+                } header: {
+                    Text("KSK-Beitrag · \(monatName)")
+                } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("KSK-Beitrag").font(.subheadline.weight(.semibold))
-                        euroFeld("JAE", jaeBinding)
                         Text("JAE nur zur Orientierung – keine Berechnungsgrundlage.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        euroFeld("RV", kskBinding(.rv))
-                        euroFeld("KV", kskBinding(.kv))
-                        euroFeld("PV", kskBinding(.pv))
-                        HStack {
-                            Text("Monatsbeitrag").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            Spacer()
-                            Text(settings.ksk(monat: monat).euro).font(.caption.weight(.semibold)).monospacedDigit()
-                        }
                         HStack {
                             Text(kskEigen ? "eigene Angaben für \(monatName)" : "übernommen aus dem Vormonat")
-                                .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             if kskEigen {
-                                Button("erben") { settings.loescheKSK(monat: monat) }.buttonStyle(.link).font(.caption)
+                                Button("erben") { settings.loescheKSK(monat: monat) }.buttonStyle(.link)
                             }
                         }
                     }
+                }
 
-                    Divider()
-
+                Section {
+                    ProzentFeld("Satz", wert: estSatzBinding)
+                } header: {
+                    Text("ESt-Satz (pauschal)")
+                } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("ESt-Satz (pauschal)").font(.subheadline.weight(.semibold))
-                        ProzentFeld("Satz", wert: estSatzBinding)
                         HStack {
                             Text(estEigen ? "eigener Satz für \(monatName)" : "übernommen aus dem Vormonat")
-                                .font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             if estEigen {
                                 Button("erben") { settings.estSatzProMonat[String(monat)] = nil }.buttonStyle(.link)
-                                    .font(.caption)
                             }
                         }
+                        Text("Werte gelten ab diesem Monat und werden in Folgemonate übernommen, bis du sie änderst.")
                     }
                 }
-                .disabled(abgeschlossen)
-
-                Text("Werte gelten ab diesem Monat und werden in Folgemonate übernommen, bis du sie änderst.")
-                    .erklaerung()
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(abgeschlossen)
         }
-    }
-
-    private func euroFeld(_ titel: String, _ binding: Binding<Decimal>) -> some View {
-        HStack {
-            Text(titel).foregroundStyle(.secondary).frame(width: 42, alignment: .leading)
-            GeldFeld(titel, wert: binding)
-        }
+        .formStyle(.grouped)
     }
 }
