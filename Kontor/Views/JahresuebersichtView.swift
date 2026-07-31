@@ -169,7 +169,8 @@ struct JahresuebersichtView: View {
                                 label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                                 minus: true)
                             Summenzeile(
-                                label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? Stil.negativ : .primary
+                                label: "Gewinn (EÜR)", wert: w.a.gewinn,
+                                farbe: w.a.gewinn < 0 ? Stil.negativ : Stil.positiv
                             )
                             Text(
                                 "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."

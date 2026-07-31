@@ -200,23 +200,26 @@ struct DashboardView: View {
     }
     /// „Nächste Frist" im Kennzahl-Card-Stil (Datum als Hauptwert, Titel als Untertitel).
     private var fristKarte: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
-                    Text("Nächste Frist").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                if let f = naechsteFrist {
-                    Text(f.datum, format: .dateTime.day().month().year())
-                        .font(.title2).fontWeight(.semibold).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-                    Text(f.titel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                } else {
-                    Text("—").font(.title2).fontWeight(.semibold).foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                Text("Nächste Frist").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            if let f = naechsteFrist {
+                Text(f.datum, format: .dateTime.day().month().year())
+                    .font(.system(size: 22, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                Text(f.titel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            } else {
+                Text("—").font(.system(size: 22, weight: .semibold)).foregroundStyle(.secondary)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .karte()
     }
 
     // MARK: Trend
