@@ -52,7 +52,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(hervorgehoben ? AnyShapeStyle(Stil.markenVerlauf) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(hervorgehoben ? Color.accentColor : Color.secondary)
                 Text(titel).font(.headline)
                 Text(text)
                     .font(.caption)

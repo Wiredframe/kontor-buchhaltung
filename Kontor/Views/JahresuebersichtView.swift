@@ -149,15 +149,11 @@ struct JahresuebersichtView: View {
                     )
                     .font(.subheadline).foregroundStyle(.secondary)
 
-                    // Jahresergebnis auf einen Blick – eigener Teal→Smaragd-Hero (Monat = Blau→Violett).
+                    // Jahresergebnis auf einen Blick (negative Werte rot, sonst neutral).
                     AbschlussHero(
-                        verlauf: Stil.jahresVerlauf,
-                        links: .init(
-                            titel: "Gewinn (EÜR)", wert: w.a.gewinn,
-                            farbe: w.a.gewinn < 0 ? Stil.heroNegativ : .white),
+                        links: .init(titel: "Gewinn (EÜR)", wert: w.a.gewinn),
                         rechts: .init(
-                            titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast,
-                            farbe: w.steuerlast < 0 ? Stil.heroNegativ : .white))
+                            titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast))
 
                     // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
                     Panel(
@@ -173,7 +169,8 @@ struct JahresuebersichtView: View {
                                 label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                                 minus: true)
                             Summenzeile(
-                                label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? .red : Stil.gewinn)
+                                label: "Gewinn (EÜR)", wert: w.a.gewinn, farbe: w.a.gewinn < 0 ? Stil.negativ : .primary
+                            )
                             Text(
                                 "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
                             )
@@ -191,7 +188,7 @@ struct JahresuebersichtView: View {
                             Kartenzeile(
                                 label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt,
                                 icon: "function")
-                            Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage, farbe: Stil.steuer)
+                            Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage)
                             Text(
                                 "Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt."
                             )
@@ -201,8 +198,7 @@ struct JahresuebersichtView: View {
                                 label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag,
                                 icon: "person.crop.circle", minus: true)
                             Summenzeile(
-                                label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich,
-                                farbe: Stil.steuer)
+                                label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich)
                             Kartenzeile(
                                 label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich,
                                 icon: "arrow.down.right.circle")
@@ -220,7 +216,7 @@ struct JahresuebersichtView: View {
                             Kartenzeile(label: "Krankenversicherung (KV)", wert: k.kv, icon: "cross.case")
                             Kartenzeile(label: "Rentenversicherung (RV)", wert: k.rv, icon: "building.columns")
                             Kartenzeile(label: "Pflegeversicherung (PV)", wert: k.pv, icon: "heart.text.square")
-                            Summenzeile(label: "Summe KSK", wert: k.kv + k.rv + k.pv, farbe: Stil.ksk)
+                            Summenzeile(label: "Summe KSK", wert: k.kv + k.rv + k.pv)
                             Text(
                                 "Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“."
                             )
@@ -234,7 +230,7 @@ struct JahresuebersichtView: View {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
                                 ForEach(w.ustPerioden, id: \.label) { p in Kennzahl(titel: p.label, wert: p.betrag) }
                             }
-                            Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr, farbe: Stil.steuer)
+                            Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr)
                             Text(
                                 "Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“."
                             )
@@ -247,7 +243,7 @@ struct JahresuebersichtView: View {
                         VStack(spacing: 2) {
                             Kartenzeile(label: "ESt-Rücklage (geschätzt)", wert: w.estRuecklage, icon: "percent")
                             Kartenzeile(label: "USt-Zahllast", wert: w.ustJahr, icon: "building.columns")
-                            Summenzeile(label: "Steuerlast (ESt + USt)", wert: w.steuerlast, farbe: Stil.steuer)
+                            Summenzeile(label: "Steuerlast (ESt + USt)", wert: w.steuerlast)
                         }
                     }
 
@@ -271,7 +267,7 @@ struct JahresuebersichtView: View {
                             Kartenzeile(label: "ESt-Vorauszahlungen geleistet", wert: w.estVzBezahlt, icon: "calendar")
                             Summenzeile(
                                 label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung",
-                                wert: abs(diff), farbe: diff >= 0 ? .orange : .green)
+                                wert: abs(diff), farbe: diff >= 0 ? .orange : Stil.positiv)
                             Text(
                                 "Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung)."
                             )
@@ -296,10 +292,10 @@ struct JahresuebersichtView: View {
                                         ForEach(gruppe.1) { t in ZahlungLeseZeile(eintrag: t) }
                                         Summenzeile(
                                             label: "Summe \(gruppe.0.bezeichnung)", wert: summe,
-                                            farbe: summe < 0 ? .green : Stil.steuer)
+                                            farbe: summe < 0 ? Stil.positiv : .primary)
                                     }
                                 }
-                                Summenzeile(label: "Bezahlt gesamt", wert: w.bezahltGesamt, farbe: Stil.steuer)
+                                Summenzeile(label: "Bezahlt gesamt", wert: w.bezahltGesamt)
                             }
                             Text(
                                 "Read-only · Termine liegen in „Aufgaben“, Erfassung im Modul „Ausgaben“ (Vorsorge/Steuern) bzw. über den Kontoauszug."

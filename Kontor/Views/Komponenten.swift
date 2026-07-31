@@ -54,30 +54,27 @@ struct Kennzahl: View {
     @State private var kopiert = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 9) {
-                if let symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30)
-                        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    if let symbol {
+                        Image(systemName: symbol).foregroundStyle(.secondary)
+                    }
+                    Text(titel).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 0)
+                    KopierHaken(sichtbar: kopiert)
                 }
-                Text(titel).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 0)
-                KopierHaken(sichtbar: kopiert)
+                Text(wert.euro)
+                    .font(betont ? .title : .title2)
+                    .fontWeight(betont ? .bold : .semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(farbe ?? .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .contentTransition(.numericText())
             }
-            Text(wert.euro)
-                .font(betont ? .system(size: 30, weight: .bold) : .system(size: 22, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(farbe ?? .primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .contentTransition(.numericText())
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .karte()
         .contentShape(Rectangle())
         .onTapGesture(perform: kopiere)
         .help("Klicken, um den Wert zu kopieren")
@@ -390,41 +387,39 @@ struct HeuteButton: View {
 
 // MARK: - Karten-Zeilen (geteilt zwischen Monats-/Jahresabschluss)
 
-/// Plakativer Abschluss-Hero: zwei große Kennzahlen nebeneinander auf einem Verlauf
-/// (Klick kopiert den Wert). Geteilt zwischen Monats- und Jahresabschluss – die Farbe
-/// (`verlauf`) unterscheidet die Screens: Monat = `Stil.markenVerlauf`, Jahr = `Stil.jahresVerlauf`.
+/// Plakativer Abschluss-Kopf: zwei große Kennzahlen nebeneinander in einer nativen GroupBox
+/// (Klick kopiert den Wert). Geteilt zwischen Monats- und Jahresabschluss. Kein Verlauf mehr –
+/// die Screens unterscheidet der Navigationstitel; negative Werte sind rot, sonst neutral.
 struct AbschlussHero: View {
-    /// Eine Hero-Kennzahl: Titel, Wert und (bei Negativwerten) abweichende Wertfarbe.
+    /// Eine Hero-Kennzahl: Titel und Wert. Negativwerte färbt der Hero automatisch (`Stil.negativ`).
     struct Metrik {
         let titel: String
         let wert: Decimal
-        var farbe: Color = .white
     }
-    let verlauf: LinearGradient
     let links: Metrik
     let rechts: Metrik
     @State private var kopiertLinks = false
     @State private var kopiertRechts = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            metrik(links, kopiert: $kopiertLinks)
-            Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 60)
-            metrik(rechts, kopiert: $kopiertRechts)
+        GroupBox {
+            HStack(spacing: 0) {
+                metrik(links, kopiert: $kopiertLinks)
+                Divider().frame(height: 52)
+                metrik(rechts, kopiert: $kopiertRechts)
+            }
+            .padding(.vertical, 8)
         }
-        .padding(.vertical, 22).padding(.horizontal, 12)
-        .frame(maxWidth: .infinity)
-        .background(verlauf, in: RoundedRectangle(cornerRadius: Stil.eckRadius))
     }
 
     private func metrik(_ m: Metrik, kopiert: Binding<Bool>) -> some View {
         VStack(spacing: 6) {
             HStack(spacing: 5) {
-                Text(m.titel).font(.subheadline).foregroundStyle(.white.opacity(0.85))
-                KopierHaken(sichtbar: kopiert.wrappedValue, farbe: .white)
+                Text(m.titel).font(.subheadline).foregroundStyle(.secondary)
+                KopierHaken(sichtbar: kopiert.wrappedValue)
             }
-            Text(m.wert.euro).font(.system(size: 30, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(m.farbe)
+            Text(m.wert.euro).font(.title).fontWeight(.semibold).monospacedDigit()
+                .foregroundStyle(m.wert < 0 ? Stil.negativ : .primary)
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
@@ -503,8 +498,8 @@ func kopiereInZwischenablage(_ wert: Decimal) {
     }
 }
 
-/// Kleines Kopier-Häkchen (für die kopierbaren Card-Zeilen). Standardfarbe grün;
-/// für dunkle Hintergründe (z. B. AbschlussHero-Verlauf) kann `farbe: .white` übergeben werden.
+/// Kleines Kopier-Häkchen (für die kopierbaren Zeilen). Standardfarbe grün; `farbe`
+/// überschreibbar für abweichende Hintergründe.
 struct KopierHaken: View {
     let sichtbar: Bool
     var farbe: Color = .green
@@ -529,8 +524,8 @@ struct KopierHaken: View {
     return alert.runModal() == .alertFirstButtonReturn
 }
 
-/// Eine Aufschlüsselungs-Zeile in einer Card: neutraler Icon-Chip (optional), Label, Wert.
-/// Klick kopiert den Wert. `minus` stellt den Wert als Abzug dar.
+/// Eine Aufschlüsselungs-Zeile als natives `LabeledContent`: Label (optional mit neutralem
+/// SF-Symbol), rechts der Wert. Klick kopiert den Wert. `minus` stellt den Wert als Abzug dar.
 struct Kartenzeile: View {
     let label: String
     let wert: Decimal
@@ -539,20 +534,19 @@ struct Kartenzeile: View {
     @State private var kopiert = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        LabeledContent {
+            HStack(spacing: 5) {
+                KopierHaken(sichtbar: kopiert)
+                Text((minus ? "− " : "") + wert.euro)
+                    .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
             }
-            Text(label)
-            Spacer()
-            KopierHaken(sichtbar: kopiert)
-            Text((minus ? "− " : "") + wert.euro)
-                .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
+        } label: {
+            if let icon {
+                Label(label, systemImage: icon).labelStyle(.titleAndIcon)
+            } else {
+                Text(label)
+            }
         }
-        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
@@ -560,7 +554,8 @@ struct Kartenzeile: View {
     }
 }
 
-/// Hervorgehobene Summen-/Ergebniszeile (semantische Farbe). Klick kopiert den Wert.
+/// Hervorgehobene Summen-/Ergebniszeile als natives `LabeledContent` (fett, ohne Tint-Fläche).
+/// `farbe` bleibt für Signalwerte (negativ rot, Erstattung grün); Standard neutral. Klick kopiert.
 struct Summenzeile: View {
     let label: String
     let wert: Decimal
@@ -568,15 +563,14 @@ struct Summenzeile: View {
     @State private var kopiert = false
 
     var body: some View {
-        HStack {
+        LabeledContent {
+            HStack(spacing: 5) {
+                KopierHaken(sichtbar: kopiert)
+                Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(farbe)
+            }
+        } label: {
             Text(label).font(.headline)
-            Spacer()
-            KopierHaken(sichtbar: kopiert)
-            Text(wert.euro).font(.title3.weight(.bold)).monospacedDigit().foregroundStyle(farbe)
         }
-        .padding(.horizontal, 12).padding(.vertical, 11)
-        .background(farbe.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-        .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
@@ -597,37 +591,29 @@ struct AufgabenInspektorListe: View {
                 "Keine offenen Aufgaben", systemImage: "checklist",
                 description: Text(leererHinweis))
         } else {
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(aufgaben) { t in zeile(t) }
-                }
-                .padding(12)
-            }
+            List(aufgaben) { t in zeile(t) }
+                .listStyle(.inset)
         }
     }
 
     private func zeile(_ t: MonthlyTask) -> some View {
-        Button {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: t.erledigt ? "checkmark.circle.fill" : "circle")
+                .font(.title3).foregroundStyle(t.erledigt ? Color.accentColor : .secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(t.titel.isEmpty ? "—" : t.titel)
+                    .strikethrough(t.erledigt).foregroundStyle(t.erledigt ? .secondary : .primary)
+                    .multilineTextAlignment(.leading)
+                Text("fällig \(t.monat.formatted(.dateTime.day().month().year()))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
             t.erledigt.toggle()
             TaskVorlagen.nachAbschluss(t, in: context)
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: t.erledigt ? "checkmark.circle.fill" : "circle")
-                    .font(.title3).foregroundStyle(t.erledigt ? Color.accentColor : .secondary)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(t.titel.isEmpty ? "—" : t.titel)
-                        .strikethrough(t.erledigt).foregroundStyle(t.erledigt ? .secondary : .primary)
-                        .multilineTextAlignment(.leading)
-                    Text("fällig \(t.monat.formatted(.dateTime.day().month().year()))")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .karte(12)
         }
-        .buttonStyle(.plain)
     }
 }
 

@@ -297,12 +297,14 @@ struct MonatsabschlussView: View {
                 Kartenzeile(label: "Vorsteuer", wert: z.vst, icon: "arrow.down.left.circle")
                 Divider().padding(.vertical, 4)
                 Kartenzeile(label: "Betriebsausgaben", wert: z.betriebsausgabenNetto, icon: "creditcard", minus: true)
-                Summenzeile(label: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn, farbe: Stil.gewinn)
+                Summenzeile(
+                    label: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn,
+                    farbe: z.betrieblicherGewinn < 0 ? Stil.negativ : .primary)
                 Kartenzeile(label: "KSK-Beitrag", wert: z.ksk, icon: "cross.case", minus: true)
                 Kartenzeile(label: "ESt-Rücklage", wert: z.est + z.estKorrektur, icon: "percent", minus: true)
                 Kartenzeile(label: "Private Fixkosten", wert: z.privatFix, icon: "house", minus: true)
                 Kartenzeile(label: "Private Ausgaben", wert: z.privatVariabel, icon: "cart", minus: true)
-                Summenzeile(label: "Frei verfügbar", wert: z.frei, farbe: z.frei < 0 ? .red : Stil.gewinn)
+                Summenzeile(label: "Frei verfügbar", wert: z.frei, farbe: z.frei < 0 ? Stil.negativ : .primary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -325,7 +327,7 @@ struct MonatsabschlussView: View {
                 }
                 Kartenzeile(label: "KSK-Beitrag", wert: z.ksk, icon: "cross.case")
                 Kartenzeile(label: "Fixkosten (privat)", wert: z.privatFix, icon: "house")
-                Summenzeile(label: "Summe Rücklage", wert: summe, farbe: Stil.steuer)
+                Summenzeile(label: "Summe Rücklage", wert: summe)
             }
         }
         .frame(maxWidth: .infinity)
@@ -337,7 +339,7 @@ struct MonatsabschlussView: View {
             VStack(spacing: 2) {
                 Kartenzeile(label: "Privat (Liquidität)", wert: z.privatFix, icon: "house")
                 Kartenzeile(label: "Betrieblich (EÜR)", wert: fixkostenBetrieblich(monat), icon: "briefcase")
-                Summenzeile(label: "Summe / Monat", wert: z.privatFix + fixkostenBetrieblich(monat), farbe: Stil.umlage)
+                Summenzeile(label: "Summe / Monat", wert: z.privatFix + fixkostenBetrieblich(monat))
             }
         }
         .frame(maxWidth: .infinity)
@@ -350,7 +352,7 @@ struct MonatsabschlussView: View {
     private func kskKarte(_ z: Zahlen) -> some View {
         Panel(titel: "KSK-Beitrag") {
             VStack(alignment: .leading, spacing: 8) {
-                Text(z.ksk.euro).font(.system(size: 26, weight: .bold)).monospacedDigit()
+                Text(z.ksk.euro).font(.title).fontWeight(.bold).monospacedDigit()
                 Text(
                     z.ksk == 0
                         ? "Noch kein Beitrag – in der Sidebar unter „Werte“ eintragen"
@@ -367,13 +369,13 @@ struct MonatsabschlussView: View {
     private func estKarte(_ z: Zahlen) -> some View {
         Panel(titel: "ESt-Rücklage") {
             VStack(alignment: .leading, spacing: 8) {
-                Text(z.est.euro).font(.system(size: 26, weight: .bold)).monospacedDigit()
+                Text(z.est.euro).font(.title).fontWeight(.bold).monospacedDigit()
                 if let s = settings {
                     Text(
                         "Satz \(s.estSatz(monat: monat).formatted(.percent))"
                             + (estEigenerSatz ? " (für \(monatsName(monat)))" : " (übernommen)")
                     )
-                    .font(.caption).foregroundStyle(estEigenerSatz ? Stil.steuer : Color.secondary)
+                    .font(.caption).foregroundStyle(estEigenerSatz ? Color.primary : Color.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -383,11 +385,8 @@ struct MonatsabschlussView: View {
 
     private func heroCard(_ z: Zahlen) -> some View {
         AbschlussHero(
-            verlauf: Stil.markenVerlauf,
             links: .init(titel: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn),
-            rechts: .init(
-                titel: "Frei verfügbar", wert: z.frei,
-                farbe: z.frei < 0 ? Stil.heroNegativ : .white))
+            rechts: .init(titel: "Frei verfügbar", wert: z.frei))
     }
 
     /// Dezenter Hinweis, dass der Monat noch in der Zukunft liegt – die Zahlen sind dann
@@ -405,20 +404,20 @@ struct MonatsabschlussView: View {
     }
 
     private var abschlussBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill").font(.title2).foregroundStyle(.white)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Monat abgeschlossen – alles erledigt").font(.headline).foregroundStyle(.white)
-                if let d = settings?.abschlussDatum(monat: monat) {
-                    Text("Abgeschlossen am \(d.formatted(.dateTime.day().month().year()))")
-                        .font(.caption).foregroundStyle(.white.opacity(0.85))
+        GroupBox {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill").font(.title2).foregroundStyle(Stil.positiv)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Monat abgeschlossen – alles erledigt").font(.headline)
+                    if let d = settings?.abschlussDatum(monat: monat) {
+                        Text("Abgeschlossen am \(d.formatted(.dateTime.day().month().year()))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
+                Spacer()
             }
-            Spacer()
+            .padding(.vertical, 2)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .background(Stil.gewinn.gradient, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func listenKarte<Inhalt: View, Fuss: View>(
@@ -475,7 +474,7 @@ struct MonatsabschlussView: View {
             TableColumn("Monat") { z in
                 HStack(spacing: 5) {
                     if settings?.istAbgeschlossen(monat: z.id) == true {
-                        Image(systemName: "checkmark.seal.fill").foregroundStyle(Stil.gewinn).font(.caption)
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(Stil.positiv).font(.caption)
                     }
                     Text(z.name).lineLimit(1)
                 }

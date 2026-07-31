@@ -141,7 +141,7 @@ struct UStVAView: View {
                     Panel(titel: "Ergebnis") {
                         Summenzeile(
                             label: "KZ 83 · USt-Vorauszahlung", wert: e.zahllast,
-                            farbe: e.zahllast >= 0 ? Stil.steuer : .green)
+                            farbe: e.zahllast >= 0 ? .primary : Stil.positiv)
                         Text(
                             e.zahllast >= 0
                                 ? "Betrag, den du ans Finanzamt überweist."

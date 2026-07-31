@@ -32,13 +32,8 @@ struct DashboardView: View {
             case .ruecklage: "Steuerrücklage"
             }
         }
-        var farbe: Color {
-            switch self {
-            case .gewinn: Stil.gewinn
-            case .frei: Stil.einnahmen
-            case .ruecklage: Stil.steuer
-            }
-        }
+        // Einfarbig im System-Akzent – der Picker sagt schon, welche Kennzahl gemeint ist.
+        var farbe: Color { .accentColor }
     }
 
     private var heute: Date { Date() }
@@ -205,26 +200,23 @@ struct DashboardView: View {
     }
     /// „Nächste Frist" im Kennzahl-Card-Stil (Datum als Hauptwert, Titel als Untertitel).
     private var fristKarte: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 9) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
-                    .frame(width: 30, height: 30)
-                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-                Text("Nächste Frist").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 0)
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
+                    Text("Nächste Frist").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                if let f = naechsteFrist {
+                    Text(f.datum, format: .dateTime.day().month().year())
+                        .font(.title2).fontWeight(.semibold).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                    Text(f.titel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    Text("—").font(.title2).fontWeight(.semibold).foregroundStyle(.secondary)
+                }
             }
-            if let f = naechsteFrist {
-                Text(f.datum, format: .dateTime.day().month().year())
-                    .font(.system(size: 22, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-                Text(f.titel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            } else {
-                Text("—").font(.system(size: 22, weight: .semibold)).foregroundStyle(.secondary)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .karte()
     }
 
     // MARK: Trend
@@ -242,7 +234,7 @@ struct DashboardView: View {
                 }
                 Chart(daten, id: \.name) { d in
                     BarMark(x: .value("Monat", d.name), y: .value(chartMetrik.kurz, wurzel(d.wert)), width: .ratio(0.7))
-                        .foregroundStyle(chartMetrik.farbe.gradient)
+                        .foregroundStyle(chartMetrik.farbe)
                         .cornerRadius(5)
                         .annotation(position: .top, overflowResolution: .init(x: .fit, y: .disabled)) {
                             if d.wert != 0 {
@@ -265,7 +257,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(insights(akt: akt, vormonat: vormonat, ustVA: ustVA), id: \.self) { text in
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "sparkles").foregroundStyle(.yellow).font(.callout)
+                        Image(systemName: "lightbulb").foregroundStyle(.secondary).font(.callout)
                         Text(text)
                         Spacer()
                     }

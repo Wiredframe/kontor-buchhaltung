@@ -154,7 +154,7 @@ struct PrivatUebersichtView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Chart(chartDaten, id: \.name) { d in
                     BarMark(x: .value("Monat", d.name), y: .value(chartMetrik.kurz, wurzel(d.wert)), width: .ratio(0.7))
-                        .foregroundStyle(Stil.privat.gradient)
+                        .foregroundStyle(Color.accentColor)
                         .cornerRadius(5)
                         .annotation(position: .top, overflowResolution: .init(x: .fit, y: .disabled)) {
                             if d.wert != 0 {

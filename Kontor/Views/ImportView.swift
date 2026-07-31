@@ -229,7 +229,7 @@ private struct ImportZeileRow: View {
 
             Text(zeile.buchung.betrag.euro)
                 .font(.callout).monospacedDigit()
-                .foregroundStyle(zeile.buchung.istEingang ? Stil.gewinn : .primary)
+                .foregroundStyle(zeile.buchung.istEingang ? Stil.positiv : .primary)
                 .frame(width: 95, alignment: .trailing)
 
             if zeile.erledigt {
