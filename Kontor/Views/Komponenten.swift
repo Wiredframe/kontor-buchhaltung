@@ -609,7 +609,6 @@ struct AufgabenInspektorListe: View {
                 }
                 .padding(12)
             }
-            .seitenGrund()
         }
     }
 

@@ -153,6 +153,7 @@ struct EinnahmenView: View {
                     LeereInspektorView(hinweis: "Zeile wählen – oder „+“ für eine neue Rechnung.")
                 }
             }
+            .inspektorGrund()
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
         .sheet(item: $batchAuftrag) { auftrag in

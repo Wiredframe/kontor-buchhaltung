@@ -108,6 +108,7 @@ struct LebensmittelView: View {
                     LeereInspektorView()
                 }
             }
+            .inspektorGrund()
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }

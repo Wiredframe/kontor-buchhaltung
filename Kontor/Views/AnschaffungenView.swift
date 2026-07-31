@@ -111,6 +111,7 @@ struct AnschaffungenView: View {
             Group {
                 if let e = ausgewaehlt { AnschaffungInspektor(eintrag: e) } else { LeereInspektorView() }
             }
+            .inspektorGrund()
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }

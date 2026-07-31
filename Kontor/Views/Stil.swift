@@ -25,6 +25,31 @@ extension View {
     func seitenGrund() -> some View {
         background(Color(nsColor: .controlBackgroundColor))
     }
+
+    /// Inspector-/rechte-Sidebar-Hintergrund, an die globale Einstellung „Seitenleiste
+    /// undurchsichtig" gekoppelt: opak (kein Durchscheinen des Inhalts) oder System-Vibrancy.
+    func inspektorGrund() -> some View {
+        modifier(InspektorGrund())
+    }
+
+    /// Einheitlicher Erklär-/Hinweistext unter Abschluss-Karten: klein, **linksbündig**,
+    /// mehrzeilig und mit etwas mehr Kontrast als `.secondary` (aber gedämpft, nicht `.primary`).
+    func erklaerung() -> some View {
+        font(.caption)
+            .foregroundStyle(Color.primary.opacity(0.62))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct InspektorGrund: ViewModifier {
+    @AppStorage("sidebarOpak") private var sidebarOpak = false
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(sidebarOpak ? Color(nsColor: .windowBackgroundColor) : Color.clear)
+    }
 }
 
 /// Gruppierter Inhaltsblock mit Titel als elevierte Karte (ersetzt GroupBox).

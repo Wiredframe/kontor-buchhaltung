@@ -91,6 +91,7 @@ struct AufgabenView: View {
                         hinweis: "Zeile wählen – oder „+“ für eine neue Aufgabe.")
                 }
             }
+            .inspektorGrund()
             .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
     }

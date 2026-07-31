@@ -191,6 +191,7 @@ struct MonatsabschlussView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .inspektorGrund()
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }
@@ -509,8 +510,7 @@ struct MonatsabschlussView: View {
                     "Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
                         + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert"
                 )
-                .font(.caption).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .erklaerung()
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
                     summe("RN", zeilen.reduce(Decimal(0)) { $0 + $1.z.rn })
                     summe("USt", zeilen.reduce(Decimal(0)) { $0 + $1.z.ust })
@@ -691,7 +691,7 @@ private struct MonatsWerteEditor: View {
                 .disabled(abgeschlossen)
 
                 Text("Werte gelten ab diesem Monat und werden in Folgemonate übernommen, bis du sie änderst.")
-                    .font(.caption).foregroundStyle(.tertiary)
+                    .erklaerung()
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

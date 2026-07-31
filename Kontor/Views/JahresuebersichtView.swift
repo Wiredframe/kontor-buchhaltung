@@ -174,7 +174,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
                             )
-                            .font(.caption).foregroundStyle(.secondary)
+                            .erklaerung()
                         }
                     }
 
@@ -192,7 +192,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt."
                             )
-                            .font(.caption).foregroundStyle(.secondary)
+                            .erklaerung()
                             Divider().padding(.vertical, 4)
                             Kartenzeile(
                                 label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag,
@@ -205,7 +205,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Jahresbasiert: (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt, der Gewinn wächst bis Dezember noch." : "") Grobe Orientierung, keine Steuererklärung: Progression, weitere Einkünfte und Splitting bleiben unberücksichtigt. Grundfreibetrag in den Einstellungen je Jahr anpassbar."
                             )
-                            .font(.caption).foregroundStyle(.secondary)
+                            .erklaerung()
                         }
                     }
 
@@ -220,7 +220,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“."
                             )
-                            .font(.caption).foregroundStyle(.secondary)
+                            .erklaerung()
                         }
                     }
 
@@ -234,7 +234,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“."
                             )
-                            .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                            .erklaerung()
                         }
                     }
 
@@ -255,7 +255,7 @@ struct JahresuebersichtView: View {
                         Text(
                             "Abgleich der Schätzung mit den echten Abbuchungen – was wirklich an Steuern & Vorsorge gezahlt wurde."
                         )
-                        .font(.caption).foregroundStyle(.secondary)
+                        .erklaerung()
                     }
                     .padding(.top, 4)
 
@@ -271,7 +271,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung)."
                             )
-                            .font(.caption).foregroundStyle(.secondary)
+                            .erklaerung()
                         }
                     }
 
@@ -300,7 +300,7 @@ struct JahresuebersichtView: View {
                             Text(
                                 "Read-only · Termine liegen in „Aufgaben“, Erfassung im Modul „Ausgaben“ (Vorsorge/Steuern) bzw. über den Kontoauszug."
                             )
-                            .font(.caption).foregroundStyle(.tertiary)
+                            .erklaerung()
                         }
                     }
                 }
@@ -330,6 +330,7 @@ struct JahresuebersichtView: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .inspektorGrund()
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }
