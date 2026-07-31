@@ -75,63 +75,6 @@ struct DashboardView: View {
 
     private var offene: [Income] { einnahmen.filter { $0.status == .offen } }
     private var offeneSumme: Decimal { offene.reduce(0) { $0 + $1.brutto } }
-    private var naechsteFrist: (titel: String, datum: Date)? {
-        let start = appKalender.startOfDay(for: heute)
-        var kandidaten: [(String, Date)] = []
-        kandidaten += tasks.filter { !$0.erledigt && $0.monat >= start }.map { ($0.titel, $0.monat) }
-        kandidaten += steuern.filter { !$0.bezahlt && $0.faellig >= start }.map { ($0.kind.bezeichnung, $0.faellig) }
-        return kandidaten.min { $0.1 < $1.1 }.map { ($0.0, $0.1) }
-    }
-
-    /// Ein Hinweis als klickbare Card: Text + Icon + optionales Ziel-Modul (Sprung dorthin).
-    private struct Hinweis: Identifiable {
-        let id = UUID()
-        let text: String
-        let icon: String
-        var ziel: Modul?
-    }
-
-    private func hinweise(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> [Hinweis] {
-        var r: [Hinweis] = []
-        if akt.frei < 0 {
-            r.append(
-                .init(
-                    text:
-                        "Laufender Monat nach allen Ausgaben negativ (\(akt.frei.euro)) – Einnahmen/Ausgaben prüfen.",
-                    icon: "exclamationmark.triangle", ziel: .monatsabschluss))
-        }
-        if !offene.isEmpty {
-            r.append(
-                .init(
-                    text:
-                        "\(offene.count) offene Rechnung(en) über \(offeneSumme.euro) – Zahlungseingänge im Blick behalten.",
-                    icon: "tray.full", ziel: .einnahmen))
-        }
-        if let f = naechsteFrist {
-            r.append(
-                .init(
-                    text: "Nächster Termin: \(f.titel) am \(f.datum.formatted(.dateTime.day().month().year())).",
-                    icon: "calendar.badge.clock", ziel: .aufgaben))
-        }
-        if ustVA > 0 {
-            r.append(
-                .init(
-                    text:
-                        "USt-Zahllast \(ustvaLabel) aktuell \(ustVA.euro) (fällig nach \(rhythmus == .monatlich ? "Monatsende" : "Quartalsende")).",
-                    icon: "building.columns", ziel: .ustva))
-        }
-        if let v = vormonat, akt.gewinn > v.gewinn {
-            r.append(
-                .init(
-                    text: "Betrieblicher Gewinn über dem Vormonat (\(akt.gewinn.euro) vs. \(v.gewinn.euro)).",
-                    icon: "chart.line.uptrend.xyaxis", ziel: nil))
-        }
-        if r.isEmpty {
-            r.append(
-                .init(text: "Alles im grünen Bereich – keine Auffälligkeiten.", icon: "checkmark.circle", ziel: nil))
-        }
-        return Array(r.prefix(5))
-    }
 
     private func chartDaten(einP: [EinnahmePosten], ausP: [AusgabePosten]) -> [(name: String, wert: Double)] {
         (1...12).compactMap { m in
@@ -203,14 +146,12 @@ struct DashboardView: View {
     private var inhalt: some View {
         let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         let akt = werteFuer(jahr: jahr, monat: monat, einP: einP, ausP: ausP)
-        let vormonat = monat > 1 ? werteFuer(jahr: jahr, monat: monat - 1, einP: einP, ausP: ausP) : nil
         let ustVA = Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: ustvaPeriode).zahllast
         let chart = chartDaten(einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 trendKarte(daten: chart)
                 kpis(akt: akt, ustVA: ustVA)
-                hinweisAbschnitt(akt: akt, vormonat: vormonat, ustVA: ustVA)
                 schnellstartAbschnitt
             }
             .padding()
@@ -260,40 +201,6 @@ struct DashboardView: View {
                 .chartYAxis(.hidden)  // Höhe per Quadratwurzel gestaucht; exakte Werte stehen an den Balken
                 .frame(height: 240)
             }
-        }
-    }
-
-    // MARK: Hinweise (klickbare Cards)
-
-    private func hinweisAbschnitt(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> some View {
-        let hs = hinweise(akt: akt, vormonat: vormonat, ustVA: ustVA)
-        return VStack(alignment: .leading, spacing: 8) {
-            abschnitt("Hinweise")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                ForEach(hs) { h in hinweisKarte(h) }
-            }
-        }
-    }
-
-    @ViewBuilder private func hinweisKarte(_ h: Hinweis) -> some View {
-        let inhalt = HStack(alignment: .top, spacing: 10) {
-            Image(systemName: h.icon).foregroundStyle(.secondary).frame(width: 24)
-            Text(h.text).frame(maxWidth: .infinity, alignment: .leading)
-            if h.ziel != nil {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .karte()
-        if let z = h.ziel {
-            Button {
-                nav.modul = z
-            } label: {
-                inhalt
-            }.buttonStyle(.plain)
-        } else {
-            inhalt
         }
     }
 
