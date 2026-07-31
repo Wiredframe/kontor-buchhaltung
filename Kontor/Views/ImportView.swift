@@ -73,7 +73,30 @@ struct ImportView: View {
             }
         }
         .navigationTitle("Kontoauszug")
+        #if DEBUG
+        .task {
+            // Screenshot-Modus (-startModul kontoauszug): einen Demo-Auszug laden, damit der
+            // Import-Screen die Triage-Karten zeigt statt des Leerzustands. Nur DEBUG.
+            if zeilen.isEmpty, UserDefaults.standard.string(forKey: "startModul") == "kontoauszug" {
+                lade(Bankimport.lies(text: Self.demoAuszugCSV), name: "Kontoauszug-Juni.csv")
+            }
+        }
+        #endif
     }
+
+    #if DEBUG
+    /// Synthetischer Sparkasse-CSV-CAMT-V8-Auszug für Screenshots (variierte Triage:
+    /// Einnahme, Subscriptions, KSK, private Fixkosten/Lebensmittel).
+    private static let demoAuszugCSV = """
+        "Auftragskonto";"Buchungstag";"Valutadatum";"Buchungstext";"Verwendungszweck";"Glaeubiger ID";"Mandatsreferenz";"Kundenreferenz (End-to-End)";"Sammlerreferenz";"Lastschrift Ursprungsbetrag";"Auslagenersatz Ruecklastschrift";"Beguenstigter/Zahlungspflichtiger";"Kontonummer/IBAN";"BIC (SWIFT-Code)";"Betrag";"Waehrung";"Info"
+        "DE89370400440532013000";"11.06.26";"11.06.26";"GUTSCHRIFT ÜBERWEISUNG";"RE 2026-005 Designleistung";"";"";"";"";"";"";"HAFENSTADT MEDIA GMBH";"DE89100000000000000010";"BYLADEM1SWU";"3.570,00";"EUR";"Umsatz gebucht"
+        "DE89370400440532013000";"05.06.26";"05.06.26";"KARTENZAHLUNG";"Anthropic Claude Subscription";"";"";"ANTHRO20260605TESTREF01";"";"";"";"ANTHROPIC. CLAUDE SUB/San Francisco/US";"DE89100000000000000011";"HELADEFFXXX";"-18,00";"EUR";"Umsatz gebucht"
+        "DE89370400440532013000";"03.06.26";"03.06.26";"SEPA-LASTSCHRIFT";"Adobe Creative Cloud";"";"";"ADOBE20260603TESTREF02";"";"";"";"ADOBE SYSTEMS SOFTWARE";"DE89100000000000000012";"COBADEFFXXX";"-71,40";"EUR";"Umsatz gebucht"
+        "DE89370400440532013000";"01.06.26";"01.06.26";"SEPA-LASTSCHRIFT";"Künstlersozialkasse Beitrag Juni";"DE86ZZZ00000012345";"KSK-MANDAT-2026";"KSK20260601TESTREF03";"";"";"";"KUENSTLERSOZIALKASSE";"DE89100000000000000013";"WELADEDDXXX";"-420,00";"EUR";"Umsatz gebucht"
+        "DE89370400440532013000";"01.06.26";"01.06.26";"DAUERAUFTRAG";"Miete Wohnung Juni";"";"";"";"";"";"";"HAUSVERWALTUNG SPREE";"DE89100000000000000014";"BELADEBEXXX";"-1.150,00";"EUR";"Umsatz gebucht"
+        "DE89370400440532013000";"09.06.26";"09.06.26";"DIGITALE KARTE (APPLE PAY)";"Einkauf";"";"";"BIO20260609TESTREF04";"";"";"";"BIOMARKT NORD/INVALIDENSTR. 1/BERLIN/DE";"DE89100000000000000015";"WELADEDDXXX";"-52,30";"EUR";"Umsatz gebucht"
+        """
+    #endif
 
     private var kopf: some View {
         VStack(alignment: .leading, spacing: 12) {
