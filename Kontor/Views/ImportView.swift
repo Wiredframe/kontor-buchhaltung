@@ -46,10 +46,22 @@ struct ImportView: View {
     private var erledigteAnzahl: Int { zeilen.filter { $0.erledigt }.count }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                kopf
-                ForEach(sichtbar) { zeile in
+        VStack(spacing: 0) {
+            kopf
+                .padding()
+            Divider()
+            if sichtbar.isEmpty {
+                ContentUnavailableView(
+                    zeilen.isEmpty ? "Kein Auszug geladen" : "Nichts offen",
+                    systemImage: "tray",
+                    description: Text(
+                        zeilen.isEmpty
+                            ? "Oben eine CSV wählen (Sparkasse-Export, CSV-CAMT V8)."
+                            : "Alle Buchungen erledigt. „Erledigte zeigen“ zum erneuten Durchgehen.")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(sichtbar) { zeile in
                     ImportZeileRow(
                         zeile: zeile,
                         buchen: { anwenden(zeile, $0) },
@@ -57,16 +69,15 @@ struct ImportView: View {
                             zeile.zielId = ImportAnwendung.ziel(zeile.buchung, zeile.zuordnung, context)
                         })
                 }
+                .listStyle(.inset)
             }
-            .padding(20)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .seitenGrund()
         .navigationTitle("Kontoauszug")
     }
 
     private var kopf: some View {
-        Panel(titel: "Sparkasse-Kontoauszug (CSV-CAMT V8)") {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Sparkasse-Kontoauszug (CSV-CAMT V8)").font(.headline)
             HStack(spacing: 12) {
                 Button {
                     waehleCSV()
@@ -250,8 +261,7 @@ private struct ImportZeileRow: View {
                 steuerung
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 9)
-        .karte(10)
+        .padding(.vertical, 4)
         .opacity(zeile.erledigt ? 0.5 : 1)
     }
 
