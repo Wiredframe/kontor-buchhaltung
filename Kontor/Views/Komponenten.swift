@@ -578,9 +578,9 @@ struct Kartenzeile: View {
     }
 }
 
-/// Hervorgehobene Summen-/Ergebniszeile als fette `LabeledContent`-Zeile (Label links / Wert
-/// rechts). In einer `Form`/`List` tönt eine Signalfarbe (grün/rot) die ganze Zeile über
-/// `listRowBackground`; neutral bleibt ungetönt. Klick kopiert den Wert.
+/// Hervorgehobene Summen-/Ergebniszeile als dezent getönte Ergebnis-Fläche (mehr Höhe als eine
+/// normale Zeile, damit das Ergebnis wahrnehmbar bleibt – Summenzeilen haben kein Icon). Die
+/// Fläche folgt der Signalfarbe (grün/rot), sonst neutral grau; Wert-Text in `farbe`. Klick kopiert.
 struct Summenzeile: View {
     let label: String
     let wert: Decimal
@@ -588,13 +588,16 @@ struct Summenzeile: View {
     @State private var kopiert = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        let flaeche: Color = (farbe == .primary) ? Color.secondary.opacity(0.1) : farbe.opacity(0.12)
+        return HStack(spacing: 12) {
             Text(label).font(.headline)
             Spacer(minLength: 12)
             KopierHaken(sichtbar: kopiert)
             Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(farbe)
         }
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12).padding(.vertical, 12)
+        .background(flaeche, in: RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
