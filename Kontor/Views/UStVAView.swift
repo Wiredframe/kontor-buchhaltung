@@ -38,7 +38,7 @@ struct UStVAView: View {
         HStack(alignment: .top, spacing: 8) {
             Text(titel).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 .frame(width: 150, alignment: .leading)
-            Text(text).font(.caption).foregroundStyle(.tertiary)
+            Text(text).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -206,7 +206,7 @@ private struct UStVAZeile: View {
                 Text(label)
                     .font(unterzeile ? .subheadline : .body.weight(.medium))
                     .foregroundStyle(unterzeile ? .secondary : .primary)
-                Text(erklaerung).font(.caption).foregroundStyle(.tertiary)
+                Text(erklaerung).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)

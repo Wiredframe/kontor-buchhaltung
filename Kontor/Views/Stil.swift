@@ -10,6 +10,9 @@ enum Stil {
     static let positiv = Color.green
     /// Signalfarbe „negativ" (negatives Ergebnis, Budget-Überzug).
     static let negativ = Color.red
+    /// Einheitliche Farbe für Erklär-/Hinweistexte: etwas mehr Kontrast als `.secondary`,
+    /// aber gedämpft (nicht `.primary`). Zentral, damit alle Erklärungen gleich lesbar sind.
+    static let erklaerungFarbe = Color.primary.opacity(0.62)
 }
 
 extension View {
@@ -36,7 +39,7 @@ extension View {
     /// mehrzeilig und mit etwas mehr Kontrast als `.secondary` (aber gedämpft, nicht `.primary`).
     func erklaerung() -> some View {
         font(.caption)
-            .foregroundStyle(Color.primary.opacity(0.62))
+            .foregroundStyle(Stil.erklaerungFarbe)
             .frame(maxWidth: .infinity, alignment: .leading)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)

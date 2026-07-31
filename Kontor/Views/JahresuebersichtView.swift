@@ -144,16 +144,16 @@ struct JahresuebersichtView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text(
-                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung."
-                    )
-                    .font(.subheadline).foregroundStyle(.secondary)
-
                     // Jahresergebnis auf einen Blick (negative Werte rot, sonst neutral).
                     AbschlussHero(
                         links: .init(titel: "Gewinn (EÜR)", wert: w.a.gewinn),
                         rechts: .init(
                             titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast))
+
+                    Text(
+                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung."
+                    )
+                    .erklaerung()
 
                     // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
                     Panel(
