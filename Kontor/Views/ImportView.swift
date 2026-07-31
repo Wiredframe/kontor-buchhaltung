@@ -61,6 +61,7 @@ struct ImportView: View {
             .padding(20)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .seitenGrund()
         .navigationTitle("Kontoauszug")
     }
 

@@ -42,6 +42,7 @@ struct OnboardingView: View {
         }
         .padding(32)
         .frame(width: 560)
+        .seitenGrund()
     }
 
     private func wahlKarte(

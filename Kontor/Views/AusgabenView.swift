@@ -742,6 +742,7 @@ struct VorlagenPanel: View {
             }
             Spacer(minLength: 0)
         }
+        .seitenGrund()
     }
 
     private func vorlageCard(_ v: Vorlage) -> some View {

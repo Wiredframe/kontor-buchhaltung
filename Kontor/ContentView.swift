@@ -91,6 +91,8 @@ struct ContentView: View {
     @State private var zeit = Zeitkontext()
     @State private var zeigeWiederherstellung = UserDefaults.standard.bool(forKey: "storeWiederhergestellt")
     @State private var zeigeOnboarding = false
+    /// Globale Einstellung: Seitenleiste undurchsichtig (deaktiviert die System-Transparenz/Vibrancy).
+    @AppStorage("sidebarOpak") private var sidebarOpak = false
     #if !APPSTORE
     /// Spendenseite (Stripe) – freiwillige Unterstützung, öffnet im Browser.
     /// Im App-Store-Build (`APPSTORE`) entfällt jeder Spendenaufruf (Guideline 3.1.1).
@@ -115,6 +117,9 @@ struct ContentView: View {
             }
             .navigationTitle("Kontor")
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
+            // Optional undurchsichtige Seitenleiste: System-Vibrancy ausblenden und opak hinterlegen.
+            .scrollContentBackground(sidebarOpak ? .hidden : .automatic)
+            .background(sidebarOpak ? Color(nsColor: .windowBackgroundColor) : Color.clear)
         } detail: {
             if let auswahl = nav.modul {
                 detailAnsicht(auswahl)

@@ -49,6 +49,7 @@ private struct EinstellungenForm: View {
     @State private var selbsttestErgebnis: String?
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
+    @AppStorage("sidebarOpak") private var sidebarOpak = false
 
     /// Grundfreibetrag zum Editieren: zeigt den gesetzlichen Standard des Jahres, bis der Nutzer
     /// einen eigenen Wert setzt (dann lokaler Override in `settings.grundfreibetrag`).
@@ -102,6 +103,12 @@ private struct EinstellungenForm: View {
                 )
                 .font(.caption).foregroundStyle(.secondary)
                 Text("KSK-Beitrag und ESt-Satz werden pro Monat im Monatsabschluss gepflegt (Sidebar-Tab „Werte“).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Darstellung") {
+                Toggle("Seitenleiste undurchsichtig", isOn: $sidebarOpak)
+                Text("Deaktiviert die Transparenz (Vibrancy) der linken Seitenleiste.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
