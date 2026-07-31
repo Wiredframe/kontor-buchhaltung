@@ -83,27 +83,54 @@ struct DashboardView: View {
         return kandidaten.min { $0.1 < $1.1 }.map { ($0.0, $0.1) }
     }
 
-    private func insights(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> [String] {
-        var r: [String] = []
+    /// Ein Hinweis als klickbare Card: Text + Icon + optionales Ziel-Modul (Sprung dorthin).
+    private struct Hinweis: Identifiable {
+        let id = UUID()
+        let text: String
+        let icon: String
+        var ziel: Modul?
+    }
+
+    private func hinweise(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> [Hinweis] {
+        var r: [Hinweis] = []
         if akt.frei < 0 {
             r.append(
-                "Der laufende Monat ist nach allen Ausgaben negativ (\(akt.frei.euro)) – Einnahmen oder Ausgaben prüfen."
-            )
+                .init(
+                    text:
+                        "Laufender Monat nach allen Ausgaben negativ (\(akt.frei.euro)) – Einnahmen/Ausgaben prüfen.",
+                    icon: "exclamationmark.triangle", ziel: .monatsabschluss))
         }
         if !offene.isEmpty {
             r.append(
-                "\(offene.count) offene Rechnung(en) über \(offeneSumme.euro) – Zahlungseingänge im Blick behalten.")
+                .init(
+                    text:
+                        "\(offene.count) offene Rechnung(en) über \(offeneSumme.euro) – Zahlungseingänge im Blick behalten.",
+                    icon: "tray.full", ziel: .einnahmen))
+        }
+        if let f = naechsteFrist {
+            r.append(
+                .init(
+                    text: "Nächster Termin: \(f.titel) am \(f.datum.formatted(.dateTime.day().month().year())).",
+                    icon: "calendar.badge.clock", ziel: .aufgaben))
         }
         if ustVA > 0 {
             r.append(
-                "USt-Zahllast \(ustvaLabel) liegt aktuell bei \(ustVA.euro) (fällig nach \(rhythmus == .monatlich ? "Monatsende" : "Quartalsende"))."
-            )
+                .init(
+                    text:
+                        "USt-Zahllast \(ustvaLabel) aktuell \(ustVA.euro) (fällig nach \(rhythmus == .monatlich ? "Monatsende" : "Quartalsende")).",
+                    icon: "building.columns", ziel: .ustva))
         }
         if let v = vormonat, akt.gewinn > v.gewinn {
-            r.append("Betrieblicher Gewinn über dem Vormonat (\(akt.gewinn.euro) vs. \(v.gewinn.euro)).")
+            r.append(
+                .init(
+                    text: "Betrieblicher Gewinn über dem Vormonat (\(akt.gewinn.euro) vs. \(v.gewinn.euro)).",
+                    icon: "chart.line.uptrend.xyaxis", ziel: nil))
         }
-        if r.isEmpty { r.append("Alles im grünen Bereich – keine Auffälligkeiten.") }
-        return Array(r.prefix(4))
+        if r.isEmpty {
+            r.append(
+                .init(text: "Alles im grünen Bereich – keine Auffälligkeiten.", icon: "checkmark.circle", ziel: nil))
+        }
+        return Array(r.prefix(5))
     }
 
     private func chartDaten(einP: [EinnahmePosten], ausP: [AusgabePosten]) -> [(name: String, wert: Double)] {
@@ -181,12 +208,18 @@ struct DashboardView: View {
         let chart = chartDaten(einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                kpis(akt: akt, ustVA: ustVA)
                 trendKarte(daten: chart)
-                insightsKarte(akt: akt, vormonat: vormonat, ustVA: ustVA)
+                kpis(akt: akt, ustVA: ustVA)
+                hinweisAbschnitt(akt: akt, vormonat: vormonat, ustVA: ustVA)
+                schnellstartAbschnitt
             }
             .padding()
         }
+    }
+
+    /// Abschnitts-Überschrift über einem Karten-Raster (wie ein Panel-Titel, ohne eigene Karte).
+    private func abschnitt(_ titel: String) -> some View {
+        Text(titel).font(.title3).fontWeight(.semibold).padding(.horizontal, 4)
     }
 
     // MARK: KPIs
@@ -254,20 +287,70 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: Insights
+    // MARK: Hinweise (klickbare Cards)
 
-    private func insightsKarte(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> some View {
-        Panel(titel: "Hinweise") {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(insights(akt: akt, vormonat: vormonat, ustVA: ustVA), id: \.self) { text in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "lightbulb").foregroundStyle(.secondary).font(.callout)
-                        Text(text)
-                        Spacer()
+    private func hinweisAbschnitt(akt: Mon, vormonat: Mon?, ustVA: Decimal) -> some View {
+        let hs = hinweise(akt: akt, vormonat: vormonat, ustVA: ustVA)
+        return VStack(alignment: .leading, spacing: 8) {
+            abschnitt("Hinweise")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+                ForEach(hs) { h in hinweisKarte(h) }
+            }
+        }
+    }
+
+    @ViewBuilder private func hinweisKarte(_ h: Hinweis) -> some View {
+        let inhalt = HStack(alignment: .top, spacing: 10) {
+            Image(systemName: h.icon).foregroundStyle(.secondary).frame(width: 24)
+            Text(h.text).frame(maxWidth: .infinity, alignment: .leading)
+            if h.ziel != nil {
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading).karte()
+        if let z = h.ziel {
+            Button {
+                nav.modul = z
+            } label: {
+                inhalt
+            }.buttonStyle(.plain)
+        } else {
+            inhalt
+        }
+    }
+
+    // MARK: Schnellstart (Onboarding-Shortcuts in Workflow-Reihenfolge)
+
+    private var schnellstartAbschnitt: some View {
+        let schritte: [(titel: String, icon: String, modul: Modul)] = [
+            ("Einnahmen & Rechnungen", "eurosign.circle", .einnahmen),
+            ("Ausgaben erfassen", "creditcard", .betriebsausgaben),
+            ("Kontoauszug importieren", "tray.and.arrow.down", .kontoauszug),
+            ("Monat abschließen", "checkmark.seal", .monatsabschluss),
+            ("UStVA prüfen", "doc.text", .ustva),
+            ("Jahresabschluss", "chart.bar.doc.horizontal", .jahresuebersicht),
+        ]
+        return VStack(alignment: .leading, spacing: 8) {
+            abschnitt("Schnellstart")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+                ForEach(Array(schritte.enumerated()), id: \.offset) { i, s in
+                    Button {
+                        nav.modul = s.modul
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Color.accentColor, in: Circle())
+                            Image(systemName: s.icon).foregroundStyle(Color.accentColor)
+                            Text(s.titel).foregroundStyle(.primary).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .padding(14).frame(maxWidth: .infinity, alignment: .leading).karte()
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

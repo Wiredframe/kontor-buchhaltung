@@ -213,8 +213,8 @@ struct JahresuebersichtView: View {
     private func themaPaar<S: View, I: View>(_ titel: String, soll: S, ist: I) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             themaHeader(titel)
-            Panel(titel: "Schätzung (Soll)") { soll }
-            Panel(titel: "Tatsächlich gezahlt (Ist)") { ist }
+            Panel(titel: "Schätzung") { soll }
+            Panel(titel: "Tatsächlich gezahlt") { ist }
         }
     }
 
@@ -273,10 +273,7 @@ struct JahresuebersichtView: View {
                             Kartenzeile(
                                 label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                                 minus: true)
-                            Summenzeile(
-                                label: "Gewinn (EÜR)", wert: w.a.gewinn,
-                                farbe: w.a.gewinn < 0 ? Stil.negativ : .primary
-                            )
+                            Summenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn)
                             Text(
                                 "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
                             )
