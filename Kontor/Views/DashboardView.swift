@@ -225,35 +225,11 @@ struct DashboardView: View {
     // MARK: KPIs
 
     private func kpis(akt: Mon, ustVA: Decimal) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
             Kennzahl(titel: "Offene Rechnungen", wert: offeneSumme, symbol: "tray.full")
             Kennzahl(titel: "USt-Zahllast \(ustvaLabel)", wert: ustVA, symbol: "building.columns")
             Kennzahl(titel: "Umsatz \(monatsName(monat))", wert: akt.rn, symbol: "eurosign.circle")
-            fristKarte
         }
-    }
-    /// „Nächste Frist" im Kennzahl-Card-Stil (Datum als Hauptwert, Titel als Untertitel).
-    private var fristKarte: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 9) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
-                    .frame(width: 30, height: 30)
-                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-                Text("Nächste Frist").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            if let f = naechsteFrist {
-                Text(f.datum, format: .dateTime.day().month().year())
-                    .font(.system(size: 22, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-                Text(f.titel).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            } else {
-                Text("—").font(.system(size: 22, weight: .semibold)).foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .karte()
     }
 
     // MARK: Trend
@@ -307,7 +283,9 @@ struct DashboardView: View {
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
             }
         }
-        .padding(14).frame(maxWidth: .infinity, alignment: .leading).karte()
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .karte()
         if let z = h.ziel {
             Button {
                 nav.modul = z
@@ -322,31 +300,51 @@ struct DashboardView: View {
     // MARK: Schnellstart (Onboarding-Shortcuts in Workflow-Reihenfolge)
 
     private var schnellstartAbschnitt: some View {
-        let schritte: [(titel: String, icon: String, modul: Modul)] = [
-            ("Einnahmen & Rechnungen", "eurosign.circle", .einnahmen),
-            ("Ausgaben erfassen", "creditcard", .betriebsausgaben),
-            ("Kontoauszug importieren", "tray.and.arrow.down", .kontoauszug),
-            ("Monat abschließen", "checkmark.seal", .monatsabschluss),
-            ("UStVA prüfen", "doc.text", .ustva),
-            ("Jahresabschluss", "chart.bar.doc.horizontal", .jahresuebersicht),
+        let schritte: [(titel: String, beschreibung: String, icon: String, modul: Modul)] = [
+            (
+                "Einnahmen & Rechnungen", "Rechnungen erfassen, Zahlungseingänge verfolgen.",
+                "eurosign.circle", .einnahmen
+            ),
+            (
+                "Ausgaben erfassen", "Betriebsausgaben, Fixkosten und Belege ablegen.",
+                "creditcard", .betriebsausgaben
+            ),
+            (
+                "Kontoauszug importieren", "Sparkasse-CSV zuordnen – lernt deine Zuordnungen.",
+                "tray.and.arrow.down", .kontoauszug
+            ),
+            (
+                "Monat abschließen", "Gewinn, Rücklagen und frei verfügbar prüfen.",
+                "checkmark.seal", .monatsabschluss
+            ),
+            ("UStVA prüfen", "Zahllast je Quartal, ELSTER-Kennzahlen ablesen.", "doc.text", .ustva),
+            (
+                "Jahresabschluss", "EÜR, Steuerlast und tatsächlich Gezahltes.",
+                "chart.bar.doc.horizontal", .jahresuebersicht
+            ),
         ]
         return VStack(alignment: .leading, spacing: 8) {
             abschnitt("Schnellstart")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
                 ForEach(Array(schritte.enumerated()), id: \.offset) { i, s in
                     Button {
                         nav.modul = s.modul
                     } label: {
-                        HStack(spacing: 10) {
-                            Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
-                                .frame(width: 20, height: 20)
-                                .background(Color.accentColor, in: Circle())
-                            Image(systemName: s.icon).foregroundStyle(Color.accentColor)
-                            Text(s.titel).foregroundStyle(.primary).lineLimit(1)
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 8) {
+                                Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
+                                    .frame(width: 20, height: 20).background(Color.accentColor, in: Circle())
+                                Image(systemName: s.icon).foregroundStyle(Color.accentColor)
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            }
+                            Text(s.titel).font(.headline).foregroundStyle(.primary)
+                            Text(s.beschreibung).font(.caption).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .padding(14).frame(maxWidth: .infinity, alignment: .leading).karte()
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .karte()
                     }
                     .buttonStyle(.plain)
                 }
