@@ -169,7 +169,7 @@ struct JahresuebersichtView: View {
                                 minus: true)
                             Summenzeile(
                                 label: "Gewinn (EÜR)", wert: w.a.gewinn,
-                                farbe: w.a.gewinn < 0 ? Stil.negativ : Stil.positiv
+                                farbe: w.a.gewinn < 0 ? Stil.negativ : .primary
                             )
                             Text(
                                 "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
@@ -269,7 +269,7 @@ struct JahresuebersichtView: View {
                             Kartenzeile(label: "ESt-Vorauszahlungen geleistet", wert: w.estVzBezahlt, icon: "calendar")
                             Summenzeile(
                                 label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung",
-                                wert: abs(diff), farbe: diff >= 0 ? .orange : Stil.positiv)
+                                wert: abs(diff), farbe: .primary)
                             Text(
                                 "Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung)."
                             )
@@ -294,7 +294,7 @@ struct JahresuebersichtView: View {
                                         ForEach(gruppe.1) { t in ZahlungLeseZeile(eintrag: t) }
                                         Summenzeile(
                                             label: "Summe \(gruppe.0.bezeichnung)", wert: summe,
-                                            farbe: summe < 0 ? Stil.positiv : .primary)
+                                            farbe: .primary)
                                     }
                                 }
                                 Summenzeile(label: "Bezahlt gesamt", wert: w.bezahltGesamt)

@@ -300,12 +300,12 @@ struct MonatsabschlussView: View {
                 Kartenzeile(label: "Betriebsausgaben", wert: z.betriebsausgabenNetto, icon: "creditcard", minus: true)
                 Summenzeile(
                     label: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn,
-                    farbe: z.betrieblicherGewinn < 0 ? Stil.negativ : Stil.positiv)
+                    farbe: z.betrieblicherGewinn < 0 ? Stil.negativ : .primary)
                 Kartenzeile(label: "KSK-Beitrag", wert: z.ksk, icon: "cross.case", minus: true)
                 Kartenzeile(label: "ESt-Rücklage", wert: z.est + z.estKorrektur, icon: "percent", minus: true)
                 Kartenzeile(label: "Private Fixkosten", wert: z.privatFix, icon: "house", minus: true)
                 Kartenzeile(label: "Private Ausgaben", wert: z.privatVariabel, icon: "cart", minus: true)
-                Summenzeile(label: "Frei verfügbar", wert: z.frei, farbe: z.frei < 0 ? Stil.negativ : Stil.positiv)
+                Summenzeile(label: "Frei verfügbar", wert: z.frei, farbe: z.frei < 0 ? Stil.negativ : .primary)
             }
         }
         .frame(maxWidth: .infinity)

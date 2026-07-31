@@ -571,22 +571,24 @@ struct Kartenzeile: View {
     }
 }
 
-/// Hervorgehobene Summen-/Ergebniszeile als dezent getönte Ergebnis-Fläche (mehr Höhe als eine
-/// normale Zeile, damit das Ergebnis wahrnehmbar bleibt – Summenzeilen haben kein Icon). Die
-/// Fläche folgt der Signalfarbe (grün/rot), sonst neutral grau; Wert-Text in `farbe`. Klick kopiert.
+/// Hervorgehobene Summen-/Ergebniszeile als Ergebnis-Fläche (mehr Höhe als eine normale Zeile,
+/// damit das Ergebnis ohne Icon wahrnehmbar bleibt). **Neutral grau** – nur `akzent: true` macht
+/// die **eine relevante** Ergebniszeile zur blauen Akzent-Card (weißer Text). `farbe` färbt sonst
+/// nur den Wert-Text (z. B. rot bei negativem Ergebnis). Klick kopiert.
 struct Summenzeile: View {
     let label: String
     let wert: Decimal
     var farbe: Color = .primary
+    var akzent: Bool = false
     @State private var kopiert = false
 
     var body: some View {
-        let flaeche: Color = (farbe == .primary) ? Color.secondary.opacity(0.1) : farbe.opacity(0.12)
+        let flaeche: Color = akzent ? Color.accentColor : Color.secondary.opacity(0.1)
         return HStack(spacing: 12) {
-            Text(label).font(.headline)
+            Text(label).font(.headline).foregroundStyle(akzent ? Color.white : Color.primary)
             Spacer(minLength: 12)
-            KopierHaken(sichtbar: kopiert)
-            Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(farbe)
+            KopierHaken(sichtbar: kopiert, farbe: akzent ? .white : .green)
+            Text(wert.euro).font(.headline).monospacedDigit().foregroundStyle(akzent ? Color.white : farbe)
         }
         .padding(.horizontal, 12).padding(.vertical, 12)
         .background(flaeche, in: RoundedRectangle(cornerRadius: 8))
