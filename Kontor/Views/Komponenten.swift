@@ -402,45 +402,58 @@ struct HeuteButton: View {
 
 // MARK: - Karten-Zeilen (geteilt zwischen Monats-/Jahresabschluss)
 
-/// Plakativer Abschluss-Hero: zwei große Kennzahlen nebeneinander in einer elevierten Karte
-/// (Klick kopiert den Wert). Geteilt zwischen Monats- und Jahresabschluss. Kein Verlauf –
-/// die Screens unterscheidet der Navigationstitel; negative Werte sind rot, sonst neutral.
+/// Plakativer Abschluss-Hero: **N große Kennzahlen** nebeneinander im System-Akzent (weiße
+/// Schrift, Klick kopiert). Geteilt zwischen Monats- (2 Werte) und Jahresabschluss (4 Werte).
+/// Kein Verlauf, keine Icons; negative Werte bleiben weiß (Minuszeichen zeigt das Vorzeichen).
 struct AbschlussHero: View {
-    /// Eine Hero-Kennzahl: Titel und Wert. Negativwerte färbt der Hero automatisch (`Stil.negativ`).
     struct Metrik {
         let titel: String
         let wert: Decimal
     }
-    let links: Metrik
-    let rechts: Metrik
-    @State private var kopiertLinks = false
-    @State private var kopiertRechts = false
+    let metriken: [Metrik]
+    @State private var kopiert: Int?
+
+    init(_ metriken: [Metrik]) { self.metriken = metriken }
+    /// Bequemer 2-Werte-Aufruf (Monatsabschluss).
+    init(links: Metrik, rechts: Metrik) { self.metriken = [links, rechts] }
 
     var body: some View {
         HStack(spacing: 0) {
-            metrik(links, kopiert: $kopiertLinks)
-            Rectangle().fill(.white.opacity(0.3)).frame(width: 1, height: 60)
-            metrik(rechts, kopiert: $kopiertRechts)
+            ForEach(Array(metriken.enumerated()), id: \.offset) { i, m in
+                if i > 0 { Rectangle().fill(.white.opacity(0.3)).frame(width: 1, height: 52) }
+                metrik(m, index: i)
+            }
         }
         .padding(.vertical, 24).padding(.horizontal, 12)
         .frame(maxWidth: .infinity)
         .background(Color.accentColor, in: RoundedRectangle(cornerRadius: Stil.eckRadius))
     }
 
-    private func metrik(_ m: Metrik, kopiert: Binding<Bool>) -> some View {
+    private func metrik(_ m: Metrik, index: Int) -> some View {
         VStack(spacing: 8) {
             HStack(spacing: 5) {
                 Text(m.titel).font(.subheadline).foregroundStyle(.white.opacity(0.85))
-                KopierHaken(sichtbar: kopiert.wrappedValue, farbe: .white)
+                    .multilineTextAlignment(.center)
+                KopierHaken(sichtbar: kopiert == index, farbe: .white)
             }
-            Text(m.wert.euro).font(.system(size: 34, weight: .bold)).monospacedDigit()
+            Text(m.wert.euro).font(.system(size: metriken.count > 2 ? 26 : 34, weight: .bold)).monospacedDigit()
                 .foregroundStyle(.white)
-                .lineLimit(1).minimumScaleFactor(0.6)
+                .lineLimit(1).minimumScaleFactor(0.5)
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 4)
         .contentShape(Rectangle())
-        .onTapGesture { kopiereMitHaken(m.wert, kopiert) }
+        .onTapGesture { kopiere(m.wert, index) }
         .help("Klicken, um den Wert zu kopieren")
+    }
+
+    private func kopiere(_ wert: Decimal, _ index: Int) {
+        kopiereInZwischenablage(wert)
+        withAnimation { kopiert = index }
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            withAnimation { if kopiert == index { kopiert = nil } }
+        }
     }
 }
 

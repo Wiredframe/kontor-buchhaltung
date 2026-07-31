@@ -208,14 +208,13 @@ struct JahresuebersichtView: View {
         }
     }
 
-    /// Ein Thema als Soll/Ist-Paar nebeneinander (links Schätzung, rechts tatsächlich gezahlt).
+    /// Ein Thema als Soll/Ist-Paar untereinander (oben Schätzung, darunter tatsächlich gezahlt) –
+    /// bewusst nicht zweispaltig, weil die Zeilenzahl je Seite stark unterschiedlich sein kann.
     private func themaPaar<S: View, I: View>(_ titel: String, soll: S, ist: I) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             themaHeader(titel)
-            HStack(alignment: .top, spacing: 14) {
-                Panel(titel: "Schätzung (Soll)") { soll }.frame(maxWidth: .infinity)
-                Panel(titel: "Tatsächlich gezahlt (Ist)") { ist }.frame(maxWidth: .infinity)
-            }
+            Panel(titel: "Schätzung (Soll)") { soll }
+            Panel(titel: "Tatsächlich gezahlt (Ist)") { ist }
         }
     }
 
@@ -249,24 +248,18 @@ struct JahresuebersichtView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Jahresergebnis auf einen Blick (negative Werte rot, sonst neutral).
-                    AbschlussHero(
-                        links: .init(titel: "Gewinn (EÜR)", wert: w.a.gewinn),
-                        rechts: .init(
-                            titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast))
+                    // Kernzahlen auf einen Blick – vier Werte im Hero, Detail in den Blöcken darunter.
+                    AbschlussHero([
+                        .init(titel: "Gewinn (EÜR)", wert: w.a.gewinn),
+                        .init(titel: "ESt-Rücklage", wert: w.estRuecklage),
+                        .init(titel: "USt-Zahllast", wert: w.ustJahr),
+                        .init(titel: "KSK (Vorsorge)", wert: w.kskGesamt),
+                    ])
 
                     Text(
-                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – je Thema **links die Schätzung, rechts das tatsächlich Gezahlte**. Vorlage für die Erklärung, keine finale Erklärung."
+                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – je Thema **oben die Schätzung, darunter das tatsächlich Gezahlte**. Vorlage für die Erklärung, keine finale Erklärung."
                     )
                     .erklaerung()
-
-                    // Kernzahlen auf einen Blick – Detail steht in den Blöcken darunter.
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                        Kennzahl(titel: "Gewinn (EÜR)", wert: w.a.gewinn, symbol: "chart.line.uptrend.xyaxis")
-                        Kennzahl(titel: "ESt-Rücklage", wert: w.estRuecklage, symbol: "percent")
-                        Kennzahl(titel: "USt-Zahllast", wert: w.ustJahr, symbol: "building.columns")
-                        Kennzahl(titel: "KSK (Vorsorge)", wert: w.kskGesamt, symbol: "cross.case")
-                    }
 
                     // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
                     Panel(
