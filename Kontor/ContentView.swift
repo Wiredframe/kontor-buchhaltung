@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -165,6 +166,17 @@ struct ContentView: View {
             // ohne das Argument; in Release ohnehin wegkompiliert.
             if let s = UserDefaults.standard.string(forKey: "startModul"), let m = Modul(rawValue: s) {
                 nav.modul = m
+                // Erscheinungsbild der ganzen App (inkl. Titelleiste) fürs Screenshot erzwingen.
+                if let a = UserDefaults.standard.string(forKey: "startAppearance") {
+                    NSApp.appearance = NSAppearance(named: a == "dark" ? .darkAqua : .aqua)
+                }
+                // Fenster maximieren, damit die Screenshots das volle Layout zeigen.
+                try? await Task.sleep(for: .milliseconds(300))
+                if let win = NSApp.windows.first(where: { $0.isVisible }),
+                    let scr = win.screen ?? NSScreen.main
+                {
+                    win.setFrame(scr.visibleFrame, display: true)
+                }
                 return
             }
             #endif
