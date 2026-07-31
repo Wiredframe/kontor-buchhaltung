@@ -180,7 +180,7 @@ struct DashboardView: View {
         let ustVA = Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: ustvaPeriode).zahllast
         let chart = chartDaten(einP: einP, ausP: ausP)
         return ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 24) {
                 kpis(akt: akt, ustVA: ustVA)
                 trendKarte(daten: chart)
                 insightsKarte(akt: akt, vormonat: vormonat, ustVA: ustVA)

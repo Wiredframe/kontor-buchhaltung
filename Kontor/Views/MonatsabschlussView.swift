@@ -241,14 +241,14 @@ struct MonatsabschlussView: View {
         let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
         let z = zahlen(monat, einP: einP, ausP: ausP)
         return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 24) {
                 if abgeschlossen { abschlussBanner }
                 if istZukunft(monat) { zukunftshinweis }
                 heroCard(z)
 
                 HStack(alignment: .top, spacing: 14) {
                     gewinnKarte(z)
-                    VStack(spacing: 14) {
+                    VStack(spacing: 24) {
                         ruecklageKarte(z)
                         fixkostenKarte(z)
                     }

@@ -51,33 +51,45 @@ struct Kennzahl: View {
     var symbol: String? = nil
     var betont = false
     var farbe: Color? = nil
+    /// Akzent-Kachel: gefüllt im System-Akzent mit weißer Schrift (statt grauer Fläche).
+    var akzent = false
     @State private var kopiert = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let inhalt = VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
                 if let symbol {
                     Image(systemName: symbol)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(akzent ? Color.white.opacity(0.9) : .secondary)
                         .frame(width: 30, height: 30)
-                        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                        .background(
+                            (akzent ? Color.white.opacity(0.2) : Color.secondary.opacity(0.12)),
+                            in: RoundedRectangle(cornerRadius: 9))
                 }
-                Text(titel).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                Text(titel).font(.subheadline)
+                    .foregroundStyle(akzent ? Color.white.opacity(0.85) : .secondary).lineLimit(1)
                 Spacer(minLength: 0)
-                KopierHaken(sichtbar: kopiert)
+                KopierHaken(sichtbar: kopiert, farbe: akzent ? .white : .green)
             }
             Text(wert.euro)
                 .font(betont ? .system(size: 30, weight: .bold) : .system(size: 22, weight: .semibold))
                 .monospacedDigit()
-                .foregroundStyle(farbe ?? .primary)
+                .foregroundStyle(akzent ? Color.white : (farbe ?? .primary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .karte()
+
+        return Group {
+            if akzent {
+                inhalt.background(Color.accentColor, in: RoundedRectangle(cornerRadius: Stil.eckRadius))
+            } else {
+                inhalt.karte()
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture(perform: kopiere)
         .help("Klicken, um den Wert zu kopieren")

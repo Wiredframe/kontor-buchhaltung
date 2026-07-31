@@ -71,96 +71,104 @@ struct UStVAView: View {
             .padding()
             Divider()
 
-            Form {
-                Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                     Text(
                         "Die Kennzahlen (KZ) entsprechen den Feldern im ELSTER-Formular – Werte per Klick kopierbar."
                     )
-                    .font(.callout).foregroundStyle(.secondary)
-                }
+                    .erklaerung()
 
-                Section("Umsätze · geschuldete USt") {
-                    UStVAZeile(
-                        kz: "81", label: "Steuerpflichtige Umsätze 19 % (netto)",
-                        erklaerung:
-                            "Summe deiner Netto-Honorare mit 19 % USt – nach Rechnungsdatum (Soll-Versteuerung).",
-                        wert: e.kz81)
-                    UStVAZeile(
-                        kz: nil, label: "darauf USt 19 %",
-                        erklaerung: "Berechnet ELSTER automatisch aus KZ 81 – hier zur Kontrolle.",
-                        wert: e.ust81, unterzeile: true)
-                    UStVAZeile(
-                        kz: "86", label: "Steuerpflichtige Umsätze 7 % (netto)",
-                        erklaerung:
-                            "Netto-Honorare mit ermäßigten 7 % USt (z. B. Einräumung von Nutzungsrechten) – nach Rechnungsdatum (Soll).",
-                        wert: e.kz86)
-                    UStVAZeile(
-                        kz: nil, label: "darauf USt 7 %",
-                        erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
-                        wert: e.ust86, unterzeile: true)
-                    UStVAZeile(
-                        kz: "84", label: "§13b Reverse-Charge (netto)",
-                        erklaerung:
-                            "Netto aus Auslands-Leistungen (z. B. Figma, Adobe), für die du die USt selbst schuldest.",
-                        wert: e.kz84)
-                    UStVAZeile(
-                        kz: "85", label: "§13b – USt 19 %",
-                        erklaerung:
-                            "USt auf KZ 84 – schuldest du, ziehst sie aber unten (KZ 67) wieder ab → Saldo 0.",
-                        wert: e.kz85)
-                    if e.korrektur17 != 0 {
-                        UStVAZeile(
-                            kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
-                            erklaerung:
-                                "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
-                                + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
-                                + "Erstattung daraus selbst aus.",
-                            wert: e.korrektur17)
+                    Panel(titel: "Umsätze · geschuldete USt") {
+                        VStack(spacing: 0) {
+                            UStVAZeile(
+                                kz: "81", label: "Steuerpflichtige Umsätze 19 % (netto)",
+                                erklaerung:
+                                    "Summe deiner Netto-Honorare mit 19 % USt – nach Rechnungsdatum (Soll-Versteuerung).",
+                                wert: e.kz81)
+                            UStVAZeile(
+                                kz: nil, label: "darauf USt 19 %",
+                                erklaerung: "Berechnet ELSTER automatisch aus KZ 81 – hier zur Kontrolle.",
+                                wert: e.ust81, unterzeile: true)
+                            UStVAZeile(
+                                kz: "86", label: "Steuerpflichtige Umsätze 7 % (netto)",
+                                erklaerung:
+                                    "Netto-Honorare mit ermäßigten 7 % USt (z. B. Einräumung von Nutzungsrechten) – nach Rechnungsdatum (Soll).",
+                                wert: e.kz86)
+                            UStVAZeile(
+                                kz: nil, label: "darauf USt 7 %",
+                                erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
+                                wert: e.ust86, unterzeile: true)
+                            UStVAZeile(
+                                kz: "84", label: "§13b Reverse-Charge (netto)",
+                                erklaerung:
+                                    "Netto aus Auslands-Leistungen (z. B. Figma, Adobe), für die du die USt selbst schuldest.",
+                                wert: e.kz84)
+                            UStVAZeile(
+                                kz: "85", label: "§13b – USt 19 %",
+                                erklaerung:
+                                    "USt auf KZ 84 – schuldest du, ziehst sie aber unten (KZ 67) wieder ab → Saldo 0.",
+                                wert: e.kz85, zeigeTrennlinie: e.korrektur17 != 0)
+                            if e.korrektur17 != 0 {
+                                UStVAZeile(
+                                    kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
+                                    erklaerung:
+                                        "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
+                                        + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
+                                        + "Erstattung daraus selbst aus.",
+                                    wert: e.korrektur17, zeigeTrennlinie: false)
+                            }
+                        }
+                    }
+
+                    Panel(titel: "Vorsteuer · abziehbar") {
+                        VStack(spacing: 0) {
+                            UStVAZeile(
+                                kz: "66", label: "Vorsteuer Inland",
+                                erklaerung: "USt aus Eingangsrechnungen deutscher Lieferanten (betriebliche Ausgaben).",
+                                wert: e.kz66)
+                            UStVAZeile(
+                                kz: "67", label: "Vorsteuer aus §13b-Leistungen",
+                                erklaerung: "= KZ 85. Macht Reverse-Charge unterm Strich neutral.",
+                                wert: e.kz67, zeigeTrennlinie: false)
+                        }
+                    }
+
+                    Panel(titel: "Ergebnis") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Summenzeile(
+                                label: "KZ 83 · USt-Vorauszahlung", wert: e.zahllast,
+                                farbe: e.zahllast >= 0 ? .primary : Stil.positiv)
+                            Text(
+                                e.zahllast >= 0
+                                    ? "Betrag, den du ans Finanzamt überweist."
+                                    : "Erstattungsbetrag (Vorsteuer-Überhang) vom Finanzamt."
+                            )
+                            .erklaerung()
+                        }
+                    }
+
+                    Panel(titel: "Hinweise zum Ausfüllen") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            hinweis(
+                                "Soll-Versteuerung", "Maßgeblich ist das Rechnungsdatum, nicht der Zahlungseingang.")
+                            hinweis(
+                                "Reverse-Charge (§13b)",
+                                "Bei Auslands-Tools schuldest du die USt selbst (KZ 84/85) und ziehst sie zugleich als Vorsteuer ab (KZ 67) – Saldo 0. Der Netto-Betrag bleibt trotzdem Betriebsausgabe in der EÜR."
+                            )
+                            hinweis(
+                                "Steuersätze",
+                                "Ausgangsseitig 19 % (Regelsatz) oder 7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten) – kein steuerfreier Ausgang (außer USt = 0). Mischrechnungen mit beiden Sätzen sind möglich (zweiter Satz je Rechnung)."
+                            )
+                            hinweis(
+                                "Vorsteuer",
+                                "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf."
+                            )
+                        }
                     }
                 }
-
-                Section("Vorsteuer · abziehbar") {
-                    UStVAZeile(
-                        kz: "66", label: "Vorsteuer Inland",
-                        erklaerung: "USt aus Eingangsrechnungen deutscher Lieferanten (betriebliche Ausgaben).",
-                        wert: e.kz66)
-                    UStVAZeile(
-                        kz: "67", label: "Vorsteuer aus §13b-Leistungen",
-                        erklaerung: "= KZ 85. Macht Reverse-Charge unterm Strich neutral.",
-                        wert: e.kz67)
-                }
-
-                Section {
-                    Summenzeile(
-                        label: "KZ 83 · USt-Vorauszahlung", wert: e.zahllast,
-                        farbe: e.zahllast >= 0 ? .primary : Stil.positiv)
-                } header: {
-                    Text("Ergebnis")
-                } footer: {
-                    Text(
-                        e.zahllast >= 0
-                            ? "Betrag, den du ans Finanzamt überweist."
-                            : "Erstattungsbetrag (Vorsteuer-Überhang) vom Finanzamt."
-                    )
-                }
-
-                Section("Hinweise zum Ausfüllen") {
-                    hinweis("Soll-Versteuerung", "Maßgeblich ist das Rechnungsdatum, nicht der Zahlungseingang.")
-                    hinweis(
-                        "Reverse-Charge (§13b)",
-                        "Bei Auslands-Tools schuldest du die USt selbst (KZ 84/85) und ziehst sie zugleich als Vorsteuer ab (KZ 67) – Saldo 0. Der Netto-Betrag bleibt trotzdem Betriebsausgabe in der EÜR."
-                    )
-                    hinweis(
-                        "Steuersätze",
-                        "Ausgangsseitig 19 % (Regelsatz) oder 7 % (ermäßigt, z. B. Einräumung von Nutzungsrechten) – kein steuerfreier Ausgang (außer USt = 0). Mischrechnungen mit beiden Sätzen sind möglich (zweiter Satz je Rechnung)."
-                    )
-                    hinweis(
-                        "Vorsteuer",
-                        "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf."
-                    )
-                }
+                .padding()
             }
-            .formStyle(.grouped)
+            .seitenGrund()
         }
         .navigationTitle("UStVA")
         .onChange(of: jahr, initial: true) { _, _ in
@@ -178,6 +186,7 @@ private struct UStVAZeile: View {
     let erklaerung: String
     let wert: Decimal
     var unterzeile = false
+    var zeigeTrennlinie = true
     @State private var kopiert = false
 
     var body: some View {
@@ -208,7 +217,8 @@ private struct UStVAZeile: View {
                     .foregroundStyle(unterzeile ? .secondary : .primary)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottom) { Divider().opacity(zeigeTrennlinie ? 1 : 0) }
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")

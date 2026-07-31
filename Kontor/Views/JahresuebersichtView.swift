@@ -143,7 +143,7 @@ struct JahresuebersichtView: View {
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 24) {
                     Text(
                         "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung."
                     )
@@ -228,7 +228,9 @@ struct JahresuebersichtView: View {
                     Panel(titel: "Umsatzsteuer-Zahllast je \(w.ustRhythmus == .monatlich ? "Monat" : "Quartal")") {
                         VStack(spacing: 10) {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
-                                ForEach(w.ustPerioden, id: \.label) { p in Kennzahl(titel: p.label, wert: p.betrag) }
+                                ForEach(w.ustPerioden, id: \.label) { p in
+                                    Kennzahl(titel: p.label, wert: p.betrag, akzent: true)
+                                }
                             }
                             Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr)
                             Text(

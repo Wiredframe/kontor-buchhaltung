@@ -90,7 +90,7 @@ struct PrivatUebersichtView: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 24) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
                         Kennzahl(titel: "Fixkosten (\(monatsName(monat)))", wert: summeFixkosten, symbol: "house")
                         Kennzahl(
