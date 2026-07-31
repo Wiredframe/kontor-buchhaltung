@@ -48,13 +48,11 @@ struct JahresuebersichtView: View {
         var estVzBezahlt: Decimal {
             zahlungen.filter { $0.kind == .estVz && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag }
         }
-        /// Nach Art gruppiert (nur nicht-leere Gruppen, stabile Reihenfolge).
-        var gruppen: [(SteuerKind, [TaxPayment])] {
-            SteuerKind.allCases.compactMap { kind in
-                let p = zahlungen.filter { $0.kind == kind }
-                return p.isEmpty ? nil : (kind, p)
-            }
-        }
+        // Ist-Zahlungen je Steuerthema (für die rechte „Tatsächlich gezahlt"-Spalte).
+        var ustGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ustVz } }
+        var estGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .estVz || $0.kind == .estBescheid } }
+        var kskGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ksk } }
+        var sonstigeGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .sonstige } }
     }
 
     /// Einstellungen **genau dieses Jahres** – kein Fallback (sonst zöge die KSK-Jahressumme
@@ -114,6 +112,113 @@ struct JahresuebersichtView: View {
         }
         return (kv, rv, pv)
     }
+    /// Themen-Überschrift über einem Soll/Ist-Paar.
+    private func themaHeader(_ titel: String) -> some View {
+        Text(titel).font(.title2).fontWeight(.semibold).padding(.horizontal, 4).padding(.top, 4)
+    }
+
+    // MARK: Soll/Ist-Spalten je Thema
+
+    @ViewBuilder private func estSoll(_ w: Jahreswerte) -> some View {
+        VStack(spacing: 2) {
+            Kartenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn, icon: "chart.line.uptrend.xyaxis")
+            Kartenzeile(
+                label: "Vorsorgeaufwand (KSK, Sonderausgabe)", wert: w.kskGesamt, icon: "cross.case", minus: true)
+            Kartenzeile(
+                label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt, icon: "function")
+            Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage)
+            Text(
+                "Pauschal je Monat (Gewinn − KSK) × Satz, über die Monate summiert. Satz im Monatsabschluss unter „Werte“."
+            )
+            .erklaerung()
+            Divider().padding(.vertical, 6)
+            Text("Genauere Orientierung (mit Grundfreibetrag)")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Kartenzeile(
+                label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag,
+                icon: "person.crop.circle", minus: true)
+            Kartenzeile(label: "Voraussichtliche ESt", wert: w.estVoraussichtlich, icon: "percent")
+            Kartenzeile(
+                label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich,
+                icon: "arrow.down.right.circle")
+            Text(
+                "Jahresbasiert (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt." : "") Grobe Orientierung, keine Steuererklärung; Grundfreibetrag in den Einstellungen je Jahr anpassbar."
+            )
+            .erklaerung()
+        }
+    }
+
+    @ViewBuilder private func estIst(_ w: Jahreswerte) -> some View {
+        let diff = w.estRuecklage - w.estVzBezahlt
+        VStack(spacing: 2) {
+            if w.estGezahlt.isEmpty {
+                Text("Noch keine ESt-Vorauszahlung erfasst.").erklaerung()
+            } else {
+                ForEach(w.estGezahlt) { ZahlungLeseZeile(eintrag: $0) }
+            }
+            Summenzeile(
+                label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung", wert: abs(diff))
+            Text("Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung).")
+                .erklaerung()
+        }
+    }
+
+    @ViewBuilder private func ustSoll(_ w: Jahreswerte) -> some View {
+        VStack(spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
+                ForEach(w.ustPerioden, id: \.label) { p in Kennzahl(titel: p.label, wert: p.betrag, akzent: true) }
+            }
+            Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr)
+            Text("Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“.")
+                .erklaerung()
+        }
+    }
+
+    @ViewBuilder private func ustIst(_ w: Jahreswerte) -> some View {
+        VStack(spacing: 2) {
+            if w.ustGezahlt.isEmpty {
+                Text("Noch keine USt-Zahlung erfasst (Kontoauszug-Import bzw. Modul „Ausgaben“).").erklaerung()
+            } else {
+                ForEach(w.ustGezahlt) { ZahlungLeseZeile(eintrag: $0) }
+                Summenzeile(label: "Gezahlt gesamt", wert: w.ustGezahlt.reduce(Decimal(0)) { $0 + $1.betrag })
+            }
+        }
+    }
+
+    @ViewBuilder private func kskSoll(_ w: Jahreswerte) -> some View {
+        VStack(spacing: 2) {
+            Kartenzeile(label: "Krankenversicherung (KV)", wert: w.ksk.kv, icon: "cross.case")
+            Kartenzeile(label: "Rentenversicherung (RV)", wert: w.ksk.rv, icon: "building.columns")
+            Kartenzeile(label: "Pflegeversicherung (PV)", wert: w.ksk.pv, icon: "heart.text.square")
+            Summenzeile(label: "Summe KSK (Soll)", wert: w.kskGesamt)
+            Text("Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“.")
+                .erklaerung()
+        }
+    }
+
+    @ViewBuilder private func kskIst(_ w: Jahreswerte) -> some View {
+        VStack(spacing: 2) {
+            if w.kskGezahlt.isEmpty {
+                Text("Noch keine KSK-Abbuchung erfasst (Kontoauszug-Import).").erklaerung()
+            } else {
+                ForEach(w.kskGezahlt) { ZahlungLeseZeile(eintrag: $0) }
+                Summenzeile(label: "Gezahlt gesamt", wert: w.kskGezahlt.reduce(Decimal(0)) { $0 + $1.betrag })
+            }
+        }
+    }
+
+    /// Ein Thema als Soll/Ist-Paar nebeneinander (links Schätzung, rechts tatsächlich gezahlt).
+    private func themaPaar<S: View, I: View>(_ titel: String, soll: S, ist: I) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            themaHeader(titel)
+            HStack(alignment: .top, spacing: 14) {
+                Panel(titel: "Schätzung (Soll)") { soll }.frame(maxWidth: .infinity)
+                Panel(titel: "Tatsächlich gezahlt (Ist)") { ist }.frame(maxWidth: .infinity)
+            }
+        }
+    }
+
     var body: some View {
         @Bindable var zeit = zeit
         let w = baueWerte()
@@ -151,9 +256,17 @@ struct JahresuebersichtView: View {
                             titel: "Steuerlast (ESt + USt, geschätzt)", wert: w.steuerlast))
 
                     Text(
-                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – darunter, was tatsächlich gezahlt wurde. Vorlage für die Erklärung, keine finale Erklärung."
+                        "Von oben nach unten wie eine Steuererklärung: erst der Gewinn (EÜR, Zuflussprinzip), daraus ESt & USt (Schätzungen) – je Thema **links die Schätzung, rechts das tatsächlich Gezahlte**. Vorlage für die Erklärung, keine finale Erklärung."
                     )
                     .erklaerung()
+
+                    // Kernzahlen auf einen Blick – Detail steht in den Blöcken darunter.
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                        Kennzahl(titel: "Gewinn (EÜR)", wert: w.a.gewinn, symbol: "chart.line.uptrend.xyaxis")
+                        Kennzahl(titel: "ESt-Rücklage", wert: w.estRuecklage, symbol: "percent")
+                        Kennzahl(titel: "USt-Zahllast", wert: w.ustJahr, symbol: "building.columns")
+                        Kennzahl(titel: "KSK (Vorsorge)", wert: w.kskGesamt, symbol: "cross.case")
+                    }
 
                     // 1) Gewinnermittlung (EÜR): Einnahmen − Betriebsausgaben (netto) = Gewinn.
                     Panel(
@@ -178,131 +291,20 @@ struct JahresuebersichtView: View {
                         }
                     }
 
-                    // 2) Einkommensteuer: Gewinn − Vorsorge (KSK) → grobe Bemessungsgrundlage → pauschale Rücklage.
-                    Panel(titel: "Einkommensteuer (Rücklage, geschätzt)") {
-                        VStack(spacing: 2) {
-                            Kartenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn, icon: "chart.line.uptrend.xyaxis")
-                            Kartenzeile(
-                                label: "Vorsorgeaufwand (KSK, Sonderausgabe)", wert: w.kskGesamt, icon: "cross.case",
-                                minus: true)
-                            Kartenzeile(
-                                label: "Steuerpflichtiger Gewinn (grob)", wert: w.a.gewinn - w.kskGesamt,
-                                icon: "function")
-                            Summenzeile(label: "ESt-Rücklage (pauschal)", wert: w.estRuecklage)
-                            Text(
-                                "Pauschal je Monat (Gewinn − KSK) × Satz, hier über die Monate summiert. Satz wird im Monatsabschluss unter „Werte“ gepflegt."
-                            )
-                            .erklaerung()
-                            Divider().padding(.vertical, 4)
-                            Kartenzeile(
-                                label: "Grundfreibetrag (Grundtarif \(String(jahr)))", wert: w.grundfreibetrag,
-                                icon: "person.crop.circle", minus: true)
-                            Summenzeile(
-                                label: "Voraussichtliche ESt (mit Grundfreibetrag)", wert: w.estVoraussichtlich)
-                            Kartenzeile(
-                                label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich,
-                                icon: "arrow.down.right.circle")
-                            Text(
-                                "Jahresbasiert: (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(istAktuellesJahr ? " Laufendes Jahr: Stand jetzt, der Gewinn wächst bis Dezember noch." : "") Grobe Orientierung, keine Steuererklärung: Progression, weitere Einkünfte und Splitting bleiben unberücksichtigt. Grundfreibetrag in den Einstellungen je Jahr anpassbar."
-                            )
-                            .erklaerung()
-                        }
-                    }
+                    // Pro Steuerthema ein Soll/Ist-Paar nebeneinander – so bleibt jedes Thema als
+                    // Block zusammen und Schätzung vs. gezahlt ist direkt vergleichbar.
+                    themaPaar("Einkommensteuer", soll: estSoll(w), ist: estIst(w))
+                    themaPaar("Umsatzsteuer", soll: ustSoll(w), ist: ustIst(w))
+                    themaPaar("Vorsorge · KSK \(String(jahr))", soll: kskSoll(w), ist: kskIst(w))
 
-                    // 3) Vorsorgeaufwand-Detail: KSK nach Versicherungszweig.
-                    Panel(titel: "Vorsorgeaufwand · KSK \(String(jahr)) nach Versicherung") {
-                        let k = w.ksk
-                        VStack(spacing: 2) {
-                            Kartenzeile(label: "Krankenversicherung (KV)", wert: k.kv, icon: "cross.case")
-                            Kartenzeile(label: "Rentenversicherung (RV)", wert: k.rv, icon: "building.columns")
-                            Kartenzeile(label: "Pflegeversicherung (PV)", wert: k.pv, icon: "heart.text.square")
-                            Summenzeile(label: "Summe KSK", wert: k.kv + k.rv + k.pv)
-                            Text(
-                                "Aus den je Monat hinterlegten Beitragssätzen (Soll); gepflegt im Monatsabschluss unter „Werte“."
-                            )
-                            .erklaerung()
-                        }
-                    }
-
-                    // 4) Umsatzsteuer: Zahllast je Voranmeldungs-Zeitraum + Jahressumme.
-                    Panel(titel: "Umsatzsteuer-Zahllast je \(w.ustRhythmus == .monatlich ? "Monat" : "Quartal")") {
-                        VStack(spacing: 10) {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
-                                ForEach(w.ustPerioden, id: \.label) { p in
-                                    Kennzahl(titel: p.label, wert: p.betrag, akzent: true)
-                                }
+                    if !w.sonstigeGezahlt.isEmpty {
+                        Panel(titel: "Sonstige Steuerzahlungen \(String(jahr))") {
+                            VStack(spacing: 2) {
+                                ForEach(w.sonstigeGezahlt) { ZahlungLeseZeile(eintrag: $0) }
+                                Summenzeile(
+                                    label: "Summe sonstige",
+                                    wert: w.sonstigeGezahlt.reduce(Decimal(0)) { $0 + $1.betrag })
                             }
-                            Summenzeile(label: "USt-Zahllast \(String(jahr))", wert: w.ustJahr)
-                            Text(
-                                "Soll-Versteuerung nach Rechnungsdatum (KZ 83 je Zeitraum); Detail siehe Modul „UStVA“."
-                            )
-                            .erklaerung()
-                        }
-                    }
-
-                    // 5) Ergebnis: ESt + USt = geschätzte Steuerlast (wie das UStVA-„Ergebnis“).
-                    Panel(titel: "Steuerlast gesamt (geschätzt)") {
-                        VStack(spacing: 2) {
-                            Kartenzeile(label: "ESt-Rücklage (geschätzt)", wert: w.estRuecklage, icon: "percent")
-                            Kartenzeile(label: "USt-Zahllast", wert: w.ustJahr, icon: "building.columns")
-                            Summenzeile(label: "Steuerlast (ESt + USt)", wert: w.steuerlast)
-                        }
-                    }
-
-                    // — Übergang Soll → Ist: ab hier zählt, was tatsächlich aufs Konto/ans Finanzamt ging.
-                    VStack(alignment: .leading, spacing: 6) {
-                        Divider()
-                        Text("Tatsächlich geleistet")
-                            .font(.title3.weight(.semibold))
-                        Text(
-                            "Abgleich der Schätzung mit den echten Abbuchungen – was wirklich an Steuern & Vorsorge gezahlt wurde."
-                        )
-                        .erklaerung()
-                    }
-                    .padding(.top, 4)
-
-                    Panel(titel: "ESt-Abgleich (Schätzung vs. geleistet)") {
-                        let diff = w.estRuecklage - w.estVzBezahlt
-                        VStack(spacing: 2) {
-                            Kartenzeile(
-                                label: "ESt-Rücklage (geschätzt, pauschal)", wert: w.estRuecklage, icon: "percent")
-                            Kartenzeile(label: "ESt-Vorauszahlungen geleistet", wert: w.estVzBezahlt, icon: "calendar")
-                            Summenzeile(
-                                label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung",
-                                wert: abs(diff), farbe: .primary)
-                            Text(
-                                "Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung)."
-                            )
-                            .erklaerung()
-                        }
-                    }
-
-                    Panel(titel: "Tatsächlich gezahlt · Steuern & Vorsorge \(String(jahr))") {
-                        if w.zahlungen.isEmpty {
-                            Text(
-                                "Noch keine erfassten Zahlungen. Erfassung über den Kontoauszug-Import bzw. im Modul „Ausgaben“ (Bereich Vorsorge/Steuern)."
-                            )
-                            .font(.callout).foregroundStyle(.secondary).padding(.vertical, 4)
-                        } else {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(w.gruppen, id: \.0) { gruppe in
-                                    let summe = gruppe.1.reduce(Decimal(0)) { $0 + $1.betrag }
-                                    VStack(spacing: 2) {
-                                        Text(gruppe.0.bezeichnung)
-                                            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                        ForEach(gruppe.1) { t in ZahlungLeseZeile(eintrag: t) }
-                                        Summenzeile(
-                                            label: "Summe \(gruppe.0.bezeichnung)", wert: summe,
-                                            farbe: .primary)
-                                    }
-                                }
-                                Summenzeile(label: "Bezahlt gesamt", wert: w.bezahltGesamt)
-                            }
-                            Text(
-                                "Read-only · Termine liegen in „Aufgaben“, Erfassung im Modul „Ausgaben“ (Vorsorge/Steuern) bzw. über den Kontoauszug."
-                            )
-                            .erklaerung()
                         }
                     }
                 }
