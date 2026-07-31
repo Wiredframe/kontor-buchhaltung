@@ -138,16 +138,24 @@ struct MonatsabschlussView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            kopf
-            Divider()
-            // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
-            // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
-            FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
-                context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
-                try? context.save()
-            }
+        Group {
             if jahresansicht { jahresAnsicht } else { monatsAnsicht }
+        }
+        // Kopf als gepinnter Top-Inset: sonst zieht die native Jahres-`Table` ihren Scroll-Inhalt
+        // unter die Titelleiste und schiebt den ganzen View nach oben. Über safeAreaInset insetten
+        // ScrollView (Monat) und Table (Jahr) einheitlich unter die Kopfleiste.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                kopf
+                Divider()
+                // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
+                // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
+                FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
+                    context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
+                    try? context.save()
+                }
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .navigationTitle("Monatsabschluss")
         .toolbar {
@@ -193,6 +201,13 @@ struct MonatsabschlussView: View {
             .inspektorGrund()
             .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
+        #if DEBUG
+        // Screenshot-Automatik (nur Dev): Startargument `-startJahr YES` öffnet direkt die
+        // Jahresansicht (in Release wegkompiliert).
+        .task {
+            if UserDefaults.standard.bool(forKey: "startJahr") { jahresansicht = true }
+        }
+        #endif
     }
 
     // MARK: Kopfzeile
