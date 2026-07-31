@@ -15,13 +15,15 @@ struct DemodatenTests {
         Demodaten.einspielen(c.mainContext)
         #expect(!Demodaten.istLeer(c.mainContext))
 
+        // Demo ist relativ zu heute: aktueller Monat + Vormonat → feste Anzahlen (unabhängig vom
+        // Startzeitpunkt), nur YearSettings = 1 bzw. 2 am Jahreswechsel (Dez→Jan).
         let ctx = c.mainContext
-        #expect(try ctx.fetchCount(FetchDescriptor<YearSettings>()) == 1)
-        #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 8)  // 6 × 19 % + 1 × 7 % + 1 Mischrechnung
-        #expect(try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()) == 62)  // 30 wiederk. + 2 einmalig (Laptop+Fachbuch 7 %) + 30 privat
-        #expect(try ctx.fetchCount(FetchDescriptor<GroceryEntry>()) == 12)
-        #expect(try ctx.fetchCount(FetchDescriptor<PurchaseEntry>()) == 3)
-        #expect(try ctx.fetchCount(FetchDescriptor<TaxPayment>()) == 6)  // 5 KSK + 1 USt-VZ
+        #expect((1...2).contains(try ctx.fetchCount(FetchDescriptor<YearSettings>())))
+        #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 4)  // 1×19 % (Vor) + 1×7 % (Vor) + 1 Misch + 1×19 % (offen)
+        #expect(try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()) == 22)  // 2×(5 wiederk. betr. + 5 privat) + Laptop + Fachbuch 7 %
+        #expect(try ctx.fetchCount(FetchDescriptor<GroceryEntry>()) == 4)  // 2 je Monat
+        #expect(try ctx.fetchCount(FetchDescriptor<PurchaseEntry>()) == 1)
+        #expect(try ctx.fetchCount(FetchDescriptor<TaxPayment>()) == 2)  // KSK je Monat
         #expect(try ctx.fetchCount(FetchDescriptor<MonthlyTask>()) == 3)
     }
 
