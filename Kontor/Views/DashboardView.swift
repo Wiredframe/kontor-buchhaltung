@@ -326,19 +326,18 @@ struct DashboardView: View {
         return VStack(alignment: .leading, spacing: 8) {
             abschnitt("Schnellstart")
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                ForEach(Array(schritte.enumerated()), id: \.offset) { i, s in
+                ForEach(Array(schritte.enumerated()), id: \.offset) { _, s in
                     Button {
                         nav.modul = s.modul
                     } label: {
                         VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 8) {
-                                Text("\(i + 1)").font(.caption.weight(.bold)).foregroundStyle(.white)
-                                    .frame(width: 20, height: 20).background(Color.accentColor, in: Circle())
-                                Image(systemName: s.icon).foregroundStyle(Color.accentColor)
+                            HStack(spacing: 10) {
+                                Image(systemName: s.icon).foregroundStyle(.white).font(.callout)
+                                    .frame(width: 30, height: 30).background(Color.accentColor, in: Circle())
+                                Text(s.titel).font(.headline).foregroundStyle(.primary)
                                 Spacer(minLength: 0)
                                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                             }
-                            Text(s.titel).font(.headline).foregroundStyle(.primary)
                             Text(s.beschreibung).font(.caption).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
