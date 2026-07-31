@@ -17,7 +17,7 @@ extension View {
     /// Grund + Haarlinie, damit sich die Gruppe klar vom (helleren) Seitenhintergrund abhebt
     /// (native macOS-Apps wie Einstellungen/Mail setzen auf gruppierte Flächen ohne Elevation).
     func karte(_ radius: CGFloat = Stil.eckRadius) -> some View {
-        background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: radius))
+        background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: radius))
             .overlay(
                 RoundedRectangle(cornerRadius: radius)
                     .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))

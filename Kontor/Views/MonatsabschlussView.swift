@@ -296,7 +296,6 @@ struct MonatsabschlussView: View {
                 Kartenzeile(label: "USt", wert: z.ust, icon: "building.columns")
                 Kartenzeile(label: "Umsatz (RN netto)", wert: z.rn, icon: "eurosign.circle")
                 Kartenzeile(label: "Vorsteuer", wert: z.vst, icon: "arrow.down.left.circle")
-                Divider().padding(.vertical, 4)
                 Kartenzeile(label: "Betriebsausgaben", wert: z.betriebsausgabenNetto, icon: "creditcard", minus: true)
                 Summenzeile(
                     label: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn,

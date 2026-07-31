@@ -164,7 +164,6 @@ struct JahresuebersichtView: View {
                             Kartenzeile(
                                 label: "Betriebseinnahmen (Zufluss, netto)", wert: w.a.einnahmenBezahlt,
                                 icon: "eurosign.circle")
-                            Divider().padding(.vertical, 4)
                             Kartenzeile(
                                 label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                                 minus: true)
