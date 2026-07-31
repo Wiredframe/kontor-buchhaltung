@@ -540,17 +540,13 @@ struct KopierHaken: View {
     return alert.runModal() == .alertFirstButtonReturn
 }
 
-/// Eine Aufschlüsselungs-Zeile als natives `LabeledContent` (Label links, optional mit neutralem
-/// SF-Symbol; Wert rechts). In einer `Form`/`List` spreizt es korrekt und bekommt Trennlinien.
-/// Klick kopiert den Wert. `minus` stellt den Wert als Abzug dar.
+/// Eine Aufschlüsselungs-Zeile: Label links (optional neutraler SF-Symbol-Chip), Wert rechts.
+/// Ohne Zeilen-Trennstriche (nur Abstand). Klick kopiert den Wert. `minus` = Abzug.
 struct Kartenzeile: View {
     let label: String
     let wert: Decimal
     var icon: String? = nil
     var minus: Bool = false
-    /// Untere Haarlinie als Zeilentrenner (Settings-Stil). Bei der letzten Zeile vor einem
-    /// eigenen Divider/einer Summenzeile abschaltbar, um doppelte Linien zu vermeiden.
-    var zeigeTrennlinie: Bool = true
     @State private var kopiert = false
 
     var body: some View {
@@ -568,9 +564,6 @@ struct Kartenzeile: View {
                 .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
         }
         .padding(.vertical, 7)
-        .overlay(alignment: .bottom) {
-            Divider().opacity(zeigeTrennlinie ? 1 : 0)
-        }
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")

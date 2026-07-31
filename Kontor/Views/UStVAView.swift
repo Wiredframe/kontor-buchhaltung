@@ -107,7 +107,7 @@ struct UStVAView: View {
                                 kz: "85", label: "§13b – USt 19 %",
                                 erklaerung:
                                     "USt auf KZ 84 – schuldest du, ziehst sie aber unten (KZ 67) wieder ab → Saldo 0.",
-                                wert: e.kz85, zeigeTrennlinie: e.korrektur17 != 0)
+                                wert: e.kz85)
                             if e.korrektur17 != 0 {
                                 UStVAZeile(
                                     kz: nil, label: "davon §17-Korrektur (Forderungsausfall)",
@@ -115,7 +115,7 @@ struct UStVAView: View {
                                         "Nur zur Erläuterung – **nichts extra einzutragen**. Das Formular hat kein §17-Feld: "
                                         + "Die ausgefallenen Rechnungen sind oben bereits von KZ 81/86 abgezogen, ELSTER rechnet die "
                                         + "Erstattung daraus selbst aus.",
-                                    wert: e.korrektur17, zeigeTrennlinie: false)
+                                    wert: e.korrektur17)
                             }
                         }
                     }
@@ -129,7 +129,7 @@ struct UStVAView: View {
                             UStVAZeile(
                                 kz: "67", label: "Vorsteuer aus §13b-Leistungen",
                                 erklaerung: "= KZ 85. Macht Reverse-Charge unterm Strich neutral.",
-                                wert: e.kz67, zeigeTrennlinie: false)
+                                wert: e.kz67)
                         }
                     }
 
@@ -186,7 +186,6 @@ private struct UStVAZeile: View {
     let erklaerung: String
     let wert: Decimal
     var unterzeile = false
-    var zeigeTrennlinie = true
     @State private var kopiert = false
 
     var body: some View {
@@ -218,7 +217,6 @@ private struct UStVAZeile: View {
             }
         }
         .padding(.vertical, 6)
-        .overlay(alignment: .bottom) { Divider().opacity(zeigeTrennlinie ? 1 : 0) }
         .contentShape(Rectangle())
         .onTapGesture { kopiereMitHaken(wert, $kopiert) }
         .help("Klicken, um den Wert zu kopieren")
