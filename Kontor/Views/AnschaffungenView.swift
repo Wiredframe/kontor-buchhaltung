@@ -184,7 +184,7 @@ struct AnschaffungInspektor: View {
         Form {
             DatePicker("Datum", selection: $eintrag.datum, displayedComponents: .date)
             TextField("Bezeichnung", text: $eintrag.bezeichnung).focused($fokus)
-            TextField("Preis", value: $eintrag.preis, format: .currency(code: "EUR"))
+            GeldFeld("Preis", wert: $eintrag.preis)
             Section("Beleg") {
                 if let p = eintrag.belegPfad, Belege.existiert(p) {
                     BelegVorschau(pfad: p)

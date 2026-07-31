@@ -261,18 +261,18 @@ struct EinnahmeInspektor: View {
             Picker("USt-Satz", selection: satz) {
                 ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            TextField("RN (netto)", value: $eintrag.rnNetto, format: .currency(code: "EUR"))
+            GeldFeld("RN (netto)", wert: $eintrag.rnNetto)
             HStack {
-                TextField("USt", value: $eintrag.ust, format: .currency(code: "EUR"))
+                GeldFeld("USt", wert: $eintrag.ust)
                 Button("aus Netto") { eintrag.ust = Steuer.ust(ausNetto: eintrag.rnNetto, satz: eintrag.satzEffektiv) }
             }
             if eintrag.hatZweitenSatz {
                 Picker("2. USt-Satz", selection: satz2) {
                     ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
                 }
-                TextField("2. Netto", value: $eintrag.rnNetto2, format: .currency(code: "EUR"))
+                GeldFeld("2. Netto", wert: $eintrag.rnNetto2)
                 HStack {
-                    TextField("2. USt", value: $eintrag.ust2, format: .currency(code: "EUR"))
+                    GeldFeld("2. USt", wert: $eintrag.ust2)
                     Button("aus Netto") {
                         eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7)
                     }

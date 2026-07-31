@@ -656,3 +656,119 @@ struct LeereInspektorView: View {
             description: Text(hinweis))
     }
 }
+
+// MARK: - Eingabefelder (einheitlich)
+
+/// Formatierung/Parsing für Geldbeträge (de_DE).
+enum GeldFormat {
+    static let locale = Locale(identifier: "de_DE")
+
+    /// Anzeige (nicht im Fokus): Währung, z. B. „12.348,00 €".
+    static func anzeige(_ d: Decimal) -> String {
+        d.formatted(.currency(code: "EUR").locale(locale))
+    }
+    /// Bearbeitbar (im Fokus): roher Betrag ohne Symbol/Tausenderpunkt, Komma-Dezimal.
+    static func roh(_ d: Decimal) -> String {
+        d.formatted(.number.grouping(.never).precision(.fractionLength(0...2)).locale(locale))
+    }
+
+    private static let parser: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = locale
+        f.numberStyle = .decimal
+        f.generatesDecimalNumbers = true
+        return f
+    }()
+
+    /// Tolerant: akzeptiert „12.348,00", „12348", „12348,5" und (Fallback) Punkt-Dezimal.
+    static func parse(_ s: String) -> Decimal? {
+        let clean = s.replacingOccurrences(of: "€", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty { return 0 }
+        if let n = parser.number(from: clean) { return n.decimalValue }
+        return Decimal(string: clean.replacingOccurrences(of: ",", with: "."))
+    }
+}
+
+/// Einheitliches Geld-Eingabefeld (EUR, `Decimal`). Behebt das Cursor-Springen der
+/// `TextField(value:format:.currency)`-Variante: Während der Eingabe wird **roher Text** bearbeitet
+/// (kein Live-Reformat), erst bei Verlassen/Enter wird geparst und als Betrag angezeigt.
+/// Rechtsbündig, monospaced; verhält sich in einer `Form` wie ein `TextField` (Titel = Label).
+struct GeldFeld: View {
+    let titel: String
+    @Binding var wert: Decimal
+    @State private var text = ""
+    @FocusState private var fokus: Bool
+
+    init(_ titel: String, wert: Binding<Decimal>) {
+        self.titel = titel
+        self._wert = wert
+    }
+
+    /// Bequemer Zugriff für `Double`-Bindings (z. B. `@AppStorage`-Budgets).
+    init(_ titel: String, wert: Binding<Double>) {
+        self.init(
+            titel,
+            wert: Binding(
+                get: { Decimal(wert.wrappedValue) },
+                set: { wert.wrappedValue = NSDecimalNumber(decimal: $0).doubleValue }))
+    }
+
+    var body: some View {
+        TextField(titel, text: $text)
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .focused($fokus)
+            .onChange(of: fokus) { _, aktiv in
+                if aktiv { text = GeldFormat.roh(wert) } else { commit() }
+            }
+            .onSubmit { commit() }
+            .onChange(of: wert, initial: true) { _, neu in
+                if !fokus { text = GeldFormat.anzeige(neu) }
+            }
+    }
+
+    private func commit() {
+        if let d = GeldFormat.parse(text) { wert = d }
+        text = GeldFormat.anzeige(wert)
+    }
+}
+
+/// Einheitliches Prozent-Eingabefeld: `wert` ist der **Anteil** (0,15 = 15 %). Gleiche
+/// Cursor-schonende Logik wie `GeldFeld`: im Fokus roher Prozentwert („15"), sonst „15 %".
+struct ProzentFeld: View {
+    let titel: String
+    @Binding var wert: Decimal
+    @State private var text = ""
+    @FocusState private var fokus: Bool
+
+    init(_ titel: String, wert: Binding<Decimal>) {
+        self.titel = titel
+        self._wert = wert
+    }
+
+    private var anzeige: String {
+        wert.formatted(.percent.precision(.fractionLength(0...2)).locale(GeldFormat.locale))
+    }
+    private var roh: String {
+        (wert * 100).formatted(.number.grouping(.never).precision(.fractionLength(0...2)).locale(GeldFormat.locale))
+    }
+
+    var body: some View {
+        TextField(titel, text: $text)
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .focused($fokus)
+            .onChange(of: fokus) { _, aktiv in
+                if aktiv { text = roh } else { commit() }
+            }
+            .onSubmit { commit() }
+            .onChange(of: wert, initial: true) { _, _ in
+                if !fokus { text = anzeige }
+            }
+    }
+
+    private func commit() {
+        if let p = GeldFormat.parse(text) { wert = p / 100 }
+        text = anzeige
+    }
+}

@@ -149,7 +149,7 @@ struct LebensmittelInspektor: View {
                 }
                 .font(.caption)
             }
-            TextField("Betrag", value: $eintrag.betrag, format: .currency(code: "EUR"))
+            GeldFeld("Betrag", wert: $eintrag.betrag)
         }
         .formStyle(.grouped)
         .onChange(of: eintrag.id, initial: true) { _, _ in fokus = eintrag.ort.isEmpty }

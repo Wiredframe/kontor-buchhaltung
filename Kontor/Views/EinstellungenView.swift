@@ -97,7 +97,7 @@ private struct EinstellungenForm: View {
                 }
                 Toggle("Dauerfristverlängerung", isOn: $settings.dauerfristverlaengerung)
                 LabeledContent("Versteuerung", value: "Soll (vereinbarte Entgelte)")
-                TextField("Grundfreibetrag (ESt)", value: grundfreibetragBinding, format: .currency(code: "EUR"))
+                GeldFeld("Grundfreibetrag (ESt)", wert: grundfreibetragBinding)
                 Text(
                     "Für die jahresbasierte ESt-Schätzung in der Jahresübersicht. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag)."
                 )
@@ -113,8 +113,8 @@ private struct EinstellungenForm: View {
             }
 
             Section("Budgets (privat)") {
-                TextField("Lebensmittel / Woche", value: $budgetWoche, format: .currency(code: "EUR"))
-                TextField("Anschaffungen / Monat", value: $budgetMonat, format: .currency(code: "EUR"))
+                GeldFeld("Lebensmittel / Woche", wert: $budgetWoche)
+                GeldFeld("Anschaffungen / Monat", wert: $budgetMonat)
                 Text("0 = kein Budget anzeigen.").font(.caption).foregroundStyle(.secondary)
             }
 

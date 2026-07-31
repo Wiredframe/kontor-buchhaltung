@@ -475,9 +475,9 @@ private struct BelegFormular: View {
             Picker("USt-Satz", selection: $entwurf.satz) {
                 ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            TextField("RN (netto)", value: $entwurf.rnNetto, format: .currency(code: "EUR"))
+            GeldFeld("RN (netto)", wert: $entwurf.rnNetto)
             HStack {
-                TextField("USt", value: $entwurf.ust, format: .currency(code: "EUR"))
+                GeldFeld("USt", wert: $entwurf.ust)
                 Button("aus Netto") { entwurf.ust = Steuer.ust(ausNetto: entwurf.rnNetto, satz: entwurf.satz) }
             }
             LabeledContent("Brutto", value: entwurf.bruttoEinnahme.euro)
@@ -502,10 +502,10 @@ private struct BelegFormular: View {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
             .onChange(of: entwurf.steuerart) { _, neu in if !neu.ziehtVorsteuer { entwurf.vst = 0 } }
-            TextField("Brutto", value: $entwurf.brutto, format: .currency(code: "EUR"))
+            GeldFeld("Brutto", wert: $entwurf.brutto)
                 .foregroundStyle(betragFehlt ? .red : .primary)
             HStack {
-                TextField("Vorsteuer", value: $entwurf.vst, format: .currency(code: "EUR"))
+                GeldFeld("Vorsteuer", wert: $entwurf.vst)
                 Button("aus Brutto") {
                     entwurf.vst = Steuer.vorsteuerVorschlag(brutto: entwurf.brutto, steuerart: entwurf.steuerart)
                 }

@@ -614,9 +614,9 @@ struct AusgabeInspektor: View {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
             .onChange(of: eintrag.steuerart) { _, neu in if !neu.ziehtVorsteuer { eintrag.vst = 0 } }
-            TextField("Brutto", value: $eintrag.brutto, format: .currency(code: "EUR"))
+            GeldFeld("Brutto", wert: $eintrag.brutto)
             HStack {
-                TextField("Vorsteuer", value: $eintrag.vst, format: .currency(code: "EUR"))
+                GeldFeld("Vorsteuer", wert: $eintrag.vst)
                 Button("aus Brutto") {
                     eintrag.vst = Steuer.vorsteuerVorschlag(brutto: eintrag.brutto, steuerart: eintrag.steuerart)
                 }
@@ -671,7 +671,7 @@ struct ZahlungInspektor: View {
             Picker("Art", selection: $eintrag.kind) {
                 ForEach(SteuerKind.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            TextField("Betrag", value: $eintrag.betrag, format: .currency(code: "EUR"))
+            GeldFeld("Betrag", wert: $eintrag.betrag)
             Text(
                 eintrag.istErstattung
                     ? "Negativ = Erstattung (mindert die Steuersumme)."
@@ -792,7 +792,7 @@ struct VorlageEditor: View {
                 Picker("Steuerart", selection: $vorlage.steuerart) {
                     ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
                 }
-                TextField("Betrag (brutto)", value: $vorlage.betragBrutto, format: .currency(code: "EUR"))
+                GeldFeld("Betrag (brutto)", wert: $vorlage.betragBrutto)
                 Button("Vorlage löschen", role: .destructive) { loeschen() }
             }
         }

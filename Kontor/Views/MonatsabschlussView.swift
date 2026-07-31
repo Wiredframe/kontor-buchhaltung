@@ -675,8 +675,7 @@ private struct MonatsWerteEditor: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ESt-Satz (pauschal)").font(.subheadline.weight(.semibold))
-                        TextField("Satz", value: estSatzBinding, format: .percent)
-                            .multilineTextAlignment(.trailing).monospacedDigit()
+                        ProzentFeld("Satz", wert: estSatzBinding)
                         HStack {
                             Text(estEigen ? "eigener Satz für \(monatName)" : "übernommen aus dem Vormonat")
                                 .font(.caption).foregroundStyle(.secondary)
@@ -701,8 +700,7 @@ private struct MonatsWerteEditor: View {
     private func euroFeld(_ titel: String, _ binding: Binding<Decimal>) -> some View {
         HStack {
             Text(titel).foregroundStyle(.secondary).frame(width: 42, alignment: .leading)
-            TextField(titel, value: binding, format: .currency(code: "EUR"))
-                .multilineTextAlignment(.trailing).monospacedDigit()
+            GeldFeld(titel, wert: binding)
         }
     }
 }
