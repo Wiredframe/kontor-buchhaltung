@@ -56,9 +56,25 @@ struct KontorApp: App {
         if UserDefaults.standard.bool(forKey: "mcpAktiv") { mcp.starten() }
     }
 
+    #if DEBUG
+    /// Screenshot-Automatik (nur Dev): Erscheinungsbild per Startargument `-startAppearance
+    /// light|dark` erzwingen (sonst System). Ermöglicht deckungsgleiche Hell/Dunkel-Aufnahmen.
+    private static var debugColorScheme: ColorScheme? {
+        switch UserDefaults.standard.string(forKey: "startAppearance") {
+        case "dark": return .dark
+        case "light": return .light
+        default: return nil
+        }
+    }
+    #endif
+
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            ContentView().preferredColorScheme(Self.debugColorScheme)
+            #else
             ContentView()
+            #endif
         }
         .defaultSize(width: 1100, height: 720)
         .modelContainer(container)

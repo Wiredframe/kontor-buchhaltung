@@ -159,6 +159,15 @@ struct ContentView: View {
         }
         .task {
             aktualisiereJahre(zeit, context)
+            #if DEBUG
+            // Screenshot-Automatik (nur Dev): per Startargument `-startModul <rawValue>` direkt
+            // ein Modul öffnen (z. B. `open -n … --args -startModul monatsabschluss`). Kein Effekt
+            // ohne das Argument; in Release ohnehin wegkompiliert.
+            if let s = UserDefaults.standard.string(forKey: "startModul"), let m = Modul(rawValue: s) {
+                nav.modul = m
+                return
+            }
+            #endif
             // Erst-Start: nur bei komplett leerem Store die Demodaten-/Leer-Auswahl zeigen.
             if !UserDefaults.standard.bool(forKey: "onboardingErledigt"), Demodaten.istLeer(context) {
                 zeigeOnboarding = true
