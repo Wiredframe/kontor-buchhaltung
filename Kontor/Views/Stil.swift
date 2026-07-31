@@ -52,26 +52,30 @@ private struct InspektorGrund: ViewModifier {
     }
 }
 
-/// Gruppierter Inhaltsblock mit Titel als elevierte Karte (ersetzt GroupBox).
+/// Gruppierter Inhaltsblock im Shortcuts-Stil: **Titel steht (etwas größer) über** der grauen
+/// Gruppen-Karte, nicht in ihr. Optionaler „öffnen"-Querlink rechts im Kopf.
 struct Panel<Inhalt: View>: View {
     let titel: String
-    /// Optionaler „öffnen"-Querlink rechts im Kopf (z. B. in die Ausgaben-View).
     var aktion: (() -> Void)? = nil
     @ViewBuilder var inhalt: () -> Inhalt
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(titel).font(.headline)
+                Text(titel).font(.title3).fontWeight(.semibold)
                 if let aktion {
                     Spacer()
                     Button("öffnen", action: aktion).buttonStyle(.link)
                 }
             }
-            inhalt()
+            .padding(.horizontal, 4)
+
+            VStack(alignment: .leading, spacing: 0) {
+                inhalt()
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .karte()
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .karte()
     }
 }
