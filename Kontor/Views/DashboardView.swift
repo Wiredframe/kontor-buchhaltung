@@ -150,9 +150,9 @@ struct DashboardView: View {
         let chart = chartDaten(einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                kpis(akt: akt, ustVA: ustVA)
                 trendKarte(daten: chart)
                 schnellstartAbschnitt
-                kpis(akt: akt, ustVA: ustVA)
             }
             .padding()
         }
