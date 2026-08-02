@@ -478,15 +478,33 @@ struct MonatsabschlussView: View {
         let zukunft: Bool
     }
 
-    private var jahresAnsicht: some View {
+    /// Die zwölf Monatszeilen der Jahresansicht (auch Grundlage der Summenzeile).
+    private var jahresZeilen: [MonatsZeile] {
         let einP = einnahmen.flatMap(\.postenListe), ausP = ausgaben.map(\.posten)
-        let zeilen = (1...12).map {
+        return (1...12).map {
             MonatsZeile(
                 id: $0, name: monatsName($0),
                 z: zahlen($0, einP: einP, ausP: ausP), zukunft: istZukunft($0))
         }
-        let aktiv = zeilen.filter { !$0.zukunft }
-        return Table(zeilen) {
+    }
+
+    private var jahresAnsicht: some View {
+        // GeometryReader klemmt die Gesamthöhe hart auf die verfügbare Höhe. Ohne das dehnt die
+        // native `Table` (unter dem oberen safeAreaInset-Kopf) den ganzen View auf ihre Inhaltshöhe
+        // aus – der ganze Detailbereich wird überhoch und die Summenzeile landet weit unter dem
+        // Fensterrand. Mit fixer Höhe füllt die Table den Platz über der gepinnten Summenzeile.
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                jahresTabelle
+                Divider()
+                jahresSumme()
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+
+    private var jahresTabelle: some View {
+        Table(jahresZeilen) {
             TableColumn("Monat") { z in
                 HStack(spacing: 5) {
                     if settings?.istAbgeschlossen(monat: z.id) == true {
@@ -514,31 +532,39 @@ struct MonatsabschlussView: View {
             .width(min: 84, ideal: 94)
         }
         .environment(\.defaultMinListRowHeight, 30)
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 6) {
-                // Das Label muss den Split benennen, statt eine Regel für alles zu behaupten:
-                // RN/USt/VSt sind **Soll**-Tatsachen – eine auf Dezember datierte Rechnung ist
-                // heute schon gestellt und ihre USt für Dezember geschuldet, sie gehört also in
-                // die Jahressumme. Gewinn/Frei/KSK/ESt eines Monats, der noch nicht war, wären
-                // dagegen Projektionen; die Tabelle zeigt dort bewusst „—".
-                Text(
-                    "Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
-                        + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert"
-                )
-                .erklaerung()
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
-                    summe("RN", zeilen.reduce(Decimal(0)) { $0 + $1.z.rn })
-                    summe("USt", zeilen.reduce(Decimal(0)) { $0 + $1.z.ust })
-                    summe("VSt", zeilen.reduce(Decimal(0)) { $0 + $1.z.vst })
-                    summe("KSK", aktiv.reduce(Decimal(0)) { $0 + $1.z.ksk })
-                    summe("ESt", aktiv.reduce(Decimal(0)) { $0 + $1.z.est })
-                    summe("Gewinn", aktiv.reduce(Decimal(0)) { $0 + $1.z.betrieblicherGewinn })
-                    summe("Frei", aktiv.reduce(Decimal(0)) { $0 + $1.z.frei })
-                }
+    }
+
+    /// Gepinnte Jahres-Summenzeile. Sitzt als bottom-`safeAreaInset` am `Group` in `body` (wie der
+    /// Kopf oben), damit sie am Fensterrand pinnt statt am potenziell überhohen Table-Rahmen der
+    /// nativen `Table` (die dehnt sich auf ihre Inhaltshöhe und schöbe eine innenliegende Fußzeile
+    /// weit unter den sichtbaren Bereich). Klick kopiert.
+    private func jahresSumme() -> some View {
+        let zeilen = jahresZeilen
+        let aktiv = zeilen.filter { !$0.zukunft }
+        return VStack(spacing: 6) {
+            // Das Label muss den Split benennen, statt eine Regel für alles zu behaupten:
+            // RN/USt/VSt sind **Soll**-Tatsachen – eine auf Dezember datierte Rechnung ist
+            // heute schon gestellt und ihre USt für Dezember geschuldet, sie gehört also in
+            // die Jahressumme. Gewinn/Frei/KSK/ESt eines Monats, der noch nicht war, wären
+            // dagegen Projektionen; die Tabelle zeigt dort bewusst „—".
+            Text(
+                "Summe \(String(jahr)) – RN/USt/VSt für das ganze Jahr (Soll), "
+                    + "KSK/ESt/Gewinn/Frei ohne Zukunftsmonate – Klick kopiert"
+            )
+            .erklaerung()
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
+                summe("RN", zeilen.reduce(Decimal(0)) { $0 + $1.z.rn })
+                summe("USt", zeilen.reduce(Decimal(0)) { $0 + $1.z.ust })
+                summe("VSt", zeilen.reduce(Decimal(0)) { $0 + $1.z.vst })
+                summe("KSK", aktiv.reduce(Decimal(0)) { $0 + $1.z.ksk })
+                summe("ESt", aktiv.reduce(Decimal(0)) { $0 + $1.z.est })
+                summe("Gewinn", aktiv.reduce(Decimal(0)) { $0 + $1.z.betrieblicherGewinn })
+                summe("Frei", aktiv.reduce(Decimal(0)) { $0 + $1.z.frei })
             }
-            .padding(.horizontal).padding(.vertical, 10)
-            .background(.bar)
         }
+        .padding(.horizontal).padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
     }
 
     private func zellWert(_ wert: Decimal?, farbe: Color? = nil) -> some View {
