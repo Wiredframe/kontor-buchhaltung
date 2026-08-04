@@ -233,6 +233,200 @@ struct BelegOCRTests {
         #expect(BelegOCR.betragRechtsVomLabel(["amount due", "total"], frag) == dez("120.00"))
     }
 
+    // MARK: - Gehärtete Betragserkennung
+
+    /// Der häufigste Fehlgriff: „MwSt 19,00 %" ohne weiteren Betrag in der Zeile machte den
+    /// **Steuersatz** zur Vorsteuer. Prozentangaben sind keine Geldbeträge.
+    @Test func prozentangabeIstKeinBetrag() {
+        #expect(BelegOCR.betraege(in: "MwSt 19,00 % auf Netto").isEmpty)
+        #expect(BelegOCR.betraege(in: "Rabatt 7,50%").isEmpty)
+        // Betrag in derselben Zeile bleibt erhalten, nur die Prozentzahl fällt weg.
+        #expect(BelegOCR.betraege(in: "MwSt 19,00 % 66,50 €") == [dez("66.50")])
+        let d = BelegOCR.extrahiere(aus: ["Anbieter", "MwSt 19,00 %", "Gesamtbetrag 119,00"])
+        #expect(d.vst == dez("19.00"))  // aus dem Brutto abgeleitet, nicht die 19,00 % übernommen
+        #expect(d.unsicher.contains(.vst))
+    }
+
+    /// Nach der Zeilenrekonstruktion steht ein Summenblock oft in **einer** Zeile. Vorher lieferte
+    /// `max()` über die Zeile für jedes Label denselben (größten) Wert, also die MwSt = Gesamt.
+    @Test func summenblockInEinerZeile() {
+        let zeile = "Zwischensumme 350,00 MwSt 19 % 66,50 Gesamt 416,50"
+        #expect(BelegOCR.betragNach("mwst", in: zeile) == dez("66.50"))
+        #expect(BelegOCR.betragNach("zwischensumme", in: zeile) == dez("350.00"))
+        #expect(BelegOCR.betragNach("gesamt", in: zeile) == dez("416.50"))
+        let d = BelegOCR.extrahiere(aus: ["Werkstatt Meier", zeile])
+        #expect(d.brutto == dez("416.50"))
+        #expect(d.vst == dez("66.50"))
+        #expect(!d.unsicher.contains(.vst))  // 66,50 passt zu 19 % von 416,50 → bestätigt
+    }
+
+    /// Steht das nächste Label noch vor dem Betrag („Total excluding tax €50.00"), darf die
+    /// Segmentgrenze den Betrag nicht wegschneiden.
+    @Test func labelGrenzeVerschlucktBetragNicht() {
+        #expect(BelegOCR.betragNach("total", in: "Total excluding tax €50.00") == dez("50.00"))
+    }
+
+    /// Ziffern, die an Buchstaben kleben, sind Referenzen und keine Beträge.
+    @Test func referenznummerIstKeinBetrag() {
+        #expect(BelegOCR.betraege(in: "Auftrag A123,45 bestätigt").isEmpty)
+        #expect(BelegOCR.betraege(in: "Kundennummer 4711 vom 14.06.2026").isEmpty)
+    }
+
+    // MARK: - Plausibilisierung
+
+    /// Passt die gefundene Vorsteuer zu keinem Satz, wird sie aus dem Brutto abgeleitet und das
+    /// Feld markiert – statt einen offensichtlich falschen Wert still zu übernehmen.
+    @Test func unpassendeVorsteuerWirdKorrigiert() {
+        let d = BelegOCR.plausibilisiere(
+            BelegDaten(brutto: dez("119.00"), vst: dez("100.00"), steuerart: .inland19))
+        #expect(d.vst == dez("19.00"))
+        #expect(d.unsicher.contains(.vst))
+        #expect(d.unsicher.contains(.steuerart))
+    }
+
+    /// Ein zum Brutto passender 7-%-Betrag bestätigt den ermäßigten Satz, auch wenn die
+    /// Textheuristik auf 19 % getippt hatte.
+    @Test func vorsteuerBestaetigtSatz() {
+        let d = BelegOCR.plausibilisiere(
+            BelegDaten(brutto: dez("42.80"), vst: dez("2.80"), steuerart: .inland19))
+        #expect(d.steuerart == .inland7)
+        #expect(d.vst == dez("2.80"))
+        #expect(!d.unsicher.contains(.vst))
+    }
+
+    /// Reverse-Charge zieht nie Vorsteuer; eine trotzdem erkannte wird auf 0 gesetzt und markiert.
+    @Test func reverseChargeOhneVorsteuer() {
+        let d = BelegOCR.plausibilisiere(
+            BelegDaten(brutto: dez("35.00"), vst: dez("5.59"), steuerart: .reverseCharge))
+        #expect(d.vst == 0)
+        #expect(d.unsicher.contains(.vst))
+    }
+
+    /// Eine **explizit** mit 0 ausgewiesene Steuer (Kleinunternehmer, 0-%-Ausweis) wird nicht
+    /// überschrieben – erfunden wird Vorsteuer nur, wo gar nichts gefunden wurde.
+    @Test func ausgewieseneNullBleibtNull() {
+        let d = BelegOCR.plausibilisiere(
+            BelegDaten(brutto: dez("100.00"), vst: 0, steuerart: .inland19))
+        #expect(d.vst == 0)
+        #expect(d.unsicher.contains(.vst))
+    }
+
+    /// Kleinunternehmer-Hinweis: keine Vorsteuer erfinden, nur weil „Umsatzsteuer" im Text steht.
+    @Test func kleinunternehmerOhneVorsteuer() {
+        let d = BelegOCR.extrahiere(aus: [
+            "Atelier Sonnfeld", "Leistung 200,00", "Gemäß §19 UStG wird keine Umsatzsteuer berechnet",
+            "Gesamtbetrag 200,00",
+        ])
+        #expect(d.steuerart == .steuerfrei)
+        #expect(d.vst == 0)
+    }
+
+    // MARK: - Rechnungsnummer, Anbieter, Steuerart
+
+    /// Englische Belege: „Invoice number …" wurde vorher gar nicht gefunden – ausgerechnet dort,
+    /// wo die Nummer als Bank-Matching-Schlüssel am wichtigsten ist.
+    @Test func rechnungsnummerEnglisch() {
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice number 86C79197-0015"]) == "86C79197-0015")
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice #A-1234"]) == "A-1234")
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice", "Invoice no: 2026-014"]) == "2026-014")
+        #expect(BelegOCR.rechnungsnummer(in: ["Receipt 5567123"]) == "5567123")
+        // Rechnungs*datum* trägt keine Nummer
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnungsdatum: 14.06.2026"]) == nil)
+        // deutsche Formen unverändert
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnung Nr. 0027"]) == "0027")
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnung #202605261"]) == "202605261")
+    }
+
+    @Test func anbieterAusKatalogUndDomain() {
+        // Der Katalog (bereits erfasste Anbieter des Nutzers) schlägt die generische Heuristik.
+        #expect(
+            BelegOCR.anbieter(in: ["Zahlungsbeleg", "Nordwind Hosting GmbH", "Betrag 12,99"], katalog: ["Nordwind Hosting"])
+                == "Nordwind Hosting")
+        // Domain/Mailadresse als Quelle
+        #expect(BelegOCR.anbieterAusDomain(in: "Fragen an billing@nordwind-hosting.de") == "Nordwind-Hosting")
+        #expect(BelegOCR.anbieterAusDomain(in: "Kontakt: mail@gmail.com") == nil)  // freier Mailhoster
+        // Stoppwörter sind kein Anbieter
+        #expect(BelegOCR.anbieter(in: ["Rechnung", "Seite 1", "Buchbinderei Kalt"]) == "Buchbinderei Kalt")
+    }
+
+    /// „19 % Rabatt" ist kein Steuerhinweis – vorher wurde daraus eine Inlandsrechnung mit
+    /// erfundener Vorsteuer.
+    @Test func prozentOhneSteuerwortZaehltNicht() {
+        let d = BelegOCR.extrahiere(aus: ["Studio Nordlicht", "19 % Rabatt auf alle Posten", "Total 100,00"])
+        #expect(d.steuerart == .reverseCharge)  // kein Steuerwort → wie bisher Auslands-/RC-Annahme
+        #expect(d.vst == 0)
+    }
+
+    /// Ausländische USt-IdNr des Ausstellers ist ein Reverse-Charge-Indiz, die deutsche nicht.
+    @Test func auslaendischeUstIdAlsIndiz() {
+        #expect(BelegOCR.auslaendischeUstId(in: ["vat id ie6388047v"]))
+        #expect(BelegOCR.auslaendischeUstId(in: ["ustid de300000007"]) == false)
+        #expect(BelegOCR.auslaendischeUstId(in: ["bestellnummer ab12345678"]) == false)  // kein ID-Kontext
+    }
+
+    // MARK: - PDF-Textlayer
+
+    /// Digitale Rechnungen tragen ihren Text exakt in sich: der Textlayer wird gelesen, nicht
+    /// gerastert und zurückerkannt. Das Layout entspricht einer typischen Eingangsrechnung mit
+    /// Positionstabelle **und** Summenblock – die MwSt muss aus dem Summenblock kommen.
+    @Test func pdfTextlayerStattOCR() async {
+        let url = machePDF([
+            PDFText("Nordwind Hosting GmbH", x: 60, y: 780, groesse: 14),
+            PDFText("Rechnung Nr. 2026-0815", x: 60, y: 750),
+            PDFText("Rechnungsdatum: 12.03.2026", x: 60, y: 730),
+            // Positionszeile mit eigener MwSt-Spalte (darf den Summenblock nicht verdrängen)
+            PDFText("Webhosting Paket M", x: 60, y: 640),
+            PDFText("19 %", x: 330, y: 640),
+            PDFText("42,02", x: 470, y: 640),
+            PDFText("Domain .de", x: 60, y: 620),
+            PDFText("19 %", x: 330, y: 620),
+            PDFText("10,08", x: 470, y: 620),
+            // Summenblock
+            PDFText("Zwischensumme", x: 330, y: 540),
+            PDFText("52,10", x: 470, y: 540),
+            PDFText("MwSt 19 %", x: 330, y: 520),
+            PDFText("9,90", x: 470, y: 520),
+            PDFText("Gesamtbetrag", x: 330, y: 500),
+            PDFText("62,00", x: 470, y: 500),
+        ])
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let seiten = BelegOCR.seiten(von: url)
+        if case .bild = seiten.first { Issue.record("Textlayer wurde nicht erkannt, es lief OCR") }
+
+        let d = await BelegOCR.analysiere(url)
+        #expect(d.brutto == dez("62.00"))
+        #expect(d.vst == dez("9.90"))  // aus dem Summenblock, nicht aus einer Positionszeile
+        #expect(d.steuerart == .inland19)
+        #expect(d.rechnungsnummer == "2026-0815")
+        #expect(d.anbieter == "Nordwind Hosting GmbH")
+        #expect(d.unsicher.isEmpty)
+        let c = appKalender.dateComponents([.year, .month, .day], from: d.datum ?? .distantPast)
+        #expect(c.year == 2026 && c.month == 3 && c.day == 12)
+    }
+
+    /// Englische Auslandsrechnung als PDF: Reverse-Charge, keine Vorsteuer, Nummer gefunden.
+    @Test func pdfEnglischeReverseCharge() async {
+        let url = machePDF([
+            PDFText("Figma, Inc.", x: 60, y: 780, groesse: 14),
+            PDFText("Invoice number 86C79197-0015", x: 60, y: 750),
+            PDFText("Date of issue June 4, 2025", x: 60, y: 730),
+            PDFText("Subtotal", x: 330, y: 560),
+            PDFText("EUR 50.00", x: 470, y: 560),
+            PDFText("Total", x: 330, y: 520),
+            PDFText("EUR 50.00", x: 470, y: 520),
+            PDFText("Tax to be paid on reverse charge basis", x: 60, y: 460),
+        ])
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let d = await BelegOCR.analysiere(url)
+        #expect(d.anbieter == "Figma")
+        #expect(d.brutto == dez("50.00"))
+        #expect(d.steuerart == .reverseCharge)
+        #expect(d.vst == 0)
+        #expect(d.rechnungsnummer == "86C79197-0015")
+    }
+
     @Test func steuerartErkennung() {
         // MwSt-Zeile → Inland; VSt-Betrag aus der Folgezeile
         let inland = BelegOCR.extrahiere(aus: [

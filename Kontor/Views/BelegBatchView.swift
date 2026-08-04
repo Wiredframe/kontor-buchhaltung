@@ -72,6 +72,9 @@ final class BelegEntwurf: Identifiable {
 
     var dublette: PersistentIdentifier?
     var ergebnis: String?
+    /// Felder, die die Erkennung nur abgeleitet oder gar nicht gefunden hat – die UI markiert sie,
+    /// damit ein still übernommener Fehlwert nicht unbemerkt in die Buchhaltung wandert.
+    var unsicher: Set<BelegFeld> = []
 
     /// Pfad des einmal gespeicherten Belegs (Re-Submit kopiert die Datei nicht erneut).
     var belegPfad: String?
@@ -115,14 +118,38 @@ final class BelegEntwurf: Identifiable {
         if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
     }
     func fuelle(_ d: BelegDaten) {
-        if let x = d.datum, datum == datumDefault { datum = x }
+        // Marke nur für Felder setzen, die wirklich aus der Erkennung stammen: was der Nutzer
+        // selbst getippt hat, ist nicht unsicher, egal was die OCR dazu meinte.
+        func merke(_ feld: BelegFeld) { if d.unsicher.contains(feld) { unsicher.insert(feld) } }
+
+        if let x = d.datum, datum == datumDefault {
+            datum = x
+            merke(.datum)
+        } else if datum == datumDefault {
+            merke(.datum)
+        }
         if bezeichnung.isEmpty { bezeichnung = d.anbieter ?? url.deletingPathExtension().lastPathComponent }
-        if anbieter.isEmpty { anbieter = d.anbieter ?? "" }
-        if brutto == 0 { brutto = d.brutto ?? 0 }
+        if anbieter.isEmpty {
+            anbieter = d.anbieter ?? ""
+            merke(.anbieter)
+        }
+        if brutto == 0 {
+            brutto = d.brutto ?? 0
+            merke(.brutto)
+        }
         // Steuerart nur, wenn die OCR wirklich eine erkannt hat (sonst bliebe der Default ohnehin).
-        if let s = d.steuerart, vst == 0 { steuerart = s }
-        if vst == 0 { vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0) }
-        if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
+        if let s = d.steuerart, vst == 0 {
+            steuerart = s
+            merke(.steuerart)
+        }
+        if vst == 0 {
+            vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0)
+            merke(.vst)
+        }
+        if rechnungsnummer.isEmpty {
+            rechnungsnummer = d.rechnungsnummer ?? ""
+            merke(.rechnungsnummer)
+        }
     }
 
     private var rnOpt: String? { rechnungsnummer.isEmpty ? nil : rechnungsnummer }
@@ -303,13 +330,16 @@ struct BelegBatchView: View {
         entwuerfe = urls.map { BelegEntwurf(url: $0) }
         aktiv = entwuerfe.first?.id
         let modus = self.modus
+        // Bereits erfasste Anbieter als Erkennungs-Lexikon: das beste verfügbare, weil es genau
+        // die Anbieter dieses Nutzers enthält (und Schreibweisen, die er selbst gewählt hat).
+        let katalog = Array(Set(ausgaben.map(\.anbieter).filter { !$0.isEmpty }))
         await withTaskGroup(of: (UUID, EinnahmeDaten?, BelegDaten?).self) { group in
             for e in entwuerfe {
                 let id = e.id, url = e.url
                 group.addTask {
                     switch modus {
                     case .einnahme: return (id, await BelegOCR.analysiereEinnahme(url), nil)
-                    case .ausgabe: return (id, nil, await BelegOCR.analysiere(url))
+                    case .ausgabe: return (id, nil, await BelegOCR.analysiere(url, katalog: katalog))
                     }
                 }
             }
