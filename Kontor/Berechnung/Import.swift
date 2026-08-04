@@ -63,57 +63,122 @@ enum ImportAnwendung {
         return ((try? ctx.fetch(FetchDescriptor<ImportBuchung>())) ?? []).contains { $0.schluessel == k }
     }
 
+    /// Ein vorgeschlagener Zuordnungs-Treffer samt Begründung – die UI zeigt bis zu drei davon
+    /// zur Auswahl, statt still den erstbesten zu nehmen.
+    struct Kandidat: Identifiable {
+        var id: PersistentIdentifier
+        var titel: String
+        var detail: String
+        var punkte: Int
+        var begruendung: String
+    }
+
     /// Vorhandener Datensatz, der zur Bankzeile+Kategorie passt (für „überschreiben/überspringen"
     /// bzw. Einnahmen-Match). Nil ⇒ es würde neu angelegt.
     @MainActor
     static func ziel(_ b: Bankbuchung, _ z: Zuordnung, _ ctx: ModelContext) -> PersistentIdentifier? {
+        kandidaten(b, z, ctx, maximal: 1).first?.id
+    }
+
+    /// Die besten passenden Datensätze, absteigend nach Punkten (siehe `Treffersuche`).
+    @MainActor
+    static func kandidaten(
+        _ b: Bankbuchung, _ z: Zuordnung, _ ctx: ModelContext, maximal: Int = 3
+    ) -> [Kandidat] {
         let betrag = abs(b.betrag)
+        let suchbild = Treffersuchbild(
+            betrag: betrag, datum: b.buchungstag,
+            name: b.gegenpartei.isEmpty ? b.anzeigename : b.gegenpartei,
+            text: b.verwendungszweck)
+
+        func datumText(_ d: Date) -> String { d.formatted(date: .numeric, time: .omitted) }
+
         switch z.kategorie {
         case .einnahme:
-            let incs = (try? ctx.fetch(FetchDescriptor<Income>())) ?? []
-            let zweckZiffern = b.verwendungszweck.filter(\.isNumber)
-            if !zweckZiffern.isEmpty,
-                let m = incs.first(where: { inc in
-                    guard let nr = inc.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
-                    return zweckZiffern.contains(nr)
-                })
-            {
-                return m.persistentModelID
+            // Weites Fenster: die Zahlung kommt Wochen nach dem Rechnungsdatum. Offene
+            // Rechnungen werden bevorzugt, bezahlte bleiben aber wählbar – sonst fände eine
+            // erneut zugeordnete Bankzeile ihre eigene Buchung nicht wieder und legte daneben
+            // eine zweite an (derselbe Fehler, den der Steuer-Zweig schon einmal hatte).
+            return Treffersuche.beste(
+                (try? ctx.fetch(FetchDescriptor<Income>())) ?? [], gegen: suchbild,
+                fensterTage: 60, maximal: maximal
+            ) { inc in
+                Trefferkandidat(
+                    betrag: inc.brutto, datum: inc.rechnungsdatum, name: inc.kunde,
+                    nummer: inc.rechnungsnummer,
+                    bonus: inc.status == .bezahlt ? 0 : 10,
+                    bonusGrund: inc.status == .bezahlt ? nil : "offen")
+            }.map { treffer, bewertung in
+                Kandidat(
+                    id: treffer.persistentModelID,
+                    titel: treffer.kunde.isEmpty ? "Rechnung" : treffer.kunde,
+                    detail: "\(datumText(treffer.rechnungsdatum)) · \(treffer.brutto.euro)",
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
             }
-            return incs.first { $0.brutto == betrag && $0.status != .bezahlt }?.persistentModelID
         case .lebensmittel:
-            return nahestes(
-                (try? ctx.fetch(FetchDescriptor<GroceryEntry>())) ?? [], betrag, b.buchungstag,
-                betragVon: { $0.betrag }, datumVon: { $0.datum })
-        case .anschaffung:
-            return nahestes(
-                (try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
-                betragVon: { $0.preis }, datumVon: { $0.datum })
-        case .erstattung:
-            // Gutschrift = negative Anschaffung; über den negierten Preis matchen (Re-Buchung).
-            return nahestes(
-                (try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], betrag, b.buchungstag,
-                betragVon: { -$0.preis }, datumVon: { $0.datum })
-        case .betriebsausgabe, .fixkosten, .subscription:
-            let ausgaben = (try? ctx.fetch(FetchDescriptor<ExpenseEntry>())) ?? []
-            // Zuerst über die Rechnungsnummer (z. B. per OCR erfasst) – unabhängig vom Datumsabstand.
-            let zweckZiffern = b.verwendungszweck.filter(\.isNumber)
-            if !zweckZiffern.isEmpty,
-                let m = ausgaben.first(where: { e in
-                    guard let nr = e.rechnungsnummer?.filter(\.isNumber), nr.count >= 4 else { return false }
-                    return zweckZiffern.contains(nr)
-                })
-            {
-                return m.persistentModelID
+            return Treffersuche.beste(
+                (try? ctx.fetch(FetchDescriptor<GroceryEntry>())) ?? [], gegen: suchbild, maximal: maximal
+            ) { g in
+                Trefferkandidat(betrag: g.betrag, datum: g.datum, name: g.ort, nummer: nil)
+            }.map { treffer, bewertung in
+                Kandidat(
+                    id: treffer.persistentModelID, titel: treffer.ort,
+                    detail: "\(datumText(treffer.datum)) · \(treffer.betrag.euro)",
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
             }
-            // Sonst über Betrag + **enges** Datumsfenster (Default 5 Tage). Bewusst eng: wiederkehrende
-            // Kosten (Miete/Subscriptions) haben monatlich denselben Betrag ~30 Tage auseinander – ein
-            // weites Fenster matcht den Folgemonat auf den Vormonatseintrag und verschiebt ihn beim
-            // Überschreiben in den neuen Monat (der Vormonat verlöre die Ausgabe). Vorab per PDF erfasste
-            // Rechnungen werden statt über das Datum über die Rechnungsnummer (oben) erkannt.
-            return nahestes(
-                ausgaben, betrag, b.buchungstag,
-                betragVon: { $0.brutto }, datumVon: { $0.datum })
+        case .anschaffung, .erstattung:
+            // Gutschrift = negative Anschaffung; dann über den negierten Preis matchen (Re-Buchung).
+            let negiert = z.kategorie == .erstattung
+            return Treffersuche.beste(
+                (try? ctx.fetch(FetchDescriptor<PurchaseEntry>())) ?? [], gegen: suchbild, maximal: maximal
+            ) { p in
+                Trefferkandidat(
+                    betrag: negiert ? -p.preis : p.preis, datum: p.datum,
+                    name: p.bezeichnung, nummer: nil)
+            }.map { treffer, bewertung in
+                Kandidat(
+                    id: treffer.persistentModelID, titel: treffer.bezeichnung,
+                    detail: "\(datumText(treffer.datum)) · \(treffer.preis.euro)",
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+            }
+        case .betriebsausgabe, .fixkosten, .subscription:
+            // Enges Datumsfenster, außer die Rechnungsnummer trifft: wiederkehrende Kosten
+            // (Miete, Subscriptions) haben monatlich denselben Betrag ~30 Tage auseinander, ein
+            // weites Fenster zöge den Vormonatseintrag in den neuen Monat. Vorab per PDF erfasste
+            // Rechnungen werden stattdessen über die Rechnungsnummer erkannt.
+            return Treffersuche.beste(
+                (try? ctx.fetch(FetchDescriptor<ExpenseEntry>())) ?? [], gegen: suchbild, maximal: maximal
+            ) { e in
+                Trefferkandidat(
+                    betrag: e.brutto, datum: e.datum,
+                    name: e.anbieter.isEmpty ? e.bezeichnung : e.anbieter,
+                    nummer: e.rechnungsnummer)
+            }.map { treffer, bewertung in
+                Kandidat(
+                    id: treffer.persistentModelID,
+                    titel: treffer.bezeichnung.isEmpty ? treffer.anbieter : treffer.bezeichnung,
+                    detail: "\(datumText(treffer.datum)) · \(treffer.brutto.euro)",
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+            }
+        case .steuer, .ksk, .steuererstattung, .ignorieren:
+            guard let id = zahlungsziel(b, z, ctx) else { return [] }
+            return [
+                Kandidat(
+                    id: id, titel: z.kategorie.bezeichnung,
+                    detail: "\(datumText(b.buchungstag)) · \(betrag.euro)",
+                    punkte: Treffersuche.punkteBetragExakt, begruendung: "vorhandene Zahlung")
+            ]
+        }
+    }
+
+    /// Zahlungs-Zweige (Steuer/KSK/Erstattung): eigene Logik über Steuerjahr und Fälligkeit,
+    /// bewusst **nicht** im Namens-/Betrags-Scoring – hier zählt der geplante Termin.
+    @MainActor
+    private static func zahlungsziel(
+        _ b: Bankbuchung, _ z: Zuordnung, _ ctx: ModelContext
+    ) -> PersistentIdentifier? {
+        let betrag = abs(b.betrag)
+        switch z.kategorie {
         case .steuer:
             // Geplanter Termin gleicher Art (Betrag passt oder Termin noch ohne Betrag) – bei
             // mehreren der fälligkeitsnächste (z. B. das passende ESt-VZ-Quartal).
@@ -154,8 +219,8 @@ enum ImportAnwendung {
             return nahestes(
                 zahlungen, betrag, b.buchungstag,
                 betragVon: { abs($0.betrag) }, datumVon: { $0.bezahltAm ?? $0.faellig })
-        case .ignorieren:
-            return nil
+        default:
+            return nil  // alle übrigen Kategorien laufen über das Scoring in `kandidaten`
         }
     }
 

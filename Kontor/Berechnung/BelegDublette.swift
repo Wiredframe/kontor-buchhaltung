@@ -31,11 +31,9 @@ enum BelegDublette {
     // MARK: - Bausteine
 
     /// Normiert eine Rechnungsnummer auf ihre Ziffern; nil bei < 4 Ziffern (zu unspezifisch).
-    static func ziffern(_ s: String?) -> String? {
-        guard let s else { return nil }
-        let d = s.filter(\.isNumber)
-        return d.count >= 4 ? d : nil
-    }
+    /// Teilt sich die Normalisierung mit dem Kontoauszug-Abgleich (`Treffersuche`), damit beide
+    /// Wege dieselbe Vorstellung davon haben, wann zwei Nummern dieselbe sind.
+    static func ziffern(_ s: String?) -> String? { Treffersuche.zifferSchluessel(s) }
 
     static func perRechnungsnummer<T>(
         _ rn: String?, in liste: [T],

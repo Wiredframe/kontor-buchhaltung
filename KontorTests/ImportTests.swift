@@ -299,6 +299,108 @@ struct ImportTests {
         #expect(e.zahlungsdatum == tag(2026, 6, 20))  // Zahltag festgehalten
     }
 
+    // MARK: - Scoring (Treffersuche)
+
+    /// Zwei gleich teure Ausgaben im Fenster: der passende Anbietername entscheidet. Vorher
+    /// gewann schlicht der erste Datensatz, den SwiftData zurückgab.
+    @Test func anbieternameEntscheidetBeiGleichemBetrag() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 9), bezeichnung: "Strom", anbieter: "Stadtwerke",
+                brutto: dez("60"), vst: 0, steuerart: .steuerfrei))
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 9), bezeichnung: "Hosting", anbieter: "Nordwind Hosting",
+                brutto: dez("60"), vst: 0, steuerart: .reverseCharge))
+        try c.mainContext.save()
+        let b = buchung("-60,00", name: "NORDWIND HOSTING/Kiel/DE", am: 10)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        let treffer = ImportAnwendung.kandidaten(b, z, c.mainContext)
+        #expect(treffer.count == 2)  // beide sind plausibel …
+        #expect(treffer.first?.titel == "Hosting")  // … aber der Name gibt den Ausschlag
+        #expect(treffer.first?.begruendung.contains("Anbieter") == true)
+    }
+
+    /// Die Rechnungsnummer schlägt den bloßen Betragstreffer und hebt das Datumsfenster auf.
+    @Test func nummerSchlaegtBetrag() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 9), bezeichnung: "Zufall gleicher Betrag", anbieter: "Anderer",
+                brutto: dez("119"), vst: dez("19"), steuerart: .inland19))
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 5, 2), bezeichnung: "Adobe", anbieter: "Adobe",
+                brutto: dez("119"), vst: dez("19"), steuerart: .inland19,
+                rechnungsnummer: "RE-2026-0042"))
+        try c.mainContext.save()
+        let b = buchung("-119,00", name: "ADOBE/Dublin/IE", zweck: "Rechnung RE-2026-0042", am: 10)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        let treffer = ImportAnwendung.kandidaten(b, z, c.mainContext)
+        #expect(treffer.first?.titel == "Adobe")
+        #expect(treffer.first?.begruendung.contains("Rechnungsnummer") == true)
+    }
+
+    /// Name und Datum allein reichen nie: ohne Betrags- oder Nummernsignal wird nichts
+    /// vorgeschlagen, sondern neu angelegt (falsches Überschreiben zerstört, Dublette nicht).
+    @Test func nameAlleinReichtNicht() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 10), bezeichnung: "Hosting", anbieter: "Nordwind Hosting",
+                brutto: dez("60"), vst: 0, steuerart: .reverseCharge))
+        try c.mainContext.save()
+        let b = buchung("-73,40", name: "NORDWIND HOSTING/Kiel/DE", am: 10)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        #expect(ImportAnwendung.kandidaten(b, z, c.mainContext).isEmpty)
+    }
+
+    /// Einnahmen: zwei offene Rechnungen über denselben Betrag – der Kunde im Verwendungszweck
+    /// entscheidet, statt zufällig eine als bezahlt zu markieren.
+    @Test func einnahmeKundeEntscheidetBeiGleichemBetrag() throws {
+        let c = try container()
+        c.mainContext.insert(
+            Income(
+                kunde: "Nordstern Studio", rnNetto: dez("100"), ust: dez("19"),
+                rechnungsdatum: tag(2026, 6, 1), status: .offen, rechnungsnummer: "2026-0001"))
+        c.mainContext.insert(
+            Income(
+                kunde: "Kiosk Weber", rnNetto: dez("100"), ust: dez("19"),
+                rechnungsdatum: tag(2026, 6, 1), status: .offen, rechnungsnummer: "2026-0002"))
+        try c.mainContext.save()
+        let b = buchung("119,00", text: "GUTSCHRIFT", name: "Kiosk Weber", am: 20)
+        let z = Zuordnung(kategorie: .einnahme, betrieblich: true)
+        let treffer = ImportAnwendung.kandidaten(b, z, c.mainContext)
+        #expect(treffer.first?.titel == "Kiosk Weber")
+    }
+
+    /// Einnahmen bekommen ein weites Fenster (Zahlung kommt später), aber kein unbegrenztes.
+    @Test func einnahmeFensterBegrenzt() throws {
+        let c = try container()
+        c.mainContext.insert(
+            Income(
+                kunde: "Alt AG", rnNetto: dez("100"), ust: dez("19"),
+                rechnungsdatum: tag(2026, 1, 5), status: .offen))
+        try c.mainContext.save()
+        let b = buchung("119,00", text: "GUTSCHRIFT", name: "Alt AG", monat: 6, am: 20)  // ~5 Monate
+        #expect(
+            ImportAnwendung.kandidaten(b, Zuordnung(kategorie: .einnahme, betrieblich: true), c.mainContext)
+                .isEmpty)
+    }
+
+    @Test func nummernSchluesselUndTreffer() {
+        // Reine Ziffern brauchen 5 Stellen, mit Buchstaben genügen 4.
+        #expect(Treffersuche.nummernSchluessel("1234") == nil)
+        #expect(Treffersuche.nummernSchluessel("12345") == "12345")
+        #expect(Treffersuche.nummernSchluessel("RE-42") == "RE42")
+        #expect(Treffersuche.nummernSchluessel(nil) == nil)
+        // Trennzeichen dürfen den Treffer nicht verhindern.
+        #expect(Treffersuche.nummerTrifft("RE-2026-0042", in: "Zahlung RE 2026 0042 danke"))
+        #expect(Treffersuche.nummerTrifft("2026-00042", in: "Ref 202600042"))
+        #expect(!Treffersuche.nummerTrifft("1234", in: "Rechnung 1234"))  // zu unspezifisch
+    }
+
     @Test func ausgabeMatchEngesFenster() throws {
         let c = try container()
         c.mainContext.insert(
