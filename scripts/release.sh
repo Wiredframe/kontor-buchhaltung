@@ -37,7 +37,14 @@ codesign --verify --strict --verbose=2 "$APP"
 echo "▸ 5/5  ZIP packen + SHA256"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 ZIP="$OUT/Kontor-$VERSION.zip"
-ditto -c -k --keepParent "$APP" "$ZIP"
+# **`--noextattr --norsrc` ist Pflicht.** Ohne das schreibt ditto die Extended Attributes als
+# AppleDouble-Einträge ins ZIP. `ditto -x` und das Finder-Archivierungsprogramm verkraften das,
+# **`unzip` legt daraus aber `._Info.plist`-Dateien im Bundle an** – und damit ist die Signatur
+# ungültig („a sealed resource is missing or invalid"), die App startet auf Apple Silicon nicht.
+# Homebrew entpackt Casks genau mit `unzip`, der Homebrew-Weg war also der einzige, auf dem eine
+# kaputte App ankam. Gegenprobe nach jedem Release: ZIP mit `unzip` auspacken und
+# `codesign --verify --strict` laufen lassen.
+ditto -c -k --keepParent --noextattr --norsrc "$APP" "$ZIP"
 SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
 
 cat <<EOF
