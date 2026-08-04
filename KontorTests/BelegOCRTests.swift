@@ -340,7 +340,8 @@ struct BelegOCRTests {
     @Test func anbieterAusKatalogUndDomain() {
         // Der Katalog (bereits erfasste Anbieter des Nutzers) schlägt die generische Heuristik.
         #expect(
-            BelegOCR.anbieter(in: ["Zahlungsbeleg", "Nordwind Hosting GmbH", "Betrag 12,99"], katalog: ["Nordwind Hosting"])
+            BelegOCR.anbieter(
+                in: ["Zahlungsbeleg", "Nordwind Hosting GmbH", "Betrag 12,99"], katalog: ["Nordwind Hosting"])
                 == "Nordwind Hosting")
         // Domain/Mailadresse als Quelle
         #expect(BelegOCR.anbieterAusDomain(in: "Fragen an billing@nordwind-hosting.de") == "Nordwind-Hosting")

@@ -522,6 +522,7 @@ private struct BelegFormular: View {
         Section {
             TextField("Bezeichnung", text: $entwurf.bezeichnung).focused($fokus)
             TextField("Anbieter", text: $entwurf.anbieter)
+                .unsicher(entwurf, .anbieter)
             Picker("Art", selection: $entwurf.art) {
                 Text("Betriebsausgabe").tag(AusgabeArt.betriebsausgabe)
                 Text("Fixkosten").tag(AusgabeArt.fixkosten)
@@ -531,19 +532,28 @@ private struct BelegFormular: View {
             Picker("Steuerart", selection: $entwurf.steuerart) {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            .onChange(of: entwurf.steuerart) { _, neu in if !neu.ziehtVorsteuer { entwurf.vst = 0 } }
+            .onChange(of: entwurf.steuerart) { _, neu in
+                if !neu.ziehtVorsteuer { entwurf.vst = 0 }
+                entwurf.unsicher.remove(.steuerart)
+            }
+            .unsicher(entwurf, .steuerart)
             GeldFeld("Brutto", wert: $entwurf.brutto)
                 .foregroundStyle(betragFehlt ? .red : .primary)
+                .unsicher(entwurf, .brutto)
             HStack {
                 GeldFeld("Vorsteuer", wert: $entwurf.vst)
                 Button("aus Brutto") {
                     entwurf.vst = Steuer.vorsteuerVorschlag(brutto: entwurf.brutto, steuerart: entwurf.steuerart)
+                    entwurf.unsicher.remove(.vst)
                 }
                 .disabled(!entwurf.steuerart.ziehtVorsteuer)
             }
+            .unsicher(entwurf, .vst)
             LabeledContent("Netto", value: entwurf.netto.euro)
             DatePicker("Datum", selection: $entwurf.datum, displayedComponents: .date)
+                .unsicher(entwurf, .datum)
             TextField("Rechnungsnummer", text: $entwurf.rechnungsnummer)
+                .unsicher(entwurf, .rechnungsnummer)
         }
         if betragFehlt { hinweisBetrag }
     }
@@ -551,6 +561,29 @@ private struct BelegFormular: View {
     private var hinweisBetrag: some View {
         Label("Betrag konnte nicht erkannt werden – bitte prüfen.", systemImage: "exclamationmark.circle")
             .font(.caption).foregroundStyle(.red)
+    }
+}
+
+// MARK: - Unsicherheits-Markierung
+//
+// Die Erkennung weiß oft selbst, dass sie geraten hat (Vorsteuer aus dem Brutto abgeleitet,
+// Anbieter nicht gefunden, Steuerart nur vermutet). Ohne Markierung sieht ein geratener Wert
+// im Formular genauso aus wie ein abgelesener – und wandert unbemerkt in die Buchhaltung.
+
+extension View {
+    /// Hängt einen Warnhinweis an ein Feld, solange die Erkennung es als unsicher meldet.
+    /// Sobald der Nutzer den Wert anfasst, nimmt die jeweilige Aktion die Marke zurück.
+    @ViewBuilder func unsicher(_ entwurf: BelegEntwurf, _ feld: BelegFeld) -> some View {
+        if entwurf.unsicher.contains(feld) {
+            HStack(spacing: 6) {
+                self
+                Image(systemName: "questionmark.circle")
+                    .foregroundStyle(.orange)
+                    .help("\(feld.bezeichnung): nicht sicher erkannt, bitte gegenprüfen.")
+            }
+        } else {
+            self
+        }
     }
 }
 

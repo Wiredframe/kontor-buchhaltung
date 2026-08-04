@@ -558,6 +558,9 @@ struct AusgabeInspektor: View {
     @Environment(\.modelContext) private var context
     @Bindable var eintrag: ExpenseEntry
     @FocusState private var fokus: Bool
+    /// Nur Eingabehilfe für noch unbezahlte Fremdwährungsrechnungen – wird nicht gespeichert,
+    /// der maßgebliche Kurs ergibt sich später aus Brutto und Rechnungsbetrag.
+    @State private var vorlaeufigerKurs: Decimal = 0
 
     private var artBinding: Binding<AusgabeArt> {
         Binding {
@@ -595,6 +598,7 @@ struct AusgabeInspektor: View {
                 LabeledContent("Bezahlt am", value: z.formatted(.dateTime.day().month().year()))
             }
             Toggle("Umlagefähig", isOn: $eintrag.umlagefaehig)
+            fremdwaehrung
             Section("Beleg") {
                 if let p = eintrag.belegPfad, Belege.existiert(p) {
                     BelegVorschau(pfad: p)
@@ -618,6 +622,55 @@ struct AusgabeInspektor: View {
         }
         .formStyle(.grouped)
         .onChange(of: eintrag.id, initial: true) { _, _ in fokus = eintrag.bezeichnung.isEmpty }
+    }
+
+    // MARK: Fremdwährung
+    //
+    // Der Euro-Betrag oben bleibt maßgeblich (er ist der tatsächliche Abfluss und damit die
+    // EÜR-Größe). Hier steht nur, worauf er zurückgeht: Originalwährung, Originalbetrag und der
+    // daraus abgeleitete Kurs. Für eine noch nicht bezahlte Rechnung lässt sich der Euro-Wert aus
+    // einem Kurs vorbelegen; die Abbuchung überschreibt ihn später beim Kontoauszug-Import.
+
+    private var waehrungBinding: Binding<String> {
+        Binding {
+            eintrag.fremdwaehrung ?? ""
+        } set: { neu in
+            let code = neu.trimmingCharacters(in: .whitespaces).uppercased()
+            eintrag.fremdwaehrung = code.isEmpty ? nil : code
+            if code.isEmpty { eintrag.fremdBetrag = 0 }
+        }
+    }
+
+    @ViewBuilder private var fremdwaehrung: some View {
+        Section("Fremdwährung") {
+            Picker("Währung", selection: waehrungBinding) {
+                Text("keine (Euro)").tag("")
+                ForEach(Bankimport.fremdwaehrungen.sorted(), id: \.self) { Text($0).tag($0) }
+            }
+            if eintrag.fremdwaehrung != nil {
+                GeldFeld("Rechnungsbetrag", wert: $eintrag.fremdBetrag)
+                if let kurs = eintrag.kurs {
+                    LabeledContent("Kurs", value: "\(kurs.beschreibungGenau) € je \(eintrag.fremdwaehrung ?? "")")
+                }
+                if eintrag.zahlungsdatum == nil {
+                    HStack {
+                        GeldFeld("Kurs (vorläufig)", wert: $vorlaeufigerKurs)
+                        Button("Brutto berechnen") {
+                            eintrag.brutto = (eintrag.fremdBetrag * vorlaeufigerKurs).gerundet()
+                            eintrag.vst = Steuer.vorsteuerVorschlag(
+                                brutto: eintrag.brutto, steuerart: eintrag.steuerart)
+                        }
+                        .disabled(eintrag.fremdBetrag == 0 || vorlaeufigerKurs == 0)
+                    }
+                }
+                Text(
+                    eintrag.zahlungsdatum == nil
+                        ? "Der Euro-Betrag ist vorläufig – beim Zuordnen der Abbuchung wird der tatsächlich abgebuchte Betrag übernommen."
+                        : "Euro-Betrag = tatsächliche Abbuchung inklusive Auslandsentgelt."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

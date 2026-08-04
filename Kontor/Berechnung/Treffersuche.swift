@@ -222,4 +222,9 @@ extension Decimal {
     var beschreibung: String {
         formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: "de_DE")))
     }
+
+    /// Vier Nachkommastellen – für Umrechnungskurse, wo zwei nicht genügen.
+    var beschreibungGenau: String {
+        formatted(.number.precision(.fractionLength(2...4)).locale(Locale(identifier: "de_DE")))
+    }
 }

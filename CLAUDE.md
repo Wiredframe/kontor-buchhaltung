@@ -101,6 +101,16 @@ Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
 - **Reverse-Charge (§13b, Auslands-Tools):** USt 19 % in **KZ 84 (netto) / KZ 85 (USt)**,
   zugleich als Vorsteuer abziehbar → USt-Saldo 0. **Aber:** der Netto-Betrag bleibt eine
   abziehbare Betriebsausgabe in der EÜR (z. B. Figma 35 € = echte Ausgabe).
+- **Eingangsrechnungen in Fremdwährung (USD & Co.) – ENTSCHIEDEN:** `brutto`/`vst`/`netto` bleiben
+  **immer Euro**; maßgeblich ist der **tatsächlich abgeflossene Euro-Betrag** inklusive Kursaufschlag
+  und Auslandsentgelt (EÜR = Abflussprinzip). `ExpenseEntry.fremdwaehrung` (ISO-String, optional) und
+  `fremdBetrag` dokumentieren nur die **Rechnung**, `kurs` wird daraus **abgeleitet** (nie gespeichert
+  → kann nicht widersprüchlich werden). Beim Zuordnen der Bankbuchung ersetzt der Bankbetrag den
+  vorläufig umgerechneten Wert. **Bewusst kein BMF-Monatsdurchschnittskurs** (§16 Abs. 6 UStG): bei
+  §13b sind KZ 84/85 und KZ 67 spiegelbildlich, die Zahllast ist kursunabhängig 0, die Abweichung auf
+  die Bemessungsgrundlage liegt im Cent-Bereich. Keine separate Kursdifferenz-Buchung, keine
+  Aufteilung der Bankgebühr (sie steckt im Abfluss). **Nur Ausgaben** – bei Einnahmen hinge KZ 81/86
+  direkt am Kurs, das Feldmuster ist aber auf `Income` übertragbar.
 - **KSK & ESt = Monatswerte (im Monatsabschluss gepflegt, erben vom Vormonat):** KSK je Monat als
   **drei Beträge KV/RV/PV** (Bescheid-Reihenfolge RV, KV, PV) `YearSettings.kskRVProMonat/kskKVProMonat/
   kskPVProMonat`, `ksk(monat:)` = Summe. **JAE (`kskJAEProMonat`) nur informativ – keine
@@ -261,6 +271,25 @@ Prüfgrößen (synthetisch, exemplarisch):
   erledigte Buchungen wieder. Erneutes Buchen trifft über `ImportAnwendung.ziel` den bestehenden
   Datensatz (Überschreiben) → **keine Dubletten**. Ein komplett importierter Auszug zeigt die Zeilen
   direkt (Toggle vorausgewählt).
+- **Zuordnung = gewichtetes Scoring (`Berechnung/Treffersuche.swift`, rein/ohne SwiftData):** keine
+  Kaskade mit „erster Treffer gewinnt" mehr. Signale werden summiert – Nummer 60, Fremdbetrag 55,
+  Betrag exakt 40, FX-Toleranz 30 abzüglich Abweichung, Anbietername 25/15, Datumsnähe 15/8 –,
+  `ImportAnwendung.kandidaten()` liefert bis zu **drei** Ziele mit Begründung (UI zeigt sie zur
+  Auswahl), `ziel()` = der beste. **Zwei harte Regeln:** ohne Betrags- oder Nummernsignal **kein**
+  Kandidat (Name/Datum allein reichen nie), und das Datumsfenster ist **Ausschluss** statt Abzug
+  (5 Tage, 14 bei Fremdwährung, 60 bei Einnahmen; nur ein Nummerntreffer hebt es auf) – sonst zöge
+  die monatlich gleiche Miete den Vormonatseintrag in den neuen Monat. Leitsatz bleibt die
+  Asymmetrie: falsches Überschreiben zerstört, ein verpasster Treffer legt nur eine löschbare
+  Dublette an. `BelegDublette` teilt sich die Nummern-Normalisierung (`zifferSchluessel`).
+- **Belegerkennung (`BelegOCR`):** PDFs mit **Textlayer** werden über PDFKit gelesen (Wort-Fragmente
+  in Vision-Konvention, 0…1 normalisiert), Vision-OCR nur für Scans/Fotos/Bild-PDFs. **Falle:**
+  `page.string` zählt Zeilenumbrüche mit, `characterBounds(at:)` vergibt ihnen **keinen** Index –
+  ohne eigenen Box-Index verschiebt sich ab dem ersten Umbruch jede Wortposition. Beträge:
+  Prozentangaben, Ausschnitte längerer Zahlen und an Buchstaben klebende Referenzen gelten **nicht**
+  als Geldbetrag; je Label wird das Segment **nach** dem Schlagwort bis zum nächsten Label
+  ausgewertet (nicht `max()` der Zeile). `plausibilisiere()` prüft Vorsteuer gegen Brutto (19/7 %,
+  2 Cent Toleranz), leitet sie bei Unsinn ab und markiert das Feld über `BelegDaten.unsicher`
+  (UI zeigt Warnzeichen) – eine **ausgewiesene 0** bleibt aber 0 (Kleinunternehmer).
 - **KSK & ESt = Monatswert-Modell (KSK-Modul/`KSKEntry`-Sätze-Tabelle ENTFERNT):** KSK & ESt-Satz
   werden **pro Monat im Monatsabschluss** gepflegt (Sidebar-Tab **„Werte"**) und **erben automatisch
   vom Vormonat** (rückwärts; `kskTeile(monat:)`/`estSatz(monat:)`). KSK je Monat als **drei Beträge

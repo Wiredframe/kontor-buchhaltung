@@ -9,10 +9,16 @@ final class ImportZeile: Identifiable {
     let id = UUID()
     let buchung: Bankbuchung
     var zuordnung: Zuordnung
-    var zielId: PersistentIdentifier?  // vorhandener Datensatz (Match/Dublette) – nil = neu
+    var zielId: PersistentIdentifier?  // gewählter Datensatz (Match/Dublette) – nil = neu anlegen
+    /// Alle plausiblen Ziele mit Begründung (bester zuerst). Bei mehreren kann der Nutzer wählen,
+    /// statt dass die App still den erstbesten überschreibt.
+    var kandidaten: [ImportAnwendung.Kandidat] = []
     var bereitsImportiert: Bool
     var erledigt: Bool
     var ergebnis: String?  // Ergebnis-/Skip-Text nach dem Buchen
+
+    /// Begründung des gerade gewählten Ziels („Rechnungsnummer, Betrag exakt, 2 Tage").
+    var gewaehlt: ImportAnwendung.Kandidat? { kandidaten.first { $0.id == zielId } }
 
     init(_ b: Bankbuchung, zuordnung: Zuordnung, bereitsImportiert: Bool) {
         self.buchung = b
@@ -66,7 +72,8 @@ struct ImportView: View {
                         zeile: zeile,
                         buchen: { anwenden(zeile, $0) },
                         zielNeuBerechnen: {
-                            zeile.zielId = ImportAnwendung.ziel(zeile.buchung, zeile.zuordnung, context)
+                            zeile.kandidaten = ImportAnwendung.kandidaten(zeile.buchung, zeile.zuordnung, context)
+                            zeile.zielId = zeile.kandidaten.first?.id
                         })
                 }
                 .listStyle(.inset)
@@ -191,7 +198,8 @@ struct ImportView: View {
                 let z = ImportVorschlag.fuer(b, regeln: regeln)
                 let zeile = ImportZeile(
                     b, zuordnung: z, bereitsImportiert: ImportAnwendung.schonVerarbeitet(b, context))
-                zeile.zielId = ImportAnwendung.ziel(b, z, context)
+                zeile.kandidaten = ImportAnwendung.kandidaten(b, z, context)
+                zeile.zielId = zeile.kandidaten.first?.id
                 return zeile
             }
         dateiName = name
@@ -255,10 +263,13 @@ private struct ImportZeileRow: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(zeile.buchung.anzeigename).font(.callout).fontWeight(.medium).lineLimit(1)
-                Text(
-                    "\(zeile.buchung.buchungstag.formatted(date: .numeric, time: .omitted)) · \(zeile.buchung.buchungstext)"
-                )
-                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                Text(kopfzeile)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                // Warum dieser Treffer vorgeschlagen wird – sichtbar, statt still zu überschreiben.
+                if !zeile.erledigt, let k = zeile.gewaehlt {
+                    Label("\(k.titel) · \(k.detail) · \(k.begruendung)", systemImage: "arrow.turn.down.right")
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -321,13 +332,47 @@ private struct ImportZeileRow: View {
             .labelsHidden().frame(width: 132)
         }
 
-        Button(zeile.zielId == nil ? "Buchen" : "Überschreiben") {
-            buchen(zeile.zielId.map { .ueberschreiben($0) } ?? .neu)
+        if zeile.kandidaten.isEmpty {
+            Button("Buchen") { buchen(.neu) }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                .help("Neu anlegen / abhaken")
+        } else {
+            // Klick bucht das gewählte Ziel, das Menü zeigt die Alternativen mit Begründung.
+            // Bei mehreren gleich teuren Einträgen entscheidet so der Nutzer, nicht die Sortierung.
+            Menu {
+                ForEach(zeile.kandidaten) { k in
+                    Button {
+                        zeile.zielId = k.id
+                    } label: {
+                        Text("\(k.titel) · \(k.detail) — \(k.begruendung)")
+                    }
+                }
+                Divider()
+                Button("Neu anlegen") { zeile.zielId = nil }
+            } label: {
+                Text(zeile.zielId == nil ? "Buchen" : "Überschreiben")
+            } primaryAction: {
+                buchen(zeile.zielId.map { .ueberschreiben($0) } ?? .neu)
+            }
+            .menuStyle(.button).buttonStyle(.borderedProminent).controlSize(.small)
+            .fixedSize()
+            .help(
+                zeile.zielId == nil
+                    ? "Neu anlegen – im Menü stehen \(zeile.kandidaten.count) mögliche Treffer"
+                    : "Vorhandenen Eintrag aktualisieren – im Menü das Ziel wechseln")
         }
-        .buttonStyle(.borderedProminent).controlSize(.small)
-        .help(zeile.zielId == nil ? "Neu anlegen / abhaken" : "Vorhandenen Eintrag aktualisieren")
 
         Button("Überspringen") { buchen(.ueberspringen) }
             .controlSize(.small)
+    }
+
+    /// Datum, Buchungstext und – falls die Bank ihn mitliefert – der Betrag in Fremdwährung.
+    private var kopfzeile: String {
+        var text =
+            "\(zeile.buchung.buchungstag.formatted(date: .numeric, time: .omitted)) · \(zeile.buchung.buchungstext)"
+        if let f = zeile.buchung.fremdbetragHinweis {
+            text += " · \(f.betrag.beschreibung) \(f.code)"
+        }
+        return text
     }
 }
