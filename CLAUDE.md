@@ -281,15 +281,14 @@ Prüfgrößen (synthetisch, exemplarisch):
   die monatlich gleiche Miete den Vormonatseintrag in den neuen Monat. Leitsatz bleibt die
   Asymmetrie: falsches Überschreiben zerstört, ein verpasster Treffer legt nur eine löschbare
   Dublette an. `BelegDublette` teilt sich die Nummern-Normalisierung (`zifferSchluessel`).
-- **Belegerkennung (`BelegOCR`):** PDFs mit **Textlayer** werden über PDFKit gelesen (Wort-Fragmente
-  in Vision-Konvention, 0…1 normalisiert), Vision-OCR nur für Scans/Fotos/Bild-PDFs. **Falle:**
-  `page.string` zählt Zeilenumbrüche mit, `characterBounds(at:)` vergibt ihnen **keinen** Index –
-  ohne eigenen Box-Index verschiebt sich ab dem ersten Umbruch jede Wortposition. Beträge:
-  Prozentangaben, Ausschnitte längerer Zahlen und an Buchstaben klebende Referenzen gelten **nicht**
-  als Geldbetrag; je Label wird das Segment **nach** dem Schlagwort bis zum nächsten Label
-  ausgewertet (nicht `max()` der Zeile). `plausibilisiere()` prüft Vorsteuer gegen Brutto (19/7 %,
-  2 Cent Toleranz), leitet sie bei Unsinn ab und markiert das Feld über `BelegDaten.unsicher`
-  (UI zeigt Warnzeichen) – eine **ausgewiesene 0** bleibt aber 0 (Kleinunternehmer).
+- **Belegerkennung (`BelegOCR`) – Änderungen NUR gegen echte Belege:** Ein Härtungsversuch
+  (PDF-Textlayer statt Vision, strengere Betragsfilter, Segment-Logik je Label, Plausibilisierung)
+  lief **grün gegen synthetische Fixtures und verschlechterte die Erkennung an echten Rechnungen
+  massiv** (Beträge gar nicht mehr gefunden bzw. der Steuerbetrag als Gesamtbetrag) – am 2026-08-04
+  zurückgenommen. Wer hier wieder ansetzt: erst den lokalen Korpus füllen
+  (`KONTOR_BELEGE_KORPUS`, siehe `BelegOCRTests.echtbelegKorpusFallsVorhanden`), vorher/nachher
+  daran messen, und **jede** Änderung einzeln bewerten. Selbst erzeugte PDFs (CoreText/AppKit)
+  bilden echte Rechnungslayouts nicht ausreichend ab.
 - **KSK & ESt = Monatswert-Modell (KSK-Modul/`KSKEntry`-Sätze-Tabelle ENTFERNT):** KSK & ESt-Satz
   werden **pro Monat im Monatsabschluss** gepflegt (Sidebar-Tab **„Werte"**) und **erben automatisch
   vom Vormonat** (rückwärts; `kskTeile(monat:)`/`estSatz(monat:)`). KSK je Monat als **drei Beträge

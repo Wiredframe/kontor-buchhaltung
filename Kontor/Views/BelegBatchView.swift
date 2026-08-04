@@ -72,9 +72,6 @@ final class BelegEntwurf: Identifiable {
 
     var dublette: PersistentIdentifier?
     var ergebnis: String?
-    /// Felder, die die Erkennung nur abgeleitet oder gar nicht gefunden hat – die UI markiert sie,
-    /// damit ein still übernommener Fehlwert nicht unbemerkt in die Buchhaltung wandert.
-    var unsicher: Set<BelegFeld> = []
 
     /// Pfad des einmal gespeicherten Belegs (Re-Submit kopiert die Datei nicht erneut).
     var belegPfad: String?
@@ -118,38 +115,14 @@ final class BelegEntwurf: Identifiable {
         if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
     }
     func fuelle(_ d: BelegDaten) {
-        // Marke nur für Felder setzen, die wirklich aus der Erkennung stammen: was der Nutzer
-        // selbst getippt hat, ist nicht unsicher, egal was die OCR dazu meinte.
-        func merke(_ feld: BelegFeld) { if d.unsicher.contains(feld) { unsicher.insert(feld) } }
-
-        if let x = d.datum, datum == datumDefault {
-            datum = x
-            merke(.datum)
-        } else if datum == datumDefault {
-            merke(.datum)
-        }
+        if let x = d.datum, datum == datumDefault { datum = x }
         if bezeichnung.isEmpty { bezeichnung = d.anbieter ?? url.deletingPathExtension().lastPathComponent }
-        if anbieter.isEmpty {
-            anbieter = d.anbieter ?? ""
-            merke(.anbieter)
-        }
-        if brutto == 0 {
-            brutto = d.brutto ?? 0
-            merke(.brutto)
-        }
+        if anbieter.isEmpty { anbieter = d.anbieter ?? "" }
+        if brutto == 0 { brutto = d.brutto ?? 0 }
         // Steuerart nur, wenn die OCR wirklich eine erkannt hat (sonst bliebe der Default ohnehin).
-        if let s = d.steuerart, vst == 0 {
-            steuerart = s
-            merke(.steuerart)
-        }
-        if vst == 0 {
-            vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0)
-            merke(.vst)
-        }
-        if rechnungsnummer.isEmpty {
-            rechnungsnummer = d.rechnungsnummer ?? ""
-            merke(.rechnungsnummer)
-        }
+        if let s = d.steuerart, vst == 0 { steuerart = s }
+        if vst == 0 { vst = steuerart == .reverseCharge ? 0 : (d.vst ?? 0) }
+        if rechnungsnummer.isEmpty { rechnungsnummer = d.rechnungsnummer ?? "" }
     }
 
     private var rnOpt: String? { rechnungsnummer.isEmpty ? nil : rechnungsnummer }
@@ -330,16 +303,13 @@ struct BelegBatchView: View {
         entwuerfe = urls.map { BelegEntwurf(url: $0) }
         aktiv = entwuerfe.first?.id
         let modus = self.modus
-        // Bereits erfasste Anbieter als Erkennungs-Lexikon: das beste verfügbare, weil es genau
-        // die Anbieter dieses Nutzers enthält (und Schreibweisen, die er selbst gewählt hat).
-        let katalog = Array(Set(ausgaben.map(\.anbieter).filter { !$0.isEmpty }))
         await withTaskGroup(of: (UUID, EinnahmeDaten?, BelegDaten?).self) { group in
             for e in entwuerfe {
                 let id = e.id, url = e.url
                 group.addTask {
                     switch modus {
                     case .einnahme: return (id, await BelegOCR.analysiereEinnahme(url), nil)
-                    case .ausgabe: return (id, nil, await BelegOCR.analysiere(url, katalog: katalog))
+                    case .ausgabe: return (id, nil, await BelegOCR.analysiere(url))
                     }
                 }
             }
@@ -522,7 +492,6 @@ private struct BelegFormular: View {
         Section {
             TextField("Bezeichnung", text: $entwurf.bezeichnung).focused($fokus)
             TextField("Anbieter", text: $entwurf.anbieter)
-                .unsicher(entwurf, .anbieter)
             Picker("Art", selection: $entwurf.art) {
                 Text("Betriebsausgabe").tag(AusgabeArt.betriebsausgabe)
                 Text("Fixkosten").tag(AusgabeArt.fixkosten)
@@ -532,28 +501,19 @@ private struct BelegFormular: View {
             Picker("Steuerart", selection: $entwurf.steuerart) {
                 ForEach(Steuerart.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            .onChange(of: entwurf.steuerart) { _, neu in
-                if !neu.ziehtVorsteuer { entwurf.vst = 0 }
-                entwurf.unsicher.remove(.steuerart)
-            }
-            .unsicher(entwurf, .steuerart)
+            .onChange(of: entwurf.steuerart) { _, neu in if !neu.ziehtVorsteuer { entwurf.vst = 0 } }
             GeldFeld("Brutto", wert: $entwurf.brutto)
                 .foregroundStyle(betragFehlt ? .red : .primary)
-                .unsicher(entwurf, .brutto)
             HStack {
                 GeldFeld("Vorsteuer", wert: $entwurf.vst)
                 Button("aus Brutto") {
                     entwurf.vst = Steuer.vorsteuerVorschlag(brutto: entwurf.brutto, steuerart: entwurf.steuerart)
-                    entwurf.unsicher.remove(.vst)
                 }
                 .disabled(!entwurf.steuerart.ziehtVorsteuer)
             }
-            .unsicher(entwurf, .vst)
             LabeledContent("Netto", value: entwurf.netto.euro)
             DatePicker("Datum", selection: $entwurf.datum, displayedComponents: .date)
-                .unsicher(entwurf, .datum)
             TextField("Rechnungsnummer", text: $entwurf.rechnungsnummer)
-                .unsicher(entwurf, .rechnungsnummer)
         }
         if betragFehlt { hinweisBetrag }
     }
@@ -561,29 +521,6 @@ private struct BelegFormular: View {
     private var hinweisBetrag: some View {
         Label("Betrag konnte nicht erkannt werden – bitte prüfen.", systemImage: "exclamationmark.circle")
             .font(.caption).foregroundStyle(.red)
-    }
-}
-
-// MARK: - Unsicherheits-Markierung
-//
-// Die Erkennung weiß oft selbst, dass sie geraten hat (Vorsteuer aus dem Brutto abgeleitet,
-// Anbieter nicht gefunden, Steuerart nur vermutet). Ohne Markierung sieht ein geratener Wert
-// im Formular genauso aus wie ein abgelesener – und wandert unbemerkt in die Buchhaltung.
-
-extension View {
-    /// Hängt einen Warnhinweis an ein Feld, solange die Erkennung es als unsicher meldet.
-    /// Sobald der Nutzer den Wert anfasst, nimmt die jeweilige Aktion die Marke zurück.
-    @ViewBuilder func unsicher(_ entwurf: BelegEntwurf, _ feld: BelegFeld) -> some View {
-        if entwurf.unsicher.contains(feld) {
-            HStack(spacing: 6) {
-                self
-                Image(systemName: "questionmark.circle")
-                    .foregroundStyle(.orange)
-                    .help("\(feld.bezeichnung): nicht sicher erkannt, bitte gegenprüfen.")
-            }
-        } else {
-            self
-        }
     }
 }
 
