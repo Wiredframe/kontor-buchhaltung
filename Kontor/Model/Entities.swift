@@ -195,8 +195,35 @@ final class ExpenseEntry {
     /// Zahltag aus dem Kontoauszug (rein informativ – die EÜR zählt weiterhin nach `datum`).
     var zahlungsdatum: Date?
 
+    // MARK: Fremdwährung (Rechnung in USD & Co.)
+    //
+    // **`brutto`/`vst`/`netto` bleiben immer Euro.** Maßgeblich ist für die EÜR der tatsächlich
+    // abgeflossene Euro-Betrag inklusive Fremdwährungs-/Auslandsentgelt der Bank; der Import setzt
+    // ihn beim Zuordnen der Abbuchung. Die beiden Felder hier dokumentieren nur die **Rechnung**,
+    // damit Originalbetrag und angewandter Kurs nachvollziehbar bleiben.
+    //
+    // Umsatzsteuerlich wäre für §13b formal der BMF-Monatsdurchschnittskurs (§16 Abs. 6 UStG)
+    // anzusetzen. Bewusst nicht umgesetzt: KZ 84/85 und KZ 67 sind spiegelbildlich, die Zahllast
+    // ist kursunabhängig 0, und die Abweichung auf die gemeldete Bemessungsgrundlage liegt bei
+    // den vorkommenden Beträgen im Cent-Bereich.
+
+    /// ISO-Code der Rechnungswährung (z. B. "USD"); nil = Euro-Rechnung (Regelfall).
+    /// Bewusst `String` statt Enum: neue Währungen brauchen keine Modelländerung, und ein
+    /// nachträglich hinzugefügtes Enum-Feld sprengte die Lightweight-Migration.
+    var fremdwaehrung: String?
+    /// Bruttobetrag der Originalrechnung in `fremdwaehrung`; 0 = keine Fremdwährung.
+    var fremdBetrag: Decimal = 0
+
     /// Netto = Brutto − Vorsteuer (berechnet, nicht gespeichert).
     var netto: Decimal { brutto - vst }
+    /// Trägt der Eintrag eine Fremdwährungsrechnung?
+    var istFremdwaehrung: Bool { fremdwaehrung != nil && fremdBetrag != 0 }
+    /// Angewandter Kurs (Euro je Einheit Fremdwährung), aus den gebuchten Werten abgeleitet –
+    /// damit er nie im Widerspruch zu Brutto und Fremdbetrag stehen kann.
+    var kurs: Decimal? {
+        guard istFremdwaehrung, fremdBetrag != 0, !fremdBetrag.isNaN, !brutto.isNaN else { return nil }
+        return (brutto / fremdBetrag).gerundet(4)
+    }
     /// Effektive Art (Altbestand ohne `art` = Betriebsausgabe).
     var artEffektiv: AusgabeArt { art ?? .betriebsausgabe }
 
@@ -212,7 +239,9 @@ final class ExpenseEntry {
         belegPfad: String? = nil,
         art: AusgabeArt? = nil,
         rechnungsnummer: String? = nil,
-        zahlungsdatum: Date? = nil
+        zahlungsdatum: Date? = nil,
+        fremdwaehrung: String? = nil,
+        fremdBetrag: Decimal = 0
     ) {
         self.datum = datum
         self.bezeichnung = bezeichnung
@@ -226,6 +255,8 @@ final class ExpenseEntry {
         self.art = art
         self.rechnungsnummer = rechnungsnummer
         self.zahlungsdatum = zahlungsdatum
+        self.fremdwaehrung = fremdwaehrung
+        self.fremdBetrag = fremdBetrag
     }
 }
 

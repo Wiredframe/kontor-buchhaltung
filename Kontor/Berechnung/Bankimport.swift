@@ -43,6 +43,16 @@ struct Bankbuchung: Hashable, Identifiable {
     var haendlerSchluessel: String {
         glaeubigerID.isEmpty ? Bankimport.normalisiere(gegenpartei) : "gl:" + glaeubigerID
     }
+
+    /// Originalbetrag einer Fremdwährungszahlung, sofern die Bank ihn im Verwendungszweck
+    /// mitliefert (bei Kartenzahlungen im Ausland üblich: „35,00 USD 1,0821 KURS").
+    ///
+    /// Die CSV-Spalte `Waehrung` taugt dafür nicht: sie nennt die **Konto**währung und steht
+    /// deshalb immer auf EUR. Fehlt der Hinweis ganz (SEPA-Lastschrift eines Zahlungsdienstes,
+    /// der bereits in Euro abrechnet), greift stattdessen der Toleranz-Abgleich der Treffersuche.
+    var fremdbetragHinweis: (betrag: Decimal, code: String)? {
+        Bankimport.fremdbetrag(in: verwendungszweck)
+    }
 }
 
 /// Parser für den Sparkasse-CSV-CAMT-Export (V2/V8): ISO-8859-1, `;`-getrennt,
@@ -145,6 +155,46 @@ enum Bankimport {
         }
         out.append(feld)
         return out
+    }
+
+    /// Währungen, die als Fremdwährungs-Hinweis akzeptiert werden. Bewusst eine Whitelist:
+    /// eine beliebige Buchstabenfolge neben einem Betrag („RE 100 NET") würde sonst regelmäßig
+    /// als Währung durchgehen. `EUR` ist absichtlich nicht dabei – das ist keine Fremdwährung.
+    static let fremdwaehrungen: Set<String> = [
+        "USD", "CHF", "GBP", "CAD", "AUD", "JPY", "SEK", "NOK", "DKK", "PLN", "CZK",
+    ]
+
+    /// Liest „35,00 USD" bzw. „USD 35,00" aus einem Verwendungszweck.
+    ///
+    /// Der Betrag wird über dasselbe strenge Muster geprüft wie die CSV-Spalte: erst Format,
+    /// dann parsen. Ein englisch formatiertes „35.00 USD" wird zusätzlich akzeptiert, weil
+    /// Kartenabrechnungen diese Schreibweise mitunter durchreichen.
+    static func fremdbetrag(in text: String) -> (betrag: Decimal, code: String)? {
+        let muster = #"(?:([A-Z]{3})\s*([0-9][0-9.,]*)|([0-9][0-9.,]*)\s*([A-Z]{3}))"#
+        guard let re = try? NSRegularExpression(pattern: muster) else { return nil }
+        let ns = text as NSString
+        for treffer in re.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+            func gruppe(_ i: Int) -> String? {
+                let r = treffer.range(at: i)
+                return r.location == NSNotFound ? nil : ns.substring(with: r)
+            }
+            guard let code = gruppe(1) ?? gruppe(4), fremdwaehrungen.contains(code),
+                let roh = gruppe(2) ?? gruppe(3),
+                let betrag = betragFlexibel(roh), betrag > 0
+            else { continue }
+            return (betrag, code)
+        }
+        return nil
+    }
+
+    /// Betrag in deutscher **oder** englischer Schreibweise; nil, wenn keins von beiden sauber passt.
+    private static func betragFlexibel(_ s: String) -> Decimal? {
+        if let d = dezimal(s) { return d }
+        let englisch = "^[0-9]{1,3}(,[0-9]{3})*(\\.[0-9]{1,2})?$|^[0-9]+(\\.[0-9]{1,2})?$"
+        guard s.range(of: englisch, options: .regularExpression) != nil else { return nil }
+        return Decimal(
+            string: s.replacingOccurrences(of: ",", with: ""),
+            locale: Locale(identifier: "en_US_POSIX"))
     }
 
     /// Normalisierter Händlername (für Lern-Schlüssel & Anzeige): Adresszusatz nach „/"

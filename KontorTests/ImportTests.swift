@@ -14,8 +14,13 @@ struct ImportTests {
         _ betrag: String, text: String = "KARTENZAHLUNG", name: String = "Test Haendler",
         zweck: String = "", glaeubiger: String = "", kundenref: String = "", monat: Int = 6, am tagNr: Int = 10
     ) -> Bankbuchung {
+        // Beträge dürfen deutsch **oder** englisch geschrieben sein: `dez` erwartet den Punkt und
+        // parst „-32,74" sonst still als −32 (Präfix bis zum Komma) – ein Cent-Fehler, der einem
+        // Test nicht auffällt, weil er wie ein Rundungsproblem aussieht.
         Bankbuchung(
-            buchungstag: tag(2026, monat, tagNr), betrag: dez(betrag), buchungstext: text, verwendungszweck: zweck,
+            buchungstag: tag(2026, monat, tagNr),
+            betrag: dez(betrag.replacingOccurrences(of: ",", with: ".")),
+            buchungstext: text, verwendungszweck: zweck,
             gegenpartei: name, iban: "", glaeubigerID: glaeubiger, mandatsreferenz: "", kundenreferenz: kundenref,
             waehrung: "EUR")
     }
@@ -387,6 +392,94 @@ struct ImportTests {
         #expect(
             ImportAnwendung.kandidaten(b, Zuordnung(kategorie: .einnahme, betrieblich: true), c.mainContext)
                 .isEmpty)
+    }
+
+    // MARK: - Fremdwährung (Eingangsrechnungen in USD & Co.)
+
+    /// Der Normalfall: die USD-Rechnung wurde vorab erfasst und mit einem groben Kurs
+    /// umgerechnet. Die Abbuchung weicht ab (Kurs plus Auslandsentgelt), trifft aber trotzdem –
+    /// und setzt danach den **tatsächlichen** Euro-Betrag, denn der zählt für die EÜR.
+    @Test func usdRechnungTrifftAbbuchungUndUebernimmtDenEchtenBetrag() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 8), bezeichnung: "Figma Professional", anbieter: "Figma",
+                brutto: dez("32.10"), vst: 0, steuerart: .reverseCharge,
+                fremdwaehrung: "USD", fremdBetrag: dez("35")))
+        try c.mainContext.save()
+        // 32,74 € = 2,0 % über dem erfassten Wert, 6 Tage später (außerhalb des engen EUR-Fensters).
+        let b = buchung("-32,74", name: "FIGMA/San Francisco/US", am: 14)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        let treffer = ImportAnwendung.kandidaten(b, z, c.mainContext)
+        #expect(treffer.count == 1)
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .ueberschreiben(treffer[0].id), c.mainContext)
+
+        let ausgaben = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+        #expect(ausgaben.count == 1)  // keine Dublette
+        let e = try #require(ausgaben.first)
+        #expect(e.brutto == dez("32.74"))  // tatsächliche Abbuchung
+        #expect(e.fremdBetrag == dez("35"))  // Rechnung bleibt dokumentiert
+        #expect(e.fremdwaehrung == "USD")
+        #expect(e.kurs == dez("0.9354"))  // 32,74 / 35
+        #expect(e.bezeichnung == "Figma Professional")  // gepflegter Titel bleibt
+    }
+
+    /// Liefert die Bank den Originalbetrag im Verwendungszweck mit, ist er der stärkste
+    /// Schlüssel – auch bei größerem Datumsabstand.
+    @Test func fremdbetragAusDemVerwendungszweckTrifftExakt() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 2), bezeichnung: "Claude Pro", anbieter: "Anthropic",
+                brutto: dez("18.40"), vst: 0, steuerart: .reverseCharge,
+                fremdwaehrung: "USD", fremdBetrag: dez("20")))
+        try c.mainContext.save()
+        let b = buchung(
+            "-18,95", name: "ANTHROPIC/San Francisco/US",
+            zweck: "20,00 USD 1,0555 KURS 0,10 AUSLANDSEINSATZENTGELT", am: 14)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        let treffer = ImportAnwendung.kandidaten(b, z, c.mainContext)
+        #expect(treffer.first?.begruendung.contains("USD") == true)
+    }
+
+    /// Die Toleranz gilt nur für Fremdwährungs-Einträge: bei einer Euro-Ausgabe bleibt es beim
+    /// exakten Betrag, sonst zöge jede ähnliche Buchung an fremden Einträgen.
+    @Test func toleranzGiltNurFuerFremdwaehrung() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 10), bezeichnung: "Hosting", anbieter: "Nordwind",
+                brutto: dez("50.00"), vst: 0, steuerart: .reverseCharge))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        // 4 % Abweichung auf einem Euro-Eintrag → kein Treffer
+        #expect(ImportAnwendung.kandidaten(buchung("-52,00", name: "NORDWIND", am: 11), z, c.mainContext).isEmpty)
+    }
+
+    /// Auch bei Fremdwährung ist die Toleranz begrenzt: 8 % sind kein Kursaufschlag mehr.
+    @Test func zuGrosseAbweichungTrifftNicht() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 10), bezeichnung: "Tool", anbieter: "Ausland",
+                brutto: dez("100.00"), vst: 0, steuerart: .reverseCharge,
+                fremdwaehrung: "USD", fremdBetrag: dez("108")))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        #expect(ImportAnwendung.kandidaten(buchung("-108,00", name: "AUSLAND", am: 11), z, c.mainContext).isEmpty)
+    }
+
+    /// Neu angelegte Ausgaben übernehmen die Fremdwährung aus dem Verwendungszweck, damit die
+    /// Herkunft auch ohne vorab erfasste Rechnung dokumentiert ist.
+    @Test func neueAusgabeUebernimmtFremdwaehrung() throws {
+        let c = try container()
+        let b = buchung("-32,74", name: "FIGMA/San Francisco/US", zweck: "35,00 USD 1,0699 KURS", am: 14)
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .reverseCharge)
+        _ = try ImportAnwendung.anwenden(b, z, aktion: .neu, c.mainContext)
+        let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.fremdwaehrung == "USD")
+        #expect(e.fremdBetrag == dez("35"))
+        #expect(e.brutto == dez("32.74"))
     }
 
     @Test func nummernSchluesselUndTreffer() {

@@ -175,6 +175,20 @@ struct BankimportTests {
         #expect(b.first?.dedupSchluessel.hasPrefix("k:ANTHRO20260624TESTREF0001|") == true)
     }
 
+    /// Fremdwährungs-Hinweis aus dem Verwendungszweck (Kartenzahlung im Ausland). Die CSV-Spalte
+    /// „Waehrung" taugt dafür nicht, sie nennt immer die Kontowährung.
+    @Test func fremdbetragAusVerwendungszweck() {
+        #expect(Bankimport.fremdbetrag(in: "35,00 USD 1,0699 KURS")?.betrag == dez("35"))
+        #expect(Bankimport.fremdbetrag(in: "35,00 USD 1,0699 KURS")?.code == "USD")
+        #expect(Bankimport.fremdbetrag(in: "Zahlung USD 1.234,56 Ref 7")?.betrag == dez("1234.56"))
+        #expect(Bankimport.fremdbetrag(in: "Karteneinsatz 49.99 USD")?.betrag == dez("49.99"))  // engl. Format
+        #expect(Bankimport.fremdbetrag(in: "CHF 12,50 Zahlung")?.code == "CHF")
+        // Kein Hinweis: Euro ist keine Fremdwährung, und beliebige Kürzel gelten nicht.
+        #expect(Bankimport.fremdbetrag(in: "35,00 EUR Zahlung") == nil)
+        #expect(Bankimport.fremdbetrag(in: "RE 100,00 NET 30 Tage") == nil)
+        #expect(Bankimport.fremdbetrag(in: "Miete Juni") == nil)
+    }
+
     @Test func normalCaseLaesstGemischtesInRuhe() {
         #expect(Bankimport.normalCase("KRANZLER DIGITAL GMBH") == "Kranzler Digital Gmbh")
         #expect(Bankimport.normalCase("Cafe Märznhof GmbH") == "Cafe Märznhof GmbH")  // gemischt bleibt

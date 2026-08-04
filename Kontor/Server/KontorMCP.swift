@@ -82,7 +82,7 @@ enum KontorMCP {
                 beschreibung: """
                     Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
-                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig];
+                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung)];
                     fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
                     zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
@@ -359,6 +359,7 @@ enum KontorMCP {
             return csv(
                 kopf([
                     "datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg",
+                    "waehrung", "fremdbetrag",
                 ]),
                 rows.map {
                     zeile(
@@ -366,6 +367,7 @@ enum KontorMCP {
                         [
                             tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
                             $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? "",
+                            $0.fremdwaehrung ?? "", $0.fremdBetrag == 0 ? "" : g($0.fremdBetrag),
                         ])
                 })
         case "fixkosten", "subscriptions":
@@ -508,7 +510,12 @@ enum KontorMCP {
                 // beim nächsten Start auf und rät die Art aus dem Namen: Eine per
                 // MCP gebuchte einmalige Ausgabe namens „Adobe" wurde so still zur
                 // `.subscription` und von „Vormonat duplizieren" mitgeschleppt.
-                art: .betriebsausgabe)
+                art: .betriebsausgabe,
+                rechnungsnummer: f["rechnungsnummer"] as? String,
+                // Fremdwährungsrechnung: `brutto` bleibt der Euro-Betrag, diese Felder
+                // dokumentieren nur die Originalrechnung.
+                fremdwaehrung: (f["waehrung"] as? String)?.uppercased(),
+                fremdBetrag: dezArg(f["fremdbetrag"]) ?? 0)
         case "fixkosten", "subscriptions", "subscription":
             guard let bez = f["bezeichnung"] as? String,
                 let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]),
@@ -608,6 +615,9 @@ enum KontorMCP {
             if let v = dezArg(f["vst"]) { o.vst = v }
             if let v = f["betrieblich"] as? Bool { o.betrieblich = v }
             if let v = f["umlagefaehig"] as? Bool { o.umlagefaehig = v }
+            if hat("rechnungsnummer") { o.rechnungsnummer = f["rechnungsnummer"] as? String }
+            if hat("waehrung") { o.fremdwaehrung = (f["waehrung"] as? String)?.uppercased() }
+            if let v = dezArg(f["fremdbetrag"]) { o.fremdBetrag = v }
         case "fixkosten", "subscriptions", "subscription", "fixkosten_eintrag":
             let o = try modell(ExpenseEntry.self, id: id, ctx)
             if let v = datum(f["datum"]) { o.datum = v }

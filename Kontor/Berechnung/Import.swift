@@ -86,10 +86,12 @@ enum ImportAnwendung {
         _ b: Bankbuchung, _ z: Zuordnung, _ ctx: ModelContext, maximal: Int = 3
     ) -> [Kandidat] {
         let betrag = abs(b.betrag)
+        let fremd = b.fremdbetragHinweis
         let suchbild = Treffersuchbild(
             betrag: betrag, datum: b.buchungstag,
             name: b.gegenpartei.isEmpty ? b.anzeigename : b.gegenpartei,
-            text: b.verwendungszweck)
+            text: b.verwendungszweck,
+            fremdBetrag: fremd?.betrag ?? 0, fremdwaehrung: fremd?.code)
 
         func datumText(_ d: Date) -> String { d.formatted(date: .numeric, time: .omitted) }
 
@@ -152,7 +154,8 @@ enum ImportAnwendung {
                 Trefferkandidat(
                     betrag: e.brutto, datum: e.datum,
                     name: e.anbieter.isEmpty ? e.bezeichnung : e.anbieter,
-                    nummer: e.rechnungsnummer)
+                    nummer: e.rechnungsnummer,
+                    fremdBetrag: e.fremdBetrag, fremdwaehrung: e.fremdwaehrung)
             }.map { treffer, bewertung in
                 Kandidat(
                     id: treffer.persistentModelID,
@@ -321,27 +324,40 @@ enum ImportAnwendung {
                 // mindert damit auch die Vorsteuer korrekt.
                 let vst = z.betrieblich ? Steuer.vorsteuerVorschlag(brutto: ausgabeBrutto, steuerart: z.steuerart) : 0
                 let titel = b.istEingang ? "Erstattung: \(name)" : name
+                let fremd = b.fremdbetragHinweis
                 if let e: ExpenseEntry = hole(ziel, ctx) {
                     // `datum` bleibt das EÜR-maßgebliche (Abfluss-)Datum = Buchungstag (wie bisher),
                     // `zahlungsdatum` hält den Zahltag zusätzlich fest; eine bereits erfasste
                     // Rechnungsnummer (OCR) wird nicht überschrieben.
                     e.datum = b.buchungstag
                     e.zahlungsdatum = b.buchungstag
+                    // **Der Bankbetrag ist die Wahrheit.** Bei einer Fremdwährungsrechnung ersetzt er
+                    // den vorläufig umgerechneten Wert: für die EÜR zählt der tatsächliche Abfluss
+                    // inklusive Kursaufschlag und Auslandsentgelt. Währung und Originalbetrag bleiben
+                    // stehen, sie beschreiben die Rechnung – der Kurs ergibt sich daraus neu.
                     e.brutto = ausgabeBrutto
                     e.vst = vst
                     e.steuerart = z.steuerart
-                    e.bezeichnung = titel
-                    e.anbieter = name
+                    // Einen aus der Rechnung gepflegten Titel nicht durch den Bank-Anzeigenamen
+                    // ersetzen: wer den Beleg vorab erfasst hat, hat die bessere Bezeichnung.
+                    let gepflegt = e.rechnungsnummer != nil || e.istFremdwaehrung
+                    if !gepflegt || e.bezeichnung.isEmpty { e.bezeichnung = titel }
+                    if !gepflegt || e.anbieter.isEmpty { e.anbieter = name }
                     e.betrieblich = z.betrieblich
                     e.art = art
-                    nachricht = "Ausgabe aktualisiert"
+                    if let fremd, !e.istFremdwaehrung {
+                        e.fremdwaehrung = fremd.code
+                        e.fremdBetrag = fremd.betrag
+                    }
+                    nachricht = e.istFremdwaehrung ? "Ausgabe aktualisiert (Kurs übernommen)" : "Ausgabe aktualisiert"
                 } else {
                     ctx.insert(
                         ExpenseEntry(
                             datum: b.buchungstag, bezeichnung: titel, anbieter: name,
                             brutto: ausgabeBrutto,
                             vst: vst, steuerart: z.steuerart,
-                            betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag))
+                            betrieblich: z.betrieblich, art: art, zahlungsdatum: b.buchungstag,
+                            fremdwaehrung: fremd?.code, fremdBetrag: fremd?.betrag ?? 0))
                     nachricht = b.istEingang ? "Erstattung angelegt" : "Ausgabe angelegt"
                 }
             case .einnahme:

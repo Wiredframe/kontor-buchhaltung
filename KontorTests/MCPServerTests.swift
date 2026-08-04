@@ -684,7 +684,7 @@ struct MCPServerTests {
                 await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "jahr": 2026]]))
             #expect(
                 liste.split(separator: "\n").first
-                    == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg")
+                    == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg;waehrung;fremdbetrag")
             #expect(liste.contains(pfad))
 
             // entfernen=true löst den Verweis (Datei darf bleiben).

@@ -67,6 +67,43 @@ struct BackupTests {
         #expect(snap.zuordnungsRegeln?.count == 1)  // Import-Lernregel wird mitgesichert
     }
 
+    /// Neue Modell-Felder müssen im Backup mitlaufen, sonst fehlen sie still in Export und
+    /// Restore. Ältere Backups ohne die Schlüssel bleiben lesbar (Felder sind optional).
+    @Test func fremdwaehrungUeberlebtExportUndImport() throws {
+        let quelle = ModelContext(try container())
+        quelle.insert(
+            ExpenseEntry(
+                datum: tag(2026, 3, 4), bezeichnung: "Figma Professional", anbieter: "Figma",
+                brutto: dez("32.74"), vst: 0, steuerart: .reverseCharge, art: .subscription,
+                fremdwaehrung: "USD", fremdBetrag: dez("35")))
+        try quelle.save()
+
+        let data = try Backup.exportData(quelle)
+        let ziel = ModelContext(try container())
+        _ = try Backup.importData(data, in: ziel)
+
+        let e = try #require(try ziel.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.fremdwaehrung == "USD")
+        #expect(e.fremdBetrag == dez("35"))
+        #expect(e.kurs == dez("0.9354"))
+    }
+
+    /// Ein Backup aus der Zeit vor den Fremdwährungs-Feldern muss weiter importierbar sein.
+    @Test func altesBackupOhneFremdwaehrungBleibtLesbar() throws {
+        let json = """
+            {"exportiertAm":"2026-01-01T00:00:00Z","jahre":[],"ausgaben":[{"datum":"2026-01-05T00:00:00Z",\
+            "bezeichnung":"Alt","anbieter":"Alt","brutto":10,"vst":0,"steuerart":"steuerfrei",\
+            "betrieblich":true}],"einnahmen":[],"aufgaben":[],"lebensmittel":[],"anschaffungen":[],\
+            "steuern":[]}
+            """
+        let ctx = ModelContext(try container())
+        _ = try Backup.importData(try #require(json.data(using: .utf8)), in: ctx)
+        let e = try #require(try ctx.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.fremdwaehrung == nil)
+        #expect(e.fremdBetrag == 0)
+        #expect(e.kurs == nil)
+    }
+
     private func kontext() throws -> ModelContext { ModelContext(try container()) }
 
     private func zaehle(_ ctx: ModelContext) throws -> [Int] {
