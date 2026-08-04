@@ -428,6 +428,60 @@ struct BelegOCRTests {
         #expect(d.rechnungsnummer == "86C79197-0015")
     }
 
+    // MARK: - Optionaler Echtbeleg-Korpus (läuft nur lokal)
+
+    /// Misst die Erkennung an **echten** Belegen, ohne dass welche im Repo landen.
+    ///
+    /// Der Ordner liegt außerhalb des Projekts und wird über `KONTOR_BELEGE_KORPUS` übergeben:
+    ///
+    /// ```bash
+    /// KONTOR_BELEGE_KORPUS=~/Belege-Testkorpus xcodebuild test -scheme Kontor \
+    ///   -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+    /// ```
+    ///
+    /// Darin liegt neben den PDFs eine `erwartungen.json`:
+    ///
+    /// ```json
+    /// [{ "datei": "hosting-2026-03.pdf", "brutto": 62.00, "vst": 9.90,
+    ///    "steuerart": "inland19", "rechnungsnummer": "2026-0815", "anbieter": "Nordwind" }]
+    /// ```
+    ///
+    /// Ohne gesetzte Variable passiert nichts – im Repo bleibt der synthetische Fixture-Satz die
+    /// Regressionsgrundlage (echte Belege sind personenbezogen und dürfen nicht eingecheckt werden).
+    @Test func echtbelegKorpusFallsVorhanden() async throws {
+        struct Erwartung: Decodable {
+            var datei: String
+            var brutto: Decimal?
+            var vst: Decimal?
+            var steuerart: Steuerart?
+            var rechnungsnummer: String?
+            var anbieter: String?
+        }
+        guard let pfad = ProcessInfo.processInfo.environment["KONTOR_BELEGE_KORPUS"], !pfad.isEmpty else {
+            return  // kein Korpus konfiguriert → Test ist ein No-op
+        }
+        let ordner = URL(fileURLWithPath: (pfad as NSString).expandingTildeInPath, isDirectory: true)
+        let liste = ordner.appendingPathComponent("erwartungen.json")
+        guard let daten = try? Data(contentsOf: liste) else {
+            Issue.record("Korpus gesetzt, aber \(liste.path) fehlt.")
+            return
+        }
+        let erwartungen = try JSONDecoder().decode([Erwartung].self, from: daten)
+        for e in erwartungen {
+            let url = ordner.appendingPathComponent(e.datei)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                Issue.record("Beleg fehlt: \(e.datei)")
+                continue
+            }
+            let d = await BelegOCR.analysiere(url)
+            if let soll = e.brutto { #expect(d.brutto == soll, "Brutto in \(e.datei)") }
+            if let soll = e.vst { #expect(d.vst == soll, "Vorsteuer in \(e.datei)") }
+            if let soll = e.steuerart { #expect(d.steuerart == soll, "Steuerart in \(e.datei)") }
+            if let soll = e.rechnungsnummer { #expect(d.rechnungsnummer == soll, "Nummer in \(e.datei)") }
+            if let soll = e.anbieter { #expect(d.anbieter == soll, "Anbieter in \(e.datei)") }
+        }
+    }
+
     @Test func steuerartErkennung() {
         // MwSt-Zeile → Inland; VSt-Betrag aus der Folgezeile
         let inland = BelegOCR.extrahiere(aus: [
