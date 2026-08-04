@@ -281,14 +281,18 @@ Prüfgrößen (synthetisch, exemplarisch):
   die monatlich gleiche Miete den Vormonatseintrag in den neuen Monat. Leitsatz bleibt die
   Asymmetrie: falsches Überschreiben zerstört, ein verpasster Treffer legt nur eine löschbare
   Dublette an. `BelegDublette` teilt sich die Nummern-Normalisierung (`zifferSchluessel`).
-- **Belegerkennung (`BelegOCR`) – Änderungen NUR gegen echte Belege:** Ein Härtungsversuch
-  (PDF-Textlayer statt Vision, strengere Betragsfilter, Segment-Logik je Label, Plausibilisierung)
-  lief **grün gegen synthetische Fixtures und verschlechterte die Erkennung an echten Rechnungen
-  massiv** (Beträge gar nicht mehr gefunden bzw. der Steuerbetrag als Gesamtbetrag) – am 2026-08-04
-  zurückgenommen. Wer hier wieder ansetzt: erst den lokalen Korpus füllen
-  (`KONTOR_BELEGE_KORPUS`, siehe `BelegOCRTests.echtbelegKorpusFallsVorhanden`), vorher/nachher
-  daran messen, und **jede** Änderung einzeln bewerten. Selbst erzeugte PDFs (CoreText/AppKit)
-  bilden echte Rechnungslayouts nicht ausreichend ab.
+- **Belegerkennung (`BelegOCR`) – Änderungen NUR gegen echte Belege messen:** Ein erster
+  Härtungsversuch (PDF-Textlayer statt Vision, strengere Betragsfilter, Segment-Logik je Label)
+  lief **grün gegen synthetische Fixtures und verschlechterte echte Rechnungen massiv** – am
+  2026-08-04 zurückgenommen. Zwei Gründe, beide nur an echten PDFs sichtbar: der Textlayer zieht
+  Summen-Labels zu **einer** Zeile zusammen und kodiert „€" als „e" (der Filter „Zahl direkt vor
+  einem Buchstaben ist keine Zahl" verwarf damit **jeden** Betrag). Vision bleibt deshalb der
+  Erkennungspfad. Danach gemessen und behalten wurden nur drei kleine Regeln: Label-Fragmente
+  **von unten nach oben** prüfen (Summenblock schlägt Positionszeile), RC/steuerfrei erzwingt
+  `vst = 0`, und die Rechnungsnummer versteht „Invoice number/no". Vorgehen für jede weitere
+  Änderung: lokalen Korpus füllen (`TEST_RUNNER_KONTOR_BELEGE_KORPUS`, siehe
+  `BelegOCRTests.echtbelegKorpusFallsVorhanden`), vorher/nachher messen, **jede Regel einzeln**
+  bewerten. Selbst erzeugte PDFs (CoreText wie AppKit) bilden echte Rechnungslayouts nicht ab.
 - **KSK & ESt = Monatswert-Modell (KSK-Modul/`KSKEntry`-Sätze-Tabelle ENTFERNT):** KSK & ESt-Satz
   werden **pro Monat im Monatsabschluss** gepflegt (Sidebar-Tab **„Werte"**) und **erben automatisch
   vom Vormonat** (rückwärts; `kskTeile(monat:)`/`estSatz(monat:)`). KSK je Monat als **drei Beträge

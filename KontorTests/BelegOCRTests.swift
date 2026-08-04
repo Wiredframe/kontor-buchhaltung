@@ -233,15 +233,125 @@ struct BelegOCRTests {
         #expect(BelegOCR.betragRechtsVomLabel(["amount due", "total"], frag) == dez("120.00"))
     }
 
+    // MARK: - An echten Rechnungen gemessene Fälle
+    //
+    // Die Layouts stammen aus echten Eingangsrechnungen (Hoster mit Positionstabelle, zwei
+    // Auslands-SaaS-Rechnungen), Namen und Beträge sind erfunden. Alle drei Fälle gingen vor
+    // diesen Fixes daneben – nachgewiesen über den lokalen Korpus, siehe
+    // `echtbelegKorpusFallsVorhanden`.
+
+    /// Positionstabelle mit MwSt **je Position** plus Summenblock: Die maßgebliche Steuer steht
+    /// unten. Vorher gewann die erste „enthaltene MwSt."-Zeile der Tabelle – mit 0,00 €, weil die
+    /// erste Position kostenlos war. Die Vorsteuer fiel damit komplett aus.
+    @Test func mwstAusSummenblockNichtAusPositionszeile() {
+        let h: CGFloat = 0.012
+        func f(_ t: String, x: CGFloat, y: CGFloat) -> BelegOCR.TextFragment {
+            BelegOCR.TextFragment(text: t, box: CGRect(x: x, y: y, width: 0.3, height: h))
+        }
+        let frag = [
+            f("Nordwind Hosting GmbH", x: 0.06, y: 0.900),
+            f("Rechnung Nr. 42453293 vom 14.07.2026", x: 0.06, y: 0.700),
+            // Position 1: kostenlos, mit eigener MwSt-Zeile
+            f("1 1x Basispaket, Zeitraum 14.07.2026 - 13.08.2026", x: 0.10, y: 0.600),
+            f("0,00 €", x: 0.80, y: 0.600), f("0,00 €", x: 0.92, y: 0.600),
+            f("enthaltene MwSt. (19%)", x: 0.10, y: 0.585),
+            f("0,00 €", x: 0.80, y: 0.585), f("0,00 €", x: 0.92, y: 0.585),
+            // Position 2: kostenpflichtig, ebenfalls mit MwSt-Zeile
+            f("2 1x Zusatzpaket, Zeitraum 14.07.2026 - 13.08.2026", x: 0.10, y: 0.560),
+            f("12,99 €", x: 0.80, y: 0.560), f("12,99 €", x: 0.92, y: 0.560),
+            f("enthaltene MwSt. (19%)", x: 0.10, y: 0.545),
+            f("2,07 €", x: 0.80, y: 0.545), f("2,07 €", x: 0.92, y: 0.545),
+            // Summenblock unten
+            f("Zwischensumme (brutto)", x: 0.60, y: 0.480), f("12,99 €", x: 0.92, y: 0.480),
+            f("Nettobetrag", x: 0.60, y: 0.465), f("10,92 €", x: 0.92, y: 0.465),
+            f("19% Mehrwertsteuer", x: 0.60, y: 0.450), f("2,07 €", x: 0.92, y: 0.450),
+            f("Gesamtbetrag (brutto)", x: 0.60, y: 0.435), f("12,99 €", x: 0.92, y: 0.435),
+        ]
+        let d = BelegOCR.extrahiere(fragmente: frag)
+        #expect(d.brutto == dez("12.99"))
+        #expect(d.vst == dez("2.07"))  // aus dem Summenblock, nicht die 0,00 € der ersten Position
+        #expect(d.steuerart == .inland19)
+        #expect(d.rechnungsnummer == "42453293")
+    }
+
+    /// Reverse-Charge-Rechnung: „VAT" kommt mehrfach vor (Steuer-ID im Kopf, Fußnote unten), aber
+    /// **kein** Steuerbetrag. Vorher landete der Gesamtbetrag als Vorsteuer im Feld – ein Beleg,
+    /// der gar keine ausweist, hätte 35 € Vorsteuer gezogen.
+    @Test func reverseChargeZiehtKeineVorsteuer() {
+        let h: CGFloat = 0.012
+        func f(_ t: String, x: CGFloat, y: CGFloat) -> BelegOCR.TextFragment {
+            BelegOCR.TextFragment(text: t, box: CGRect(x: x, y: y, width: 0.3, height: h))
+        }
+        let frag = [
+            f("Invoice", x: 0.06, y: 0.930),
+            f("Invoice number 86C79197-0029", x: 0.06, y: 0.900),
+            f("Date of issue August 4, 2026", x: 0.06, y: 0.885),
+            f("Figma, Inc.", x: 0.06, y: 0.840),
+            f("DE VAT DE256451894", x: 0.60, y: 0.820),
+            f("Subtotal", x: 0.60, y: 0.500), f("€35.00", x: 0.90, y: 0.500),
+            f("Tax (0% on €35.00)", x: 0.60, y: 0.470), f("€0.00", x: 0.90, y: 0.470),
+            f("Total", x: 0.60, y: 0.455), f("€35.00", x: 0.90, y: 0.455),
+            f("Amount due", x: 0.60, y: 0.440), f("€35.00", x: 0.90, y: 0.440),
+            f("Tax = VAT", x: 0.06, y: 0.380),
+            f("Tax to be paid on reverse charge basis", x: 0.06, y: 0.365),
+        ]
+        let d = BelegOCR.extrahiere(fragmente: frag)
+        #expect(d.steuerart == .reverseCharge)
+        #expect(d.vst == 0)  // nicht der Gesamtbetrag
+        #expect(d.brutto == dez("35.00"))
+        #expect(d.rechnungsnummer == "86C79197-0029")
+    }
+
+    /// Englische Rechnung mit Steuerausweis in Fremdwährung und Euro-Umrechnung in der Fußzeile:
+    /// maßgeblich ist der **Euro**-Betrag der Steuer, denn nur der geht in die Vorsteuer.
+    @Test func vorsteuerAusEuroUmrechnungDerFusszeile() {
+        let h: CGFloat = 0.012
+        func f(_ t: String, x: CGFloat, y: CGFloat) -> BelegOCR.TextFragment {
+            BelegOCR.TextFragment(text: t, box: CGRect(x: x, y: y, width: 0.3, height: h))
+        }
+        let frag = [
+            f("Invoice number 5DD09229-0025", x: 0.06, y: 0.900),
+            f("Figma, Inc.", x: 0.06, y: 0.840),
+            f("Figma EU VAT EU372054390", x: 0.06, y: 0.820),
+            f("Subtotal", x: 0.60, y: 0.500), f("$18.00", x: 0.90, y: 0.500),
+            f("Tax (19% on $18.00)", x: 0.60, y: 0.470), f("$3.42", x: 0.90, y: 0.470),
+            f("Total", x: 0.60, y: 0.455), f("$21.42", x: 0.90, y: 0.455),
+            f("Amount due", x: 0.60, y: 0.440), f("$21.42 USD", x: 0.90, y: 0.440),
+            f("Tax = VAT", x: 0.06, y: 0.380),
+            f("VAT = EUR 2.97", x: 0.06, y: 0.365),
+        ]
+        let d = BelegOCR.extrahiere(fragmente: frag)
+        #expect(d.vst == dez("2.97"))  // Euro-Wert der Fußzeile, nicht die 3,42 USD
+        #expect(d.rechnungsnummer == "5DD09229-0025")
+    }
+
+    /// Die Nummer englischer Belege war bisher unauffindbar (nur Zeilen mit „rechnung" wurden
+    /// geprüft) – und sie ist der stärkste Schlüssel für den späteren Kontoauszug-Abgleich.
+    @Test func rechnungsnummerAuchEnglisch() {
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice number 5DD09229-0025"]) == "5DD09229-0025")
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice no: 2026-014"]) == "2026-014")
+        #expect(BelegOCR.rechnungsnummer(in: ["Receipt #A-1234"]) == "A-1234")
+        // Datums- und Steuernummer-Zeilen tragen keine Rechnungsnummer.
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnungsdatum: 14.06.2026"]) == nil)
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice date August 2, 2026"]) == nil)
+        // deutsche Formen unverändert
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnung Nr. 0027"]) == "0027")
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnung #202605261"]) == "202605261")
+    }
+
     // MARK: - Optionaler Echtbeleg-Korpus (läuft nur lokal)
 
     /// Misst die Erkennung an **echten** Belegen, ohne dass welche im Repo landen.
     ///
-    /// Der Ordner liegt außerhalb des Projekts und wird über `KONTOR_BELEGE_KORPUS` übergeben:
+    /// Der Ordner liegt außerhalb des Projekts und wird über `KONTOR_BELEGE_KORPUS` übergeben.
+    /// **Beim Aufruf über `xcodebuild` braucht die Variable das Präfix `TEST_RUNNER_`** – ohne
+    /// das reicht Xcode sie nicht an den Testprozess durch, der Test überspringt sich still,
+    /// und man hält einen leeren Lauf für einen grünen:
     ///
     /// ```bash
-    /// KONTOR_BELEGE_KORPUS=~/Belege-Testkorpus xcodebuild test -scheme Kontor \
-    ///   -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+    /// TEST_RUNNER_KONTOR_BELEGE_KORPUS=~/Belege-Testkorpus xcodebuild test -scheme Kontor \
+    ///   -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO \
+    ///   -only-testing:KontorTests/BelegOCRTests
     /// ```
     ///
     /// Darin liegt neben den PDFs eine `erwartungen.json`:

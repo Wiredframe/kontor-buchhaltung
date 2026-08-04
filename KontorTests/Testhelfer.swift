@@ -1,5 +1,3 @@
-import CoreGraphics
-import CoreText
 import Foundation
 import SwiftData
 
@@ -75,53 +73,6 @@ private func mitTempPfaden<T>(_ block: (URL) throws -> T) rethrows -> T {
 
 func mitTemporaerenBelegen<T>(_ block: (URL) throws -> T) rethrows -> T {
     try mitTempPfaden(block)
-}
-
-// MARK: - PDF-Fixtures (echter Textlayer)
-
-/// Ein Textstück auf einer erzeugten Beleg-Seite. Koordinaten in Punkten, Ursprung **unten links**
-/// (PDF-Konvention), Seite A4.
-struct PDFText {
-    var text: String
-    var x: CGFloat
-    var y: CGFloat
-    var groesse: CGFloat = 11
-
-    init(_ text: String, x: CGFloat, y: CGFloat, groesse: CGFloat = 11) {
-        self.text = text
-        self.x = x
-        self.y = y
-        self.groesse = groesse
-    }
-}
-
-/// Schreibt ein PDF mit **echtem Textlayer** (CoreText) ins Temp-Verzeichnis und liefert die URL.
-///
-/// Bewusst erzeugt statt eingecheckt: echte Belege dürfen nicht ins Repo (personenbezogen,
-/// Open-Source-Repo), ein Binär-Fixture wäre zudem nicht nachvollziehbar. So steht das Layout als
-/// Code da und prüft genau den Pfad, der digitale Rechnungen liest.
-@discardableResult
-func machePDF(_ stuecke: [PDFText], name: String = "beleg") -> URL {
-    let seite = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4
-    let url = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent("kontor-pdf-\(UUID().uuidString)", isDirectory: true)
-        .appendingPathComponent("\(name).pdf")
-    try? FileManager.default.createDirectory(
-        at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    var box = seite
-    guard let ctx = CGContext(url as CFURL, mediaBox: &box, nil) else { return url }
-    ctx.beginPDFPage(nil)
-    for stueck in stuecke {
-        let font = CTFontCreateWithName("Helvetica" as CFString, stueck.groesse, nil)
-        let attribute: [NSAttributedString.Key: Any] = [.font: font]
-        let line = CTLineCreateWithAttributedString(
-            NSAttributedString(string: stueck.text, attributes: attribute))
-        ctx.textPosition = CGPoint(x: stueck.x, y: stueck.y)
-        CTLineDraw(line, ctx)
-    }
-    ctx.endPDFPage()
-    ctx.closePDF()
-    return url
 }
 
 /// Async-Variante von `mitTemporaerenBelegen`.

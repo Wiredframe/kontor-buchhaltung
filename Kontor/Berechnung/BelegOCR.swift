@@ -157,8 +157,9 @@ enum BelegOCR {
     /// Zeilenhöhe genommen. Ignoriert Nachbarspalten anderer Zeilen (z. B. die Stundenzahl).
     static func betragRechtsVomLabel(_ schlagworte: [String], _ frag: [TextFragment]) -> Decimal? {
         for wort in schlagworte {
-            guard
-                let label = frag.first(where: { f in
+            let labels =
+                frag
+                .filter { f in
                     let l = f.text.lowercased()
                     // Kurze, mehrdeutige Steuerworte nur an Wortgrenzen (sonst matcht „Sch**ust**er"/
                     // „pri**vat**"); zusätzlich USt-IdNr./VAT-ID ausschließen (kein Steuerbetrag).
@@ -173,14 +174,22 @@ enum BelegOCR {
                         return true
                     }
                     return l.contains(wort)
-                })
-            else { continue }
-            let tol = max(label.box.height, 0.001) * 0.8
-            let kandidaten =
-                frag
-                .filter { abs($0.box.midY - label.box.midY) <= tol && $0.box.minX >= label.box.minX - 0.01 }
-                .sorted { $0.box.minX < $1.box.minX }
-            for f in kandidaten.reversed() { if let b = betraege(in: f.text).max() { return b } }
+                }
+                // **Von unten nach oben.** Das Schlagwort kommt auf einer Rechnung mehrfach vor:
+                // „enthaltene MwSt. (19%)" steht je Position in der Tabelle, der maßgebliche Wert
+                // aber im Summenblock darunter. Vorher entschied `first(where:)` – und Vision
+                // liefert seine Fragmente unsortiert, dasselbe PDF konnte also verschiedene Werte
+                // ergeben. Gemessen an echten Rechnungen: DomainFactory lieferte so die 0,00 € der
+                // ersten Positionszeile statt der 2,07 € aus dem Summenblock.
+                .sorted { $0.box.midY < $1.box.midY }
+            for label in labels {
+                let tol = max(label.box.height, 0.001) * 0.8
+                let kandidaten =
+                    frag
+                    .filter { abs($0.box.midY - label.box.midY) <= tol && $0.box.minX >= label.box.minX - 0.01 }
+                    .sorted { $0.box.minX < $1.box.minX }
+                for f in kandidaten.reversed() { if let b = betraege(in: f.text).max() { return b } }
+            }
         }
         return nil
     }
@@ -217,6 +226,18 @@ enum BelegOCR {
             d.brutto = b
         }
         d.steuerart = steuerart(text: zeilen.joined(separator: "\n").lowercased(), vst: d.vst)
+        return ohneVorsteuerBeiRC(d)
+    }
+
+    /// Reverse-Charge und steuerfreie Belege ziehen **nie** Vorsteuer.
+    ///
+    /// Ohne diese Regel griff die Betragssuche irgendeine Zahl neben einem „VAT"-Vorkommen ab: An
+    /// einer echten Figma-Rechnung (§13b, „Tax to be paid on reverse charge basis") wurde der
+    /// Gesamtbetrag von 35 € als Vorsteuer eingetragen – ein Beleg, der gar keine ausweist.
+    static func ohneVorsteuerBeiRC(_ daten: BelegDaten) -> BelegDaten {
+        guard let art = daten.steuerart, !art.ziehtVorsteuer else { return daten }
+        var d = daten
+        d.vst = 0
         return d
     }
 
@@ -261,7 +282,7 @@ enum BelegOCR {
         d.anbieter = anbieter(in: zeilen)
         d.steuerart = steuerart(text: low, vst: d.vst)
         d.rechnungsnummer = rechnungsnummer(in: zeilen)
-        return d
+        return ohneVorsteuerBeiRC(d)
     }
 
     // MARK: - Einnahmen (Ausgangsrechnungen)
@@ -293,13 +314,22 @@ enum BelegOCR {
         return nil
     }
 
+    /// Erkennt die Nummer auch auf **englischen** Belegen. Gemessen an echten Rechnungen: bei
+    /// „Invoice number 5DD09229-0025" blieb das Feld leer, weil nur Zeilen mit „rechnung"
+    /// betrachtet wurden – ausgerechnet dort, wo die Nummer als Schlüssel für den Kontoauszug-
+    /// Abgleich am wichtigsten ist. Die Zeile darf keine Datums-/Steuernummer-Zeile sein.
     static func rechnungsnummer(in zeilen: [String]) -> String? {
-        for z in zeilen where z.lowercased().contains("rechnung") {
+        let labels = ["rechnung", "invoice", "receipt", "belegnummer", "beleg-nr", "quittung"]
+        let verbote = ["datum", "date", "ustid", "ust-id", "ust id", "vatid", "vat id", "steuernummer", "tax id"]
+        for z in zeilen {
+            let low = z.lowercased()
+            guard labels.contains(where: { low.contains($0) }), !verbote.contains(where: { low.contains($0) })
+            else { continue }
             if let r = z.range(of: #"#\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#, options: .regularExpression) {
                 return String(z[r]).replacingOccurrences(of: "#", with: "").trimmingCharacters(in: .whitespaces)
             }
             if let r = z.range(
-                of: #"(?:nr\.?|nummer)\s*:?\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#,
+                of: #"(?:nr\.?|nummer|number|no\.?)\s*:?\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#,
                 options: [.regularExpression, .caseInsensitive])
             {
                 let s = String(z[r])
