@@ -79,8 +79,9 @@ func monateNach(_ datum: Date, _ anzahl: Int) -> Date {
 }
 
 /// Liegt Monat `m` im Jahr `jahr` noch in der Zukunft (nach dem laufenden Monat)?
-func istZukunftsmonat(_ m: Int, jahr: Int) -> Bool {
-    let hJ = appKalender.component(.year, from: Date())
-    let hM = appKalender.component(.month, from: Date())
+/// `heute` ist Parameter, damit rein rechnende Aufrufer (z. B. `Monatsreihe`) testbar bleiben.
+func istZukunftsmonat(_ m: Int, jahr: Int, heute: Date = Date()) -> Bool {
+    let hJ = appKalender.component(.year, from: heute)
+    let hM = appKalender.component(.month, from: heute)
     return jahr > hJ || (jahr == hJ && m > hM)
 }
