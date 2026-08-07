@@ -29,7 +29,14 @@ struct FehlendeJahresEinstellungen: View {
                             + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen."
                     )
                     .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    // **Kein `.fixedSize(horizontal: false, vertical: true)`.** Das stand hier
+                    // gegen Abschneiden – hatte aber einen teuren Nebeneffekt: Sobald das Banner
+                    // erschien (Sprung in ein Jahr ohne `YearSettings`), meldete der Text eine
+                    // Idealhöhe für eine noch nicht ausverhandelte Breite an. Der ganze
+                    // Fensterinhalt – Detailspalte **und** Seitenleiste – rutschte daraufhin um
+                    // ein paar hundert Punkte nach oben aus dem Fenster und kam nicht zurück.
+                    // Ohne den Modifier bricht der Text ohnehin um (bei 900 pt Fensterbreite auf
+                    // vier Zeilen geprüft), nur eben erst mit der endgültigen Breite.
                 }
                 Spacer(minLength: 8)
                 if let beiAnlegen {
@@ -632,18 +639,34 @@ struct AufgabenInspektorListe: View {
     var leererHinweis: String
 
     var body: some View {
-        if aufgaben.isEmpty {
-            ContentUnavailableView(
-                "Keine offenen Aufgaben", systemImage: "checklist",
-                description: Text(leererHinweis))
-        } else {
-            ScrollView {
+        ScrollView {
+            if aufgaben.isEmpty {
+                leerzustand
+            } else {
                 VStack(spacing: 8) {
                     ForEach(aufgaben) { t in zeile(t) }
                 }
                 .padding(12)
             }
         }
+    }
+
+    /// Kompakter Leerzustand – **bewusst kein `ContentUnavailableView`.**
+    ///
+    /// Der ist für ganze Panes gemacht: In der rund 300 pt schmalen Inspector-Spalte setzt er
+    /// eine Überschrift in Titelgröße über zwei Zeilen und wirkt wie ein Fehlerzustand, obwohl
+    /// „nichts zu tun" die gute Nachricht ist.
+    private var leerzustand: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "checklist").font(.title2).foregroundStyle(.secondary)
+            Text("Keine offenen Aufgaben").font(.callout.weight(.semibold))
+            Text(leererHinweis)
+                .font(.caption).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16).padding(.top, 28)
     }
 
     private func zeile(_ t: MonthlyTask) -> some View {

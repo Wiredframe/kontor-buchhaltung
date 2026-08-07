@@ -200,6 +200,10 @@ struct ContentView: View {
             // Screenshot-Automatik (nur Dev): per Startargument `-startModul <rawValue>` direkt
             // ein Modul öffnen (z. B. `open -n … --args -startModul monatsabschluss`). Kein Effekt
             // ohne das Argument; in Release ohnehin wegkompiliert.
+            // Zusätzlich `-startJahr <jahr>`: springt direkt in ein bestimmtes Jahr. Nötig, um
+            // Layout-Fehler in leeren Jahren reproduzierbar zu machen (ohne Klickweg).
+            let startJahr = UserDefaults.standard.integer(forKey: "startJahr")
+            if startJahr > 1900 { zeit.filter.jahr = startJahr }
             if let s = UserDefaults.standard.string(forKey: "startModul"), let m = Modul(rawValue: s) {
                 nav.modul = m
                 // Erscheinungsbild der ganzen App (inkl. Titelleiste) fürs Screenshot erzwingen.

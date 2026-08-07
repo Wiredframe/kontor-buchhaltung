@@ -39,31 +39,36 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
         @Bindable var zeit = zeit
         let w = Jahreswerte.bauen(
             jahr: jahr, einnahmen: einnahmen, ausgaben: ausgaben, zahlungen: zahlungen, jahre: jahre)
-        return VStack(spacing: 0) {
-            HStack {
-                Text("Jahr").foregroundStyle(.secondary)
-                JahrWaehler(jahr: $zeit.filter.jahr)
-                HeuteButton(titel: "Aktuelles Jahr", deaktiviert: istAktuellesJahr) {
-                    zeit.filter.jahr = appKalender.component(.year, from: Date())
-                }
-                Spacer()
-                kopfRechts()
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                inhalt(w)
             }
             .padding()
-            Divider()
-            // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
-            // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
-            FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
-                context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
-                try? context.save()
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    inhalt(w)
+        }
+        // Kopf als gepinnter Top-Inset statt als VStack über der ScrollView – dasselbe Muster wie
+        // in `MonatsabschlussView`. Der Kopf bleibt beim Scrollen stehen, und Höhenwechsel dieser
+        // Zone (das Warnbanner kommt und geht mit dem Jahr) verschieben nicht den Seiteninhalt.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Jahr").foregroundStyle(.secondary)
+                    JahrWaehler(jahr: $zeit.filter.jahr)
+                    HeuteButton(titel: "Aktuelles Jahr", deaktiviert: istAktuellesJahr) {
+                        zeit.filter.jahr = appKalender.component(.year, from: Date())
+                    }
+                    Spacer()
+                    kopfRechts()
                 }
                 .padding()
+                Divider()
+                // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
+                // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
+                FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
+                    context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
+                    try? context.save()
+                }
             }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .seitenGrund()
         .navigationTitle(titel)
