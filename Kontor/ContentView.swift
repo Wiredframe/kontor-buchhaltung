@@ -18,6 +18,11 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
     // Auswertungen
     case ustva
     case jahresuebersicht
+    // …mit vier Unterseiten (eingerückt unter „Jahresabschluss", siehe `eltern`/`kinder`)
+    case jahresEUR
+    case jahresESt
+    case jahresUSt
+    case jahresVorsorge
     // Privat
     case privatUebersicht
     case lebensmittel
@@ -37,6 +42,10 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
         case .einnahmen: "Einnahmen"
         case .ustva: "UStVA"
         case .jahresuebersicht: "Jahresabschluss"
+        case .jahresEUR: "EÜR"
+        case .jahresESt: "Einkommensteuer"
+        case .jahresUSt: "Umsatzsteuer"
+        case .jahresVorsorge: "Vorsorge (KSK)"
         case .privatUebersicht: "Privat-Übersicht"
         case .lebensmittel: "Lebensmittel"
         case .anschaffungen: "Einkäufe"
@@ -54,12 +63,26 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
         case .einnahmen: "eurosign.circle"
         case .ustva: "doc.plaintext"
         case .jahresuebersicht: "chart.bar.xaxis"
+        case .jahresEUR: "function"
+        case .jahresESt: "percent"
+        case .jahresUSt: "building.columns"
+        case .jahresVorsorge: "cross.case"
         case .privatUebersicht: "person.crop.circle"
         case .lebensmittel: "cart"
         case .anschaffungen: "bag"
         case .einstellungen: "gearshape"
         }
     }
+
+    /// Übergeordnetes Modul für die Sidebar-Einrückung; `nil` = Zeile auf oberster Ebene.
+    var eltern: Modul? {
+        switch self {
+        case .jahresEUR, .jahresESt, .jahresUSt, .jahresVorsorge: .jahresuebersicht
+        default: nil
+        }
+    }
+    /// Untermenüpunkte dieses Moduls (leer = keine aufklappbare Zeile).
+    var kinder: [Modul] { Modul.allCases.filter { $0.eltern == self } }
 }
 
 /// Gruppierung der Module in der Sidebar.
@@ -94,6 +117,8 @@ struct ContentView: View {
     @State private var zeigeOnboarding = false
     /// Globale Einstellung: Seitenleiste undurchsichtig (deaktiviert die System-Transparenz/Vibrancy).
     @AppStorage("sidebarOpak") private var sidebarOpak = false
+    /// Aufgeklappte Eltern-Module als komma-getrennte rawValues (`AppStorage` kann kein `Set`).
+    @AppStorage("sidebarOffeneModule") private var offeneRoh = Modul.jahresuebersicht.rawValue
     #if !APPSTORE
     /// Spendenseite (Stripe) – freiwillige Unterstützung, öffnet im Browser.
     /// Im App-Store-Build (`APPSTORE`) entfällt jeder Spendenaufruf (Guideline 3.1.1).
@@ -107,8 +132,19 @@ struct ContentView: View {
                 ForEach(ModulGruppe.allCases) { gruppe in
                     Section(gruppe.rawValue) {
                         ForEach(gruppe.module) { modul in
-                            Label(modul.titel, systemImage: modul.symbol)
-                                .tag(modul)
+                            if modul.kinder.isEmpty {
+                                Label(modul.titel, systemImage: modul.symbol)
+                                    .tag(modul)
+                            } else {
+                                elternZeile(modul)
+                                if offen.contains(modul) {
+                                    ForEach(modul.kinder) { kind in
+                                        Label(kind.titel, systemImage: kind.symbol)
+                                            .padding(.leading, 18)
+                                            .tag(kind)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -185,7 +221,51 @@ struct ContentView: View {
                 zeigeOnboarding = true
             }
         }
-        .onChange(of: nav.modul) { _, _ in aktualisiereJahre(zeit, context) }
+        .onChange(of: nav.modul) { _, neu in
+            aktualisiereJahre(zeit, context)
+            // Querlinks (z. B. die Bereichskarten des Jahresabschlusses) und der DEBUG-Startpfad
+            // können ein Kind direkt anspringen – dann muss das Eltern-Modul aufklappen, sonst
+            // steht die Auswahl auf einer unsichtbaren Zeile.
+            if let e = neu?.eltern, !offen.contains(e) { schalteOffen(e) }
+        }
+    }
+
+    // MARK: Sidebar-Untermenü
+
+    /// Aufgeklappte Eltern-Module.
+    private var offen: Set<Modul> {
+        Set(offeneRoh.split(separator: ",").compactMap { Modul(rawValue: String($0)) })
+    }
+    private func schalteOffen(_ m: Modul) {
+        var neu = offen
+        if neu.contains(m) { neu.remove(m) } else { neu.insert(m) }
+        offeneRoh = neu.map(\.rawValue).sorted().joined(separator: ",")
+    }
+
+    /// Zeile eines Moduls mit Unterpunkten: eine ganz normale, getaggte List-Zeile (Klick =
+    /// Auswahl) mit eigenem Chevron-Button rechts, der **nur** auf- und zuklappt.
+    ///
+    /// Bewusst kein `DisclosureGroup`: dort ist die Label-Zeile selbst der Disclosure-Control,
+    /// ein Klick darauf klappt statt auszuwählen – die Eltern-Seite wäre nicht mehr erreichbar.
+    /// `Section(isExpanded:)` scheidet aus demselben Grund aus (Header ist nicht selektierbar).
+    private func elternZeile(_ modul: Modul) -> some View {
+        HStack(spacing: 6) {
+            Label(modul.titel, systemImage: modul.symbol)
+            Spacer(minLength: 0)
+            Button {
+                withAnimation(.snappy(duration: 0.18)) { schalteOffen(modul) }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(offen.contains(modul) ? 90 : 0))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(offen.contains(modul) ? "Unterbereiche ausblenden" : "Unterbereiche einblenden")
+        }
+        .tag(modul)
     }
 
     #if !APPSTORE
@@ -215,6 +295,10 @@ struct ContentView: View {
         case .einnahmen: EinnahmenView()
         case .ustva: UStVAView()
         case .jahresuebersicht: JahresuebersichtView()
+        case .jahresEUR: JahresEURView()
+        case .jahresESt: JahresEinkommensteuerView()
+        case .jahresUSt: JahresUmsatzsteuerView()
+        case .jahresVorsorge: JahresVorsorgeView()
         case .privatUebersicht: PrivatUebersichtView()
         case .lebensmittel: LebensmittelView()
         case .anschaffungen: AnschaffungenView()

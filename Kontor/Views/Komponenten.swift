@@ -555,12 +555,23 @@ struct KopierHaken: View {
 
 /// Eine Aufschlüsselungs-Zeile: Label links (optional neutraler SF-Symbol-Chip), Wert rechts.
 /// Ohne Zeilen-Trennstriche (nur Abstand). Klick kopiert den Wert. `minus` = Abzug.
+///
+/// `signiert` macht daraus eine **Differenzzeile**: das Vorzeichen wird explizit gerendert
+/// („+ 380,00 €" / „− 95,00 €"), ohne einzufärben. Eine Abweichung ist kein Kostenalarm –
+/// konsistent damit, dass auch einzelne negative Beträge im Ledger neutral bleiben.
 struct Kartenzeile: View {
     let label: String
     let wert: Decimal
     var icon: String? = nil
     var minus: Bool = false
+    var signiert: Bool = false
     @State private var kopiert = false
+
+    /// Anzeigetext des Werts: signiert mit explizitem Vorzeichen, sonst wie bisher.
+    private var wertText: String {
+        if signiert { return (wert < 0 ? "− " : "+ ") + abs(wert).euro }
+        return (minus ? "− " : "") + wert.euro
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -573,7 +584,7 @@ struct Kartenzeile: View {
             Text(label)
             Spacer(minLength: 12)
             KopierHaken(sichtbar: kopiert)
-            Text((minus ? "− " : "") + wert.euro)
+            Text(wertText)
                 .monospacedDigit().foregroundStyle(minus ? .secondary : .primary)
         }
         .padding(.vertical, 7)
@@ -745,6 +756,50 @@ struct GeldFeld: View {
     private func commit() {
         if let d = GeldFormat.parse(text) { wert = d }
         text = GeldFormat.anzeige(wert)
+    }
+}
+
+/// Wie `GeldFeld`, aber für **optionale** Beträge: ein leeres Feld bedeutet „nicht gesetzt" (nil),
+/// **nicht** 0 €.
+///
+/// Nötig überall dort, wo 0 € ein gültiger Fachwert ist und von „noch kein Wert" unterscheidbar
+/// bleiben muss – etwa bei der festgesetzten Einkommensteuer, die 0 € betragen kann, wenn der
+/// Gewinn unter dem Grundfreibetrag liegt. Der Adapter-Trick von `grundfreibetragBinding`
+/// (`Binding<Decimal?>` → `Binding<Decimal>` mit Fallback) taugt hier nicht: es gibt keinen
+/// sinnvollen Standardwert, auf den man zurückfallen könnte.
+struct GeldFeldOptional: View {
+    let titel: String
+    @Binding var wert: Decimal?
+    var platzhalter: String = "nicht gesetzt"
+    @State private var text = ""
+    @FocusState private var fokus: Bool
+
+    init(_ titel: String, wert: Binding<Decimal?>, platzhalter: String = "nicht gesetzt") {
+        self.titel = titel
+        self._wert = wert
+        self.platzhalter = platzhalter
+    }
+
+    var body: some View {
+        TextField(titel, text: $text, prompt: Text(platzhalter))
+            .multilineTextAlignment(.trailing)
+            .monospacedDigit()
+            .focused($fokus)
+            .onChange(of: fokus) { _, aktiv in
+                if aktiv { text = wert.map(GeldFormat.roh) ?? "" } else { commit() }
+            }
+            .onSubmit { commit() }
+            .onChange(of: wert, initial: true) { _, neu in
+                if !fokus { text = neu.map(GeldFormat.anzeige) ?? "" }
+            }
+    }
+
+    private func commit() {
+        // Leeres Feld = Wert löschen. Ohne diesen Zweig ließe sich ein einmal gesetzter
+        // Bescheidwert nie wieder entfernen (GeldFormat.parse macht aus "" eine 0).
+        let roh = text.trimmingCharacters(in: .whitespaces)
+        wert = roh.isEmpty ? nil : (GeldFormat.parse(roh) ?? wert)
+        text = wert.map(GeldFormat.anzeige) ?? ""
     }
 }
 
