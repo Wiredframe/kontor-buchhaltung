@@ -433,6 +433,111 @@ struct MCPServerTests {
         #expect(ksk.contains("2026;2;130.00;230.00;60.00;36000.00;420.00"))
     }
 
+    // MARK: - Jahres-Einstellungen (typ = jahr)
+
+    @Test func jahrListeCSV() async throws {
+        let c = try container()
+        try seed(c)
+        let s = try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2026 }!
+        s.estLautBescheid = dez("4200.00")
+        try c.mainContext.save()
+
+        let csv = toolText(
+            await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "jahr", "jahr": 2026]]))
+        #expect(csv.contains("jahr;ustvaRhythmus;dauerfrist;versteuerung;estSatz;grundfreibetrag;estLautBescheid;"))
+        #expect(csv.contains("2026;vierteljaehrlich;nein;soll;0.15;;4200.00;"))
+    }
+
+    /// Nicht gesetzte optionale Beträge bleiben **leer** – „nicht gesetzt" ist nicht 0,00.
+    @Test func jahrListeLaesstNichtGesetzteWerteLeer() async throws {
+        let c = try container()
+        try seed(c)
+        let csv = toolText(await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "jahr"]]))
+        #expect(csv.contains("2026;vierteljaehrlich;nein;soll;0.15;;;"))
+    }
+
+    @Test func jahrAktualisierenSetztUndLeertBescheid() async throws {
+        let c = try container()
+        try seed(c)
+        func settings() throws -> YearSettings {
+            try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2026 }!
+        }
+
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": ["typ": "jahr", "jahr": 2026, "felder": ["estLautBescheid": 4200]],
+            ])
+        #expect(try settings().estLautBescheid == dez("4200"))
+
+        // JSON-null leert den Wert wieder – sonst ließe er sich nie entfernen.
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": ["typ": "jahr", "jahr": 2026, "felder": ["estLautBescheid": NSNull()]],
+            ])
+        #expect(try settings().estLautBescheid == nil)
+    }
+
+    /// Ohne `jahr` gibt es keine Adressierung – und **kein** Rückfall auf den id-Guard.
+    @Test func jahrAktualisierenOhneJahrWirftFehler() async throws {
+        let c = try container()
+        try seed(c)
+        let antwort = await ruf(
+            c, "tools/call",
+            ["name": "kontor_aktualisieren", "arguments": ["typ": "jahr", "felder": ["estLautBescheid": 1]]])
+        let r = antwort["result"] as! [String: Any]
+        #expect(r["isError"] as? Bool == true)
+        #expect(toolText(antwort).contains("jahr"))
+    }
+
+    @Test func jahrAnlegenUndDoppeltesAnlegen() async throws {
+        let c = try container()
+        try seed(c)
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_anlegen",
+                "arguments": ["typ": "jahr", "jahr": 2027, "felder": ["estSatz": 0.2, "grundfreibetrag": 12348]],
+            ])
+        let neu = try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2027 }
+        #expect(neu?.estPauschalSatz == dez("0.2"))
+        #expect(neu?.grundfreibetrag == dez("12348"))
+
+        // Zweiter Versuch muss sprechend scheitern statt beim save() auf der unique-Constraint.
+        let doppelt = await ruf(
+            c, "tools/call", ["name": "kontor_anlegen", "arguments": ["typ": "jahr", "jahr": 2027, "felder": [:]]])
+        #expect((doppelt["result"] as! [String: Any])["isError"] as? Bool == true)
+    }
+
+    /// Jahres-Einstellungen tragen die KSK-/ESt-Monatswerte – Löschen wird abgelehnt.
+    @Test func jahrLoeschenWirdAbgelehnt() async throws {
+        let c = try container()
+        try seed(c)
+        let antwort = await ruf(
+            c, "tools/call", ["name": "kontor_loeschen", "arguments": ["typ": "jahr", "jahr": 2026]])
+        #expect((antwort["result"] as! [String: Any])["isError"] as? Bool == true)
+        #expect(try c.mainContext.fetch(FetchDescriptor<YearSettings>()).contains { $0.jahr == 2026 })
+    }
+
+    /// Die Bescheid-Zeilen erscheinen nur, wenn ein Bescheid erfasst ist.
+    @Test func uebersichtZeigtBescheidNurWennGesetzt() async throws {
+        let c = try container()
+        try seed(c)
+        let ohne = toolText(await ruf(c, "tools/call", ["name": "kontor_uebersicht", "arguments": ["jahr": 2026]]))
+        #expect(!ohne.contains("ESt lt. Bescheid"))
+
+        let s = try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2026 }!
+        s.estLautBescheid = dez("100.00")
+        try c.mainContext.save()
+        let mit = toolText(await ruf(c, "tools/call", ["name": "kontor_uebersicht", "arguments": ["jahr": 2026]]))
+        #expect(mit.contains("ESt lt. Bescheid:            100.00 €"))
+        // Rücklage Feb 2026: (1000 RN − 100 Ausgabe netto) × 15 % = 135,00 → Abweichung 35,00.
+        #expect(mit.contains("Abweichung ggü. Rücklage:    35.00 €"))
+    }
+
     @Test func unbekannterTypMeldetFehler() async throws {
         let c = try container()
         try seed(c)

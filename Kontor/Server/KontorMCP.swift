@@ -20,10 +20,12 @@ enum KontorMCP {
         Lesen: kontor_uebersicht (Jahres-Schnappschuss), kontor_eur (Gewinn/Ausgaben), \
         kontor_ustva (KZ-Zahlen je Quartal/Monat), kontor_monat (Rücklage), kontor_liste \
         (CSV je Modul: einnahmen, offene_rechnungen, ausgaben, fixkosten, subscriptions, vorlagen, ksk, \
-        zahlungen, aufgaben, lebensmittel, einkaeufe). fixkosten/subscriptions sind datierte Buchungen \
-        (mit Jahr/Monat filterbar); vorlagen = Sidebar-Vorlagen. \
+        jahr, zahlungen, aufgaben, lebensmittel, einkaeufe). fixkosten/subscriptions sind datierte Buchungen \
+        (mit Jahr/Monat filterbar); vorlagen = Sidebar-Vorlagen; jahr = Jahres-Einstellungen \
+        (Rhythmus, ESt-Satz, Grundfreibetrag, festgesetzte ESt laut Steuerbescheid). \
         Schreiben (alle Module, selten nötig): kontor_anlegen / kontor_aktualisieren / kontor_loeschen \
         mit demselben typ-Vokabular; für Ändern/Löschen vorher kontor_liste mit mit_id=true (liefert die id). \
+        Ausnahme typ=jahr: über die Jahreszahl adressiert (kein 'id'), und nicht löschbar. \
         Belege: kontor_beleg hängt eine PDF/Bild (Base64) an einnahmen|ausgaben|einkaeufe an (Feld belegPfad, \
         Ablage Belege/<Jahr>/); die beleg-Spalte dieser Listen zeigt den hinterlegten Pfad. \
         Beträge stets brutto in EUR, Datum als YYYY-MM-DD. Zahlen sind Schätzungen, keine Steuerberatung.
@@ -65,11 +67,11 @@ enum KontorMCP {
             Werkzeug(
                 name: "kontor_liste",
                 beschreibung:
-                    "Datensätze eines Moduls als CSV (;-getrennt). typ: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe. fixkosten/subscriptions sind datierte Buchungen (mit Jahr/Monat filterbar wie Ausgaben); vorlagen komplett. ksk = Monatswerte KV/RV/PV/JAE/Summe eines Jahres (read-only, ohne id). Für Ändern/Löschen mit_id=true setzen → letzte Spalte 'id'.",
+                    "Datensätze eines Moduls als CSV (;-getrennt). typ: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | jahr | zahlungen | aufgaben | lebensmittel | einkaeufe. fixkosten/subscriptions sind datierte Buchungen (mit Jahr/Monat filterbar wie Ausgaben); vorlagen komplett. ksk = Monatswerte KV/RV/PV/JAE/Summe eines Jahres (read-only, ohne id). jahr = Jahres-Einstellungen je Jahr, ohne id (Adressierung über die Jahreszahl); leere Spalte bei grundfreibetrag/estLautBescheid heißt 'nicht gesetzt' und ist nicht dasselbe wie 0. Für Ändern/Löschen mit_id=true setzen → letzte Spalte 'id'.",
                 schema: obj(
                     props: [
                         "typ": text(
-                            "einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe"
+                            "einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | jahr | zahlungen | aufgaben | lebensmittel | einkaeufe"
                         ),
                         "jahr": zahl("Jahr-Filter (datierte Listen)."),
                         "monat": zahl("Monat-Filter 1–12 (datierte Listen)."),
@@ -88,27 +90,30 @@ enum KontorMCP {
                     zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
                     aufgaben: titel, monat [, intervall(einmalig|monatlich|quartalsweise|jaehrlich), faelligTag, quartalsMonate, erledigt];
                     lebensmittel: datum, betrag [, ort];
-                    einkaeufe: datum, bezeichnung, preis.
+                    einkaeufe: datum, bezeichnung, preis;
+                    jahr (Jahres-Einstellungen, über 'jahr' statt 'id' adressiert): jahr [, estSatz(Default 0.15), ustvaRhythmus(monatlich|vierteljaehrlich), dauerfrist, versteuerung(soll|ist), grundfreibetrag, estLautBescheid].
                     """,
                 schema: obj(
                     props: [
                         "typ": text("Modul (wie bei kontor_liste, Singular-Synonyme erlaubt)."),
+                        "jahr": zahl("Nur typ=jahr: die Jahreszahl der anzulegenden Einstellungen."),
                         "felder": freiObj("Feld→Wert je typ (siehe Beschreibung)."),
                     ], required: ["typ", "felder"])),
             Werkzeug(
                 name: "kontor_aktualisieren",
                 beschreibung:
-                    "Ändert Felder eines bestehenden Datensatzes. 'id' stammt aus kontor_liste mit mit_id=true. Nur übergebene 'felder' werden geändert (Feldnamen wie bei kontor_anlegen). typ wie bei kontor_liste.",
+                    "Ändert Felder eines bestehenden Datensatzes. 'id' stammt aus kontor_liste mit mit_id=true und ist Pflicht – **außer bei typ=jahr**, das über 'jahr' adressiert wird. Nur übergebene 'felder' werden geändert (Feldnamen wie bei kontor_anlegen). Bei typ=jahr leeren null oder \"\" die optionalen Beträge grundfreibetrag/estLautBescheid. typ wie bei kontor_liste.",
                 schema: obj(
                     props: [
                         "typ": text("Modul (wie bei kontor_liste)."),
-                        "id": text("id aus kontor_liste (mit_id=true)."),
+                        "id": text("id aus kontor_liste (mit_id=true). Pflicht außer bei typ=jahr."),
+                        "jahr": zahl("Nur typ=jahr: adressiert die Jahres-Einstellungen statt 'id'."),
                         "felder": freiObj("Zu ändernde Felder (Feldnamen wie bei kontor_anlegen)."),
-                    ], required: ["typ", "id", "felder"])),
+                    ], required: ["typ", "felder"])),
             Werkzeug(
                 name: "kontor_loeschen",
                 beschreibung:
-                    "Löscht einen Datensatz. 'id' stammt aus kontor_liste mit mit_id=true. typ wie bei kontor_liste. Vorher wird automatisch ein Backup angelegt.",
+                    "Löscht einen Datensatz. 'id' stammt aus kontor_liste mit mit_id=true. typ wie bei kontor_liste, aber typ=jahr ist nicht löschbar (die Jahres-Einstellungen tragen die KSK-/ESt-Monatswerte). Vorher wird automatisch ein Backup angelegt.",
                 schema: obj(
                     props: [
                         "typ": text("Modul (wie bei kontor_liste)."),
@@ -217,8 +222,9 @@ enum KontorMCP {
         let zahllast = Steuer.ustva(einnahmen: e, ausgaben: aus, periode: .jahr(jahr)).zahllast
         let offene = alle(Income.self, ctx).filter { $0.status == .offen }
         let offeneSumme = offene.reduce(Decimal(0)) { $0 + $1.brutto }
+        let jahre = alle(YearSettings.self, ctx)
         let kskMonat = jahr == heuteJahr ? heuteMonat : 12
-        let ksk = alle(YearSettings.self, ctx).ksk(jahr: jahr, monat: kskMonat)
+        let ksk = jahre.ksk(jahr: jahr, monat: kskMonat)
         var z = [
             "Kontor – Übersicht \(jahr)",
             "EÜR-Gewinn (Zufluss):        \(g(jahresA.gewinn)) €",
@@ -227,6 +233,17 @@ enum KontorMCP {
             "KSK/Monat:                   \(g(ksk)) €",
             "Betriebsausgaben (netto):    \(g(jahresA.ausgabenNetto)) €",
         ]
+        // Nur wenn ein Bescheid erfasst ist. Die dafür nötige Jahres-Rücklage (12
+        // Monatsauswertungen) läuft deshalb auch nur dann – der Normalpfad bleibt so
+        // teuer wie zuvor.
+        if let bescheid = jahre.first(where: { $0.jahr == jahr })?.estLautBescheid {
+            let ruecklage = Steuer.estRuecklageJahr(
+                jahr: jahr, einnahmen: e, ausgaben: aus,
+                kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
+                pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
+            z.append("ESt lt. Bescheid:            \(g(bescheid)) €")
+            z.append("Abweichung ggü. Rücklage:    \(g(ruecklage - bescheid)) €")
+        }
         if let f = naechsteFrist(ctx) {
             z.append("Nächste Frist:               \(tagText(f.faellig)) – \(f.kind.bezeichnung) \(g(f.betrag)) €")
         }
@@ -440,6 +457,28 @@ enum KontorMCP {
                             $0.bezahlt ? "ja" : "nein", $0.bezahltAm.map(tagText) ?? "", $0.bemerkung,
                         ])
                 })
+        case "jahr", "jahre", "jahreseinstellungen":
+            // Jahres-Einstellungen: Singleton je Jahr (`@Attribute(.unique) jahr`), deshalb
+            // **ohne** id-Spalte – adressiert wird über die Jahreszahl.
+            let jahrKopf = [
+                "jahr", "ustvaRhythmus", "dauerfrist", "versteuerung", "estSatz",
+                "grundfreibetrag", "estLautBescheid", "abgeschlosseneMonate",
+            ]
+            let rows = alle(YearSettings.self, ctx)
+                .filter { jahr == nil || $0.jahr == jahr }
+                .sorted { $0.jahr < $1.jahr }
+            return csv(
+                jahrKopf,
+                rows.map { s in
+                    [
+                        String(s.jahr), s.ustvaRhythmus.rawValue, s.dauerfristverlaengerung ? "ja" : "nein",
+                        s.versteuerung.rawValue, g(s.estPauschalSatz),
+                        // Leer statt "0.00", wenn nicht gesetzt: sonst wäre „kein Bescheid" nicht
+                        // von einer festgesetzten ESt von 0 € unterscheidbar.
+                        s.grundfreibetrag.map(g) ?? "", s.estLautBescheid.map(g) ?? "",
+                        s.abschlussProMonat.keys.compactMap(Int.init).sorted().map(String.init).joined(separator: ","),
+                    ]
+                })
         case "ksk":
             // KSK (Soll) ist ein Monatswert auf YearSettings – **kein** eigenständiger Datensatz,
             // daher read-only und ohne id-Spalte. Je Monat KV/RV/PV/JAE/Summe des Jahres.
@@ -457,18 +496,65 @@ enum KontorMCP {
                 })
         default:
             throw MCPFehler(
-                "Unbekannter typ '\(typ)'. Erlaubt: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | zahlungen | aufgaben | lebensmittel | einkaeufe"
+                "Unbekannter typ '\(typ)'. Erlaubt: einnahmen | offene_rechnungen | ausgaben | fixkosten | subscriptions | vorlagen | ksk | jahr | zahlungen | aufgaben | lebensmittel | einkaeufe"
             )
         }
     }
 
     // MARK: - Schreib-Tools (generisch über alle Module)
 
+    /// Adressiert der Aufruf die Jahres-Einstellungen?
+    private static func istJahrTyp(_ typ: String) -> Bool {
+        ["jahr", "jahre", "jahreseinstellungen"].contains(typ)
+    }
+
+    /// Setzt die von `kontor_anlegen`/`kontor_aktualisieren` erlaubten Felder auf `YearSettings`
+    /// (ohne `estSatz` – den setzen die Aufrufer selbst, weil er beim Anlegen Pflicht ist).
+    ///
+    /// Für die beiden **optionalen** Beträge gilt: JSON-`null` oder Leerstring **löschen** den
+    /// Wert, eine Zahl setzt ihn, ein fehlender Schlüssel lässt ihn unangetastet. Ohne diese
+    /// Unterscheidung ließe sich ein einmal gesetzter Bescheidwert nie wieder entfernen.
+    @MainActor
+    private static func setzeJahresFelder(_ s: YearSettings, _ f: [String: Any]) {
+        if let v: UStVARhythmus = enumWert(f["ustvaRhythmus"]) { s.ustvaRhythmus = v }
+        if let v = f["dauerfrist"] as? Bool ?? f["dauerfristverlaengerung"] as? Bool {
+            s.dauerfristverlaengerung = v
+        }
+        if let v: Versteuerung = enumWert(f["versteuerung"]) { s.versteuerung = v }
+        func optional(_ schluessel: String, _ ziel: (Decimal?) -> Void) {
+            guard f.keys.contains(schluessel) else { return }
+            let roh = f[schluessel]
+            if roh == nil || roh is NSNull || (roh as? String)?.isEmpty == true {
+                ziel(nil)
+            } else if let v = dezArg(roh) {
+                ziel(v)
+            }
+        }
+        optional("grundfreibetrag") { s.grundfreibetrag = $0 }
+        optional("estLautBescheid") { s.estLautBescheid = $0 }
+    }
+
     @MainActor
     static func anlegen(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
         let f = a["felder"] as? [String: Any] ?? [:]
         try KISicherung.sichereVorSchreibzugriff(ctx)
+        // YearSettings ist ein Singleton je Jahr und trägt keine sinnvolle opake id – der Zweig
+        // liegt deshalb vor dem generischen Rest und liefert seine eigene Rückmeldung.
+        if istJahrTyp(typ) {
+            guard let j = intArg(a["jahr"]) ?? intArg(f["jahr"]) else {
+                throw fehlt("jahr", "jahr")
+            }
+            guard !alle(YearSettings.self, ctx).contains(where: { $0.jahr == j }) else {
+                // Ein Duplikat auf `@Attribute(.unique)` knallte sonst erst beim save().
+                throw MCPFehler("Jahr \(j) existiert bereits – nutze kontor_aktualisieren.")
+            }
+            let s = YearSettings(jahr: j, estPauschalSatz: dezArg(f["estSatz"]) ?? dez("0.15"))
+            setzeJahresFelder(s, f)
+            ctx.insert(s)
+            try ctx.save()
+            return "Angelegt (jahr \(j))."
+        }
         let obj: any PersistentModel
         switch typ {
         case "einnahmen", "einnahme":
@@ -582,11 +668,26 @@ enum KontorMCP {
     @MainActor
     static func aktualisieren(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
+        let f = a["felder"] as? [String: Any] ?? [:]
+        guard !f.isEmpty else { throw MCPFehler("Keine 'felder' zum Ändern übergeben.") }
+        // Vor dem id-Guard: YearSettings wird über die **Jahreszahl** adressiert, nicht über
+        // die opake id. Ein id-Umweg über kontor_liste wäre bei einem Singleton je Jahr sinnlos.
+        if istJahrTyp(typ) {
+            guard let j = intArg(a["jahr"]) ?? intArg(f["jahr"]) else {
+                throw MCPFehler("'jahr' fehlt (typ=jahr wird über die Jahreszahl adressiert, nicht über 'id').")
+            }
+            guard let s = alle(YearSettings.self, ctx).first(where: { $0.jahr == j }) else {
+                throw MCPFehler("Keine Einstellungen für \(j) – erst mit kontor_anlegen typ=jahr anlegen.")
+            }
+            try KISicherung.sichereVorSchreibzugriff(ctx)
+            if let v = dezArg(f["estSatz"]) { s.estPauschalSatz = v }
+            setzeJahresFelder(s, f)
+            try ctx.save()
+            return "Aktualisiert (jahr \(j))."
+        }
         guard let id = a["id"] as? String, !id.isEmpty else {
             throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).")
         }
-        let f = a["felder"] as? [String: Any] ?? [:]
-        guard !f.isEmpty else { throw MCPFehler("Keine 'felder' zum Ändern übergeben.") }
         try KISicherung.sichereVorSchreibzugriff(ctx)
         func hat(_ k: String) -> Bool { f.keys.contains(k) }
         switch typ {
@@ -675,6 +776,13 @@ enum KontorMCP {
     @MainActor
     static func loeschen(_ a: [String: Any], _ ctx: ModelContext) throws -> String {
         let typ = (a["typ"] as? String ?? "").lowercased()
+        // Bewusst nicht löschbar: `YearSettings` trägt die KSK-/ESt-Monatswerte und die
+        // Monats-Snapshots. Ein Löschen entwertete still **jede** Auswertung des Jahres.
+        if istJahrTyp(typ) {
+            throw MCPFehler(
+                "Jahres-Einstellungen lassen sich nicht löschen (sie tragen KSK-/ESt-Monatswerte und Monats-Snapshots). Einzelne Felder mit kontor_aktualisieren typ=jahr leeren."
+            )
+        }
         guard let id = a["id"] as? String, !id.isEmpty else {
             throw MCPFehler("'id' fehlt (aus kontor_liste mit mit_id=true).")
         }
