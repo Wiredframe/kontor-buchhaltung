@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.36270,0.56384,1.00000,1.00000",
-      "srgb:0.29159,0.21961,0.87843,1.00000"
+      "display-p3:0.14118,0.38824,0.92157,1.00000",
+      "srgb:0.10312,0.34079,0.85388,1.00000"
     ],
     "orientation" : {
       "start" : {
@@ -22,10 +22,11 @@
           "fill" : {
             "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
           },
+          "glass" : true,
           "image-name" : "coins-stacked-01-svgrepo-com.svg",
           "name" : "coins-stacked-01-svgrepo-com",
           "position" : {
-            "scale" : 0.95,
+            "scale" : 0.86,
             "translation-in-points" : [
               3.999999989900971e-06,
               3.28125
