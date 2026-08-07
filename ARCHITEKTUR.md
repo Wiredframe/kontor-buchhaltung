@@ -54,8 +54,8 @@ den echten Store anzufassen.
 
 ```mermaid
 flowchart TD
-    subgraph views["Views/ — SwiftUI-Module (12)"]
-        v["Dashboard · Monatsabschluss · Kontoauszug · Aufgaben<br/>Ausgaben · Einnahmen · UStVA · Jahresabschluss<br/>Privat · Lebensmittel · Anschaffungen · Einstellungen"]
+    subgraph views["Views/ — SwiftUI-Module (12, Jahresabschluss mit 4 Unterseiten)"]
+        v["Dashboard · Monatsabschluss · Kontoauszug · Aufgaben<br/>Ausgaben · Einnahmen · UStVA · Jahresabschluss<br/>(EÜR · Einkommensteuer · Umsatzsteuer · Vorsorge)<br/>Privat · Lebensmittel · Anschaffungen · Einstellungen"]
     end
 
     subgraph model["Model/ — SwiftData-Modelle"]
@@ -88,7 +88,7 @@ flowchart TD
 
 | Schicht | Ordner | Aufgabe |
 |---|---|---|
-| **Views** | `Kontor/Views/` | SwiftUI-Module, Inspector-Flyouts, Filter, Hero/Cards (`Stil.swift`, `Komponenten.swift`) |
+| **Views** | `Kontor/Views/` | SwiftUI-Module, Inspector-Flyouts, Filter, Hero/Cards (`Stil.swift`, `Komponenten.swift`); `Views/Jahresabschluss/` = Übersicht + vier Unterseiten über den geteilten Rahmen `JahresSeite` |
 | **Model** | `Kontor/Model/` | `@Model`-Entitäten, Enums, Helpers – die persistierte Wahrheit |
 | **Berechnung** | `Kontor/Berechnung/` | reine Steuer-/Auswertungslogik, Import-Pipeline, Backup, Demodaten |
 | **Server** | `Kontor/Server/` | optionaler lokaler MCP für externe KI-Clients |
@@ -109,6 +109,7 @@ classDiagram
         jahr, ustvaRhythmus, dauerfrist
         kskRV_KV_PV_ProMonat
         estSatzProMonat, snapshotProMonat
+        grundfreibetrag?, estLautBescheid?
     }
     class ExpenseEntry {
         datum, brutto, vst, netto
@@ -252,6 +253,7 @@ getestet (`SteuerrechnerTests`, `KontorTests`, …):
 | `ustKorrekturAusfall` / `ausfallNetto` | §17: Rücklagen-Freigabe · Minderung der Bemessung (KZ 81/86) |
 | `estAusfallKorrektur(...)` | §17: anteilige ESt-Auflösung (Anteil am Umsatz des Rechnungsmonats) |
 | `ustVzZuordnung` | USt-VZ-Periodenzuordnung |
+| `ESTBescheidAbgleich` | festgesetzte ESt gegen beide Schätzungen und geleistete Zahlungen |
 
 **`Auswertung`** (`Auswertung.swift`) – verdichtet zu `MonatsAuswertung` / `JahresAuswertung`
 für die Abschluss-Views (Gewinn-Waterfall, „Frei verfügbar", EÜR-Jahr, Steuerlast).
@@ -264,6 +266,16 @@ Engine-Variante, die der MCP nutzte, deutlich ab.)
 
 `MonatsSnapshot` friert einen abgeschlossenen Monat als JSON ein (`YearSettings.snapshotProMonat`):
 danach zeigt der Monat fixe Zahlen statt Live-Rechnung.
+
+Zwei weitere Bausteine bündeln, was sonst in Views läge:
+
+- **`Jahreswerte`** (`Jahreswerte.swift`) – alle Jahres-Aggregate des Jahresabschlusses in einem
+  Wert, `Jahreswerte.bauen(...)` mappt die Posten **einmal**. Seit der Abschluss aus fünf Seiten
+  besteht, wäre die Rechnung sonst fünfmal codiert; `heute` ist Parameter, damit die
+  „bis zum laufenden Monat"-Logik der KSK-Jahressumme testbar bleibt.
+- **`Monatsreihe`** (`Monatsreihe.swift`) – die 12-Monats-Reihe hinter dem Trendchart, geteilt
+  von Dashboard und Jahresabschluss-Übersicht. `Punkt.frei` ist optional: nur diese Kennzahl
+  braucht die Privatkosten, wer sie nicht liefert, bekommt `nil` statt eines still zu hohen Werts.
 
 ---
 

@@ -139,6 +139,20 @@ Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
   in den Einstellungen je Jahr überschreibbar, z. B. Splitting = doppelter Betrag). **Bewusst NICHT**
   in die Monats-/Kernrücklage (`estRuecklageJahr`, `estGebildet`) gezogen und **kein** §32a-Wiederaufbau:
   der GFB verpufft monatlich im `max(0)` je Monat, jahresbasiert nicht. Backup-Feld nachgezogen.
+- **ESt laut Steuerbescheid = der Ist-Wert (optionales `YearSettings.estLautBescheid`):** die im
+  Bescheid **festgesetzte** ESt des Jahres. Bisher kannte die App nur Schätzungen; damit lässt sich
+  erstmals prüfen, wie gut sie treffen. **Abgrenzung:** `SteuerKind.estBescheid` ist die *Zahlung*
+  nach Bescheid im Ledger, dieses Feld die *festgesetzte Steuer* selbst.
+  `Steuer.ESTBescheidAbgleich` rechnet daraus `abweichungRuecklage`, `abweichungVoraussichtlich`
+  und `nochZuZahlen` = `festgesetzt − VZ − Bescheid-Zahlungen` (negativ = Erstattung).
+  `SteuerKind.sonstige` bleibt **draußen** (Solz/KiSt/Säumniszuschläge sind eigene Festsetzungen).
+  **Optional halten ist hier keine reine Migrations-Frage:** eine festgesetzte ESt von 0 € kommt vor
+  (Gewinn unter dem Grundfreibetrag) und muss von „kein Bescheid" unterscheidbar bleiben – deshalb
+  in der UI `GeldFeldOptional` (leeres Feld = `nil`) und in der MCP-CSV eine **leere** Spalte statt
+  `0.00`. Gepflegt wird der Wert **im Jahresabschluss unter Einkommensteuer**, bewusst *nicht* in den
+  Einstellungen: `grundfreibetrag` dort ist ein *Parameter* der Schätzung (Stammdatum), der Bescheid
+  dagegen ein *Jahresergebnis*, das man beim Öffnen des Abschlusses in der Hand hat. Backup (DTO,
+  snapshot, Import) und MCP (`typ: "jahr"`) nachgezogen.
 - **Steuerrücklage (Monat)** = `(USt − VSt) + KSK + ESt-Anteil`. „Gehalt"/Liquidität
   separat = Σ private wiederkehrende Buchungen (`ExpenseEntry.wiederkehrendBrutto(...betrieblich:false)`).
 - **Forderungsausfall** (`InvoiceStatus.ausgefallen`): USt-Korrektur **§17 UStG** im
@@ -195,7 +209,25 @@ Prüfgrößen (synthetisch, exemplarisch):
 ## Architektur & Module
 - **Module:** Übersicht (Dashboard, Start) · Monatsabschluss · Kontoauszug · Aufgaben ·
   Ausgaben (Betriebsausgaben + Fixkosten + Subscriptions + Vorsorge + Steuern) · Einnahmen ·
-  UStVA · Jahresabschluss · Privat-Übersicht · Lebensmittel · Anschaffungen · Einstellungen.
+  UStVA · Jahresabschluss (+ 4 Unterseiten) · Privat-Übersicht · Lebensmittel · Anschaffungen ·
+  Einstellungen.
+- **Jahresabschluss = Übersicht + vier Unterseiten** (`Kontor/Views/Jahresabschluss/`): die
+  Übersicht zeigt nur noch **Hero (4 Kernzahlen) + Gewinn-Chart + vier Bereichskarten**, die
+  Details liegen auf **EÜR · Einkommensteuer · Umsatzsteuer · Vorsorge (KSK)**. Vorher stand alles
+  auf einer Seite – eine Wand aus Zahlen. „Sonstige Steuerzahlungen" liegen bei der
+  **Einkommensteuer** (Finanzamt-Bewegungen, keine Vorsorge).
+  `JahresSeite` ist der geteilte Rahmen aller fünf Seiten (Kopfleiste, `FehlendeJahresEinstellungen`,
+  Aufgaben-Inspector mit den **jährlichen** Aufgaben, Toolbar-Schalter); die `@Query`s und
+  `Jahreswerte.bauen(...)` leben dort, sonst wären sie fünffach codiert. Der Inspector-Zustand hängt
+  an `@AppStorage`, mit `@State` klappte die Sidebar bei jedem Seitenwechsel zu.
+- **Sidebar-Untermenü: bewusst KEIN `DisclosureGroup`.** In einer macOS-Sidebar-`List` ist die
+  Label-Zeile einer `DisclosureGroup` selbst der Disclosure-Control – ein Klick klappt, statt
+  auszuwählen, und die Eltern-Seite wäre nicht mehr erreichbar; dazu kommen Highlight-Artefakte
+  nach dem Einklappen. `Section(isExpanded:)` scheidet aus demselben Grund aus (Header nicht
+  selektierbar). Stattdessen: `Modul.eltern`/`Modul.kinder`, jede Zeile bleibt eine normale
+  getaggte `List`-Zeile, das Aufklappen macht ein eigener Chevron-`Button`; Klappzustand in
+  `@AppStorage("sidebarOffeneModule")`, und `onChange(of: nav.modul)` klappt das Eltern-Modul
+  automatisch auf (sonst zeigte ein Querlink auf eine unsichtbare Zeile).
 - **Ausgaben-Ledger = ein gemeinsames Modul für ALLE Abflüsse:** Die `AusgabenView` zeigt
   `ExpenseEntry` **und** `TaxPayment` in **einer** Tabelle über einen Anzeige-Zeilentyp
   (`LedgerZeile`), gefiltert nach **Art** (Betriebsausgabe/Fixkosten/Subscription/**Vorsorge**=KSK/
@@ -210,9 +242,10 @@ Prüfgrößen (synthetisch, exemplarisch):
   liegen in **Aufgaben**.
 - **Auswertungen = 3 Zeithorizonte** (konsolidiert): **Monatsabschluss** (Monat – inkl. der früheren
   „Steuer & Rücklagen": RN/USt/VSt/KSK/ESt-Kacheln, KSK mit „anpassen"-Link, Fixkosten/Subscriptions-Panel),
-  **UStVA** (Quartal), **Jahresabschluss** (Jahr – frühere „Jahresübersicht (EÜR)" + „Steuern & Abgaben":
-  EÜR-Gewinn, Steuerlast ESt+USt, voraussichtliche ESt (Grundfreibetrag), KSK-Jahr KV/RV/PV, ESt-Abgleich, Zahlungen/Termine). „Steuer & Rücklagen"
-  und „Steuern & Abgaben" gibt es nicht mehr.
+  **UStVA** (Quartal), **Jahresabschluss** (Jahr – frühere „Jahresübersicht (EÜR)" + „Steuern & Abgaben",
+  seit dem Umbau auf Übersicht plus vier Unterseiten verteilt: EÜR-Gewinn, Steuerlast ESt+USt,
+  voraussichtliche ESt (Grundfreibetrag), ESt laut Bescheid, KSK-Jahr KV/RV/PV, Zahlungen/Termine).
+  „Steuer & Rücklagen" und „Steuern & Abgaben" gibt es nicht mehr.
 - **UStVA formular-getreu (zum Ausfüllen):** `UStVAErgebnis` ist nach den ELSTER-Kennzahlen benannt –
   **KZ 81 = Netto-Bemessungsgrundlage 19 %** (nicht die Steuer!), `ust81` = die daraus errechnete USt 19 %,
   **KZ 86 = Netto-Bemessung 7 %** (ermäßigt), `ust86` = USt 7 % (beide im Formular automatisch), **KZ 66**
@@ -315,10 +348,14 @@ Prüfgrößen (synthetisch, exemplarisch):
   Backup vor dem ersten Schreibzugriff je Session (Ordner „KI-Backups"). Entitlement `network.server` nur
   hierfür. **Tokensparend by design:** 8 grobe Tools (`kontor_uebersicht`/`eur`/`ustva`/`monat` Aggregate +
   `kontor_liste` liest **alle Module** — typ: einnahmen|offene_rechnungen|ausgaben|subscriptions|fixkosten|
-  zahlungen|aufgaben|lebensmittel|einkaeufe; `kontor_anlegen`/`kontor_aktualisieren`/`kontor_loeschen`
+  vorlagen|ksk|jahr|zahlungen|aufgaben|lebensmittel|einkaeufe; `kontor_anlegen`/`kontor_aktualisieren`/`kontor_loeschen`
   **schreiben spiegelbildlich alle Module** mit demselben typ-Vokabular). Ändern/Löschen adressieren über eine
   opake `id` = base64(PersistentIdentifier), die `kontor_liste` nur mit `mit_id=true` mitliefert (Lese-Pfad
-  bleibt schlank). Dazu Resources (`kontor://uebersicht`,
+  bleibt schlank). **Ausnahme `typ: "jahr"`** (Jahres-Einstellungen: Rhythmus, ESt-Satz, Grundfreibetrag,
+  `estLautBescheid`): `YearSettings` ist ein Singleton je Jahr (`@Attribute(.unique)`), wird deshalb über die
+  **Jahreszahl** adressiert – der Zweig liegt in `aktualisieren` **vor** dem id-Guard – und ist bewusst **nicht
+  löschbar** (die Einstellungen tragen die KSK-/ESt-Monatswerte und die Monats-Snapshots). Nicht gesetzte
+  optionale Beträge bleiben in der CSV **leer**, JSON-`null`/`""` löschen sie wieder. Dazu Resources (`kontor://uebersicht`,
   `…/eur/{jahr}`, `…/ustva/{jahr}/{quartal}`, `…/monat/{jahr}/{monat}`); **Antworten = fertige Engine-Zahlen
   (`Steuer`/`Auswertung`) bzw. dichte CSV (`;`-getrennt, Punkt-Dezimal), keine Rohzeilen-Dumps.** Der
   **Kontoabgleich gehört bewusst NICHT ins MCP** (betragsbasiertes Matching war fehleranfällig) – das macht
@@ -328,8 +365,13 @@ Prüfgrößen (synthetisch, exemplarisch):
   (`Panel` rendert nur den Titel – nimmt bewusst kein Symbol/Akzent mehr). Semantische Farbe nur in **Summen-/
   Ergebniszeilen** (`Summenzeile`; Erstattungs-Summen grün) sowie bei negativen **Ergebnissen** (roter Hero
   `Stil.heroNegativ`, Budget-Überschreitung rot). **Einzelne** negative Beträge in Tabellen/Zeilen bleiben
-  neutral (Erstattung = Minuszeichen, kein Rot). Geteilte Card-Zeilen `Kartenzeile`/
-  `Summenzeile` (klick-kopierbar) + `AufgabenInspektorListe` in `Komponenten.swift`. Dashboard ohne Hero/
+  neutral (Erstattung = Minuszeichen, kein Rot). **Differenzzeilen** (`Kartenzeile(signiert: true)`) rendern
+  das Vorzeichen explizit („+ 380,00 €"), färben aber ebenfalls nicht – eine Abweichung ist kein Kostenalarm.
+  Geteilte Card-Zeilen `Kartenzeile`/
+  `Summenzeile` (klick-kopierbar) + `AufgabenInspektorListe` + `GeldFeld`/**`GeldFeldOptional`** (leeres Feld
+  = `nil`, nicht 0 €) in `Komponenten.swift`; der Monats-Trendchart liegt als geteilte `GewinnChartKarte`
+  (+ reine `Monatsreihe` in `Berechnung/`) bei Dashboard **und** Jahresabschluss-Übersicht – dort mit
+  abgeschaltetem Jahr-Picker, weil der Wähler schon in der Kopfleiste steht. Dashboard ohne Hero/
   Schnellzugriff. Plakativer Zwei-Werte-Hero `AbschlussHero` (geteilt, klick-kopierbar) in
   **Monatsabschluss** (`Stil.markenVerlauf` Blau→Violett: Betrieblicher Gewinn / Frei verfügbar) **und**
   **Jahresabschluss** (`Stil.jahresVerlauf` warmes Grasgrün→Tannengrün, in der Gewinn-Hue: Gewinn EÜR /
