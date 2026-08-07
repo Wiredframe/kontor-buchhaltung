@@ -18,6 +18,14 @@ final class YearSettings {
     /// Splitting). `nil` = gesetzlicher Standard des Jahres (`Steuer.grundfreibetragStandard`).
     /// Optional gehalten → migrationssicher; bestehende Stores materialisieren `nil`.
     var grundfreibetrag: Decimal? = nil
+    /// Die im **Steuerbescheid festgesetzte** Einkommensteuer des Jahres. `nil` = noch kein
+    /// Bescheid; optional gehalten → migrationssicher **und** von 0 € unterscheidbar (eine
+    /// festgesetzte ESt von 0 € kommt vor, wenn der Gewinn unter dem Grundfreibetrag liegt).
+    ///
+    /// Abgrenzung zu `SteuerKind.estBescheid`: das ist die **Zahlung** nach dem Bescheid
+    /// (Nachzahlung/Erstattung) im Zahlungs-Ledger. Dieses Feld ist die **festgesetzte Steuer**
+    /// selbst und damit die Bezugsgröße, gegen die Vorauszahlungen und Rücklage laufen.
+    var estLautBescheid: Decimal? = nil
     /// Monatliche Satz-Overrides (Key = Monat "1"…"12"). Ohne Eintrag gilt
     /// estPauschalSatz – so lassen sich Rücklagen agil je Monat steuern, ohne
     /// bereits gesetzte Monate zu verändern (nur explizit gesetzte sind fix).
@@ -50,6 +58,7 @@ final class YearSettings {
         versteuerung: Versteuerung = .soll,
         estPauschalSatz: Decimal,
         grundfreibetrag: Decimal? = nil,
+        estLautBescheid: Decimal? = nil,
         estSatzProMonat: [String: Decimal] = [:],
         abschlussProMonat: [String: Date] = [:],
         kskJAEProMonat: [String: Decimal] = [:],
@@ -64,6 +73,7 @@ final class YearSettings {
         self.versteuerung = versteuerung
         self.estPauschalSatz = estPauschalSatz
         self.grundfreibetrag = grundfreibetrag
+        self.estLautBescheid = estLautBescheid
         self.estSatzProMonat = estSatzProMonat
         self.abschlussProMonat = abschlussProMonat
         self.kskJAEProMonat = kskJAEProMonat

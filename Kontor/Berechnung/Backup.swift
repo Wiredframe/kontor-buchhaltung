@@ -60,6 +60,7 @@ enum Backup {
         var estPauschalSatz: Decimal
         // Später ergänzt → optional, damit ältere Backups ohne diesen Schlüssel weiter dekodieren.
         var grundfreibetrag: Decimal? = nil
+        var estLautBescheid: Decimal? = nil
         // Alle Monats-Dictionaries sind **optional** → auch sehr alte Backups (die einen oder
         // mehrere dieser später ergänzten Schlüssel nicht enthalten) bleiben restore-bar; ein
         // fehlender Schlüssel wird beim Import zu `[:]` (kein Decoding-Crash).
@@ -141,6 +142,7 @@ enum Backup {
                     jahr: $0.jahr, ustvaRhythmus: $0.ustvaRhythmus,
                     dauerfristverlaengerung: $0.dauerfristverlaengerung, versteuerung: $0.versteuerung,
                     estPauschalSatz: $0.estPauschalSatz, grundfreibetrag: $0.grundfreibetrag,
+                    estLautBescheid: $0.estLautBescheid,
                     estSatzProMonat: $0.estSatzProMonat, abschlussProMonat: $0.abschlussProMonat,
                     kskJAEProMonat: $0.kskJAEProMonat,
                     kskRVProMonat: $0.kskRVProMonat, kskKVProMonat: $0.kskKVProMonat,
@@ -347,11 +349,11 @@ enum Backup {
         let jahrNach = Dictionary(bestehendeJahre.map { ($0.jahr, $0) }, uniquingKeysWith: { a, _ in a })
         for d in snap.jahre {
             if let vorhanden = jahrNach[d.jahr] {
-                // Jahr existiert schon: Skalare bleiben unangetastet, aber die **Monats-
-                // Dictionaries** (KSK/ESt/JAE/Abschluss/Snapshot) additiv mergen – nur fehlende
-                // Monats-Schlüssel auffüllen, nie überschreiben. So bringt ein Restore die später
-                // dazugekommenen KSK/ESt-Monatswerte zurück, ohne aktuelle Eingaben zu zerstören.
-                if mergeMonatsdicts(d, in: vorhanden) { neu += 1 } else { skip += 1 }
+                // Jahr existiert schon: additiv mergen – nur **fehlende** Monats-Schlüssel und
+                // leere optionale Skalare auffüllen, nie überschreiben. So bringt ein Restore die
+                // später dazugekommenen KSK/ESt-Monatswerte samt Grundfreibetrag und Bescheid-ESt
+                // zurück, ohne aktuelle Eingaben zu zerstören.
+                if mergeJahr(d, in: vorhanden) { neu += 1 } else { skip += 1 }
                 continue
             }
             context.insert(
@@ -359,6 +361,7 @@ enum Backup {
                     jahr: d.jahr, ustvaRhythmus: d.ustvaRhythmus,
                     dauerfristverlaengerung: d.dauerfristverlaengerung, versteuerung: d.versteuerung,
                     estPauschalSatz: d.estPauschalSatz, grundfreibetrag: d.grundfreibetrag,
+                    estLautBescheid: d.estLautBescheid,
                     estSatzProMonat: d.estSatzProMonat ?? [:], abschlussProMonat: d.abschlussProMonat ?? [:],
                     kskJAEProMonat: d.kskJAEProMonat ?? [:],
                     kskRVProMonat: d.kskRVProMonat ?? [:],
@@ -571,15 +574,27 @@ enum Backup {
         return snap.jahre.isEmpty && snap.ausgaben.isEmpty && snap.einnahmen.isEmpty
     }
 
-    /// Füllt fehlende Monats-Schlüssel eines bestehenden `YearSettings` aus dem Backup auf
-    /// (nie überschreiben). Liefert `true`, wenn dabei mindestens ein Wert ergänzt wurde.
-    private static func mergeMonatsdicts(_ d: YearSettingsDTO, in ziel: YearSettings) -> Bool {
+    /// Füllt fehlende Werte eines **bestehenden** `YearSettings` aus dem Backup auf – Monats-
+    /// Schlüssel und optionale Skalare, beide nach derselben Regel: **auffüllen, nie
+    /// überschreiben**. Liefert `true`, wenn dabei mindestens ein Wert ergänzt wurde.
+    ///
+    /// Die optionalen Skalare (`grundfreibetrag`, `estLautBescheid`) fehlten hier: Wer ein Backup
+    /// in einen Store zurückspielte, der das Jahr bereits kannte, bekam sie **nicht** zurück –
+    /// still und ohne Hinweis. Die nicht-optionalen Skalare (Rhythmus, Dauerfrist, Versteuerung,
+    /// Jahressatz) bleiben bewusst unangetastet: sie haben immer einen Wert, „fehlt" gibt es dort
+    /// nicht, und ein Backup dürfte eine bewusste Umstellung sonst zurückdrehen.
+    private static func mergeJahr(_ d: YearSettingsDTO, in ziel: YearSettings) -> Bool {
         var geaendert = false
         func merge<V>(_ quelle: [String: V], _ ziel: inout [String: V]) {
             for (k, v) in quelle where ziel[k] == nil {
                 ziel[k] = v
                 geaendert = true
             }
+        }
+        func fuelle(_ quelle: Decimal?, _ ziel: inout Decimal?) {
+            guard ziel == nil, let v = quelle else { return }
+            ziel = v
+            geaendert = true
         }
         merge(d.estSatzProMonat ?? [:], &ziel.estSatzProMonat)
         merge(d.abschlussProMonat ?? [:], &ziel.abschlussProMonat)
@@ -588,6 +603,8 @@ enum Backup {
         merge(d.kskKVProMonat ?? [:], &ziel.kskKVProMonat)
         merge(d.kskPVProMonat ?? [:], &ziel.kskPVProMonat)
         merge(d.snapshotProMonat ?? [:], &ziel.snapshotProMonat)
+        fuelle(d.grundfreibetrag, &ziel.grundfreibetrag)
+        fuelle(d.estLautBescheid, &ziel.estLautBescheid)
         return geaendert
     }
 }

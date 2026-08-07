@@ -32,6 +32,8 @@ struct Jahreswerte {
     var zahlungen: [TaxPayment]  // des Jahres, nach Datum sortiert
     var grundfreibetrag: Decimal  // angesetzter Grundfreibetrag (Standard oder lokaler Override)
     var estVoraussichtlich: Decimal  // jahresbasierte ESt inkl. Grundfreibetrag (realistischer)
+    /// Festgesetzte ESt laut Steuerbescheid; `nil` = kein Bescheid erfasst.
+    var estLautBescheid: Decimal?
     var istAktuellesJahr: Bool
     /// Gibt es `YearSettings` für dieses Jahr? Ohne sie rechnen ESt und KSK still mit Fallbacks.
     var hatJahresEinstellungen: Bool
@@ -46,6 +48,10 @@ struct Jahreswerte {
     var bezahltGesamt: Decimal { zahlungen.filter(\.bezahlt).reduce(Decimal(0)) { $0 + $1.betrag } }
     var estVzBezahlt: Decimal {
         zahlungen.filter { $0.kind == .estVz && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag }
+    }
+    /// Bereits geleistete Zahlungen **nach** Bescheid (Nachzahlung positiv, Erstattung negativ).
+    var estBescheidBezahlt: Decimal {
+        zahlungen.filter { $0.kind == .estBescheid && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag }
     }
     // Ist-Zahlungen je Steuerthema (für die „Tatsächlich gezahlt"-Panels).
     var ustGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ustVz } }
@@ -101,6 +107,7 @@ extension Jahreswerte {
         return Jahreswerte(
             jahr: jahr, a: a, ustPerioden: ustP, ustRhythmus: rhythmus, estRuecklage: est, ksk: kskT,
             zahlungen: jz, grundfreibetrag: gfb, estVoraussichtlich: voraus,
+            estLautBescheid: settings?.estLautBescheid,
             istAktuellesJahr: jahr == appKalender.component(.year, from: heute),
             hatJahresEinstellungen: settings != nil, einP: einP, ausP: ausP)
     }

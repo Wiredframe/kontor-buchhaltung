@@ -513,6 +513,63 @@ struct BackupTests {
         #expect(ys.grundfreibetrag == dez("24696"))
     }
 
+    /// Die festgesetzte ESt aus dem Steuerbescheid rundet über Export/Import (Insert-Zweig).
+    @Test func estLautBescheidRoundTrip() throws {
+        let quelle = try kontext()
+        quelle.insert(YearSettings(jahr: 2026, estPauschalSatz: dez("0.15"), estLautBescheid: dez("4200.00")))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        try Backup.importData(data, in: ziel)
+        let ys = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(ys.estLautBescheid == dez("4200.00"))
+    }
+
+    /// Kennt das Ziel das Jahr bereits, hat aber **keinen** Bescheidwert, füllt der Import ihn auf.
+    /// Vorher gingen die optionalen Skalare in diesem Zweig still verloren.
+    @Test func mergeFuelltFehlendeOptionaleSkalareAuf() throws {
+        let quelle = try kontext()
+        quelle.insert(
+            YearSettings(
+                jahr: 2026, estPauschalSatz: dez("0.15"),
+                grundfreibetrag: dez("24696"), estLautBescheid: dez("4200.00")))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        ziel.insert(YearSettings(jahr: 2026, estPauschalSatz: dez("0.15")))  // Jahr existiert, Werte leer
+        try ziel.save()
+        try Backup.importData(data, in: ziel)
+
+        let ys = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(ys.grundfreibetrag == dez("24696"))
+        #expect(ys.estLautBescheid == dez("4200.00"))
+    }
+
+    /// Ein bereits gesetzter Wert im Ziel bleibt unangetastet – der Import füllt nur auf.
+    @Test func mergeUeberschreibtGesetzteSkalareNicht() throws {
+        let quelle = try kontext()
+        quelle.insert(
+            YearSettings(
+                jahr: 2026, estPauschalSatz: dez("0.15"),
+                grundfreibetrag: dez("11784"), estLautBescheid: dez("4200.00")))
+        try quelle.save()
+        let data = try Backup.exportData(quelle)
+
+        let ziel = try kontext()
+        ziel.insert(
+            YearSettings(
+                jahr: 2026, estPauschalSatz: dez("0.15"),
+                grundfreibetrag: dez("24696"), estLautBescheid: dez("5000.00")))
+        try ziel.save()
+        try Backup.importData(data, in: ziel)
+
+        let ys = try #require(try ziel.fetch(FetchDescriptor<YearSettings>()).first)
+        #expect(ys.grundfreibetrag == dez("24696"))
+        #expect(ys.estLautBescheid == dez("5000.00"))
+    }
+
     /// Vorwärtskompatibilität: ein **altes** Backup-Schema (ohne KSK/ESt-Monatsdicts, ohne
     /// Vorlagen/Regeln, Ausgabe ohne `art`/`umlagefaehig`) muss ohne Crash importierbar sein.
     @Test func importAltesSchemaOhneNeueFelder() throws {
