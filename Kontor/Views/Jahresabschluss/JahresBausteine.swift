@@ -5,19 +5,24 @@ import UniformTypeIdentifiers
 
 // MARK: - Soll/Ist-Paar
 
-/// Ein Steuerthema als Soll/Ist-Paar untereinander (oben die Schätzung, darunter das tatsächlich
+/// Ein Steuerthema als Soll/Ist-Paar untereinander (oben die Berechnung, darunter das tatsächlich
 /// Gezahlte) – bewusst nicht zweispaltig, weil die Zeilenzahl je Seite stark schwankt.
 ///
 /// Trägt keine Themen-Überschrift mehr: seit jedes Thema eine eigene Seite hat, sagt der
 /// Fenstertitel bereits, worum es geht.
 struct ThemaPaar<Soll: View, Ist: View>: View {
+    /// Querlink im Kopf der Berechnungs-Karte (z. B. USt → Modul „UStVA").
+    var sollAktion: (() -> Void)? = nil
+    /// Querlink im Kopf der Zahlungs-Karte – führt in den Ausgaben-Ledger, auf Jahr und
+    /// Kategorie vorgefiltert. Genau die Zeilen, die darüber aufgelistet sind.
+    var istAktion: (() -> Void)? = nil
     @ViewBuilder var soll: () -> Soll
     @ViewBuilder var ist: () -> Ist
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Panel(titel: "Schätzung") { soll() }
-            Panel(titel: "Tatsächlich gezahlt") { ist() }
+            Panel(titel: "Berechnung", aktion: sollAktion) { soll() }
+            Panel(titel: "Tatsächlich gezahlt", aktion: istAktion) { ist() }
         }
     }
 }

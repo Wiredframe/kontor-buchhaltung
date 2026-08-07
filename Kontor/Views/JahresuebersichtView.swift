@@ -23,7 +23,7 @@ struct JahresuebersichtView: View {
             ])
 
             Text(
-                "Der Gewinn stammt aus der EÜR (Zuflussprinzip), daraus leiten sich ESt und USt als Schätzungen ab. Jeder Bereich zeigt **oben die Schätzung, darunter das tatsächlich Gezahlte**. Vorlage für die Erklärung, keine finale Erklärung."
+                "Der Gewinn stammt aus der EÜR (Zuflussprinzip), daraus berechnen sich ESt und USt. Jeder Bereich zeigt **oben die Berechnung, darunter das tatsächlich Gezahlte**. Vorlage für die Erklärung, keine finale Erklärung."
             )
             .erklaerung()
 

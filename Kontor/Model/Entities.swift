@@ -14,7 +14,7 @@ final class YearSettings {
     var versteuerung: Versteuerung
     /// Jahres-Standardsatz für die ESt-Rücklage (z. B. 0,15).
     var estPauschalSatz: Decimal
-    /// Lokaler Grundfreibetrag-Override für die jahresbasierte ESt-Schätzung (Grundtarif, z. B.
+    /// Lokaler Grundfreibetrag-Override für die jahresbasierte ESt-Berechnung (Grundtarif, z. B.
     /// Splitting). `nil` = gesetzlicher Standard des Jahres (`Steuer.grundfreibetragStandard`).
     /// Optional gehalten → migrationssicher; bestehende Stores materialisieren `nil`.
     var grundfreibetrag: Decimal? = nil

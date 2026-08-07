@@ -1,20 +1,28 @@
 import SwiftData
 import SwiftUI
 
-/// Jahresabschluss → Einkommensteuer: die beiden Schätzungen (pauschale Rücklage, jahresbasierte
+/// Jahresabschluss → Einkommensteuer: die beiden Berechnungen (pauschale Rücklage, jahresbasierte
 /// ESt mit Grundfreibetrag), die geleisteten Vorauszahlungen und – sobald erfasst – der Abgleich
 /// gegen die **festgesetzte** ESt aus dem Steuerbescheid.
 struct JahresEinkommensteuerView: View {
+    @Environment(Zeitkontext.self) private var zeit
+    @Environment(Navigation.self) private var nav
+
     var body: some View {
         JahresSeite(titel: "Einkommensteuer") { w in
-            ThemaPaar(soll: { ESTSollBlock(w: w) }, ist: { ESTIstBlock(w: w) })
+            ThemaPaar(
+                // Gerechnet wird auf dem EÜR-Gewinn – der steht im Nachbarbereich.
+                sollAktion: { nav.modul = .jahresEUR },
+                // Vorauszahlungen und Bescheid-Zahlungen liegen als Steuer-Zeilen im Ledger.
+                istAktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .steuern, zeit: zeit) },
+                soll: { ESTSollBlock(w: w) }, ist: { ESTIstBlock(w: w) })
             BescheidPanel(w: w)
             SonstigeZahlungenPanel(w: w)
         }
     }
 }
 
-// MARK: - Schätzung
+// MARK: - Berechnung
 
 private struct ESTSollBlock: View {
     let w: Jahreswerte
@@ -64,7 +72,7 @@ private struct ESTIstBlock: View {
                 ForEach(w.estGezahlt) { ZahlungLeseZeile(eintrag: $0) }
             }
             Summenzeile(
-                label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Schätzung", wert: abs(diff))
+                label: diff >= 0 ? "Noch zurückzulegen (über VZ hinaus)" : "VZ über Berechnung", wert: abs(diff))
             Text("Die VZ sind Anzahlungen auf die ESt; mit dem Bescheid wird verrechnet (Nach- oder Rückzahlung).")
                 .erklaerung()
         }
@@ -73,10 +81,10 @@ private struct ESTIstBlock: View {
 
 // MARK: - Steuerbescheid
 
-/// Erfassung der **festgesetzten** ESt und der Abgleich gegen Schätzungen und Zahlungen.
+/// Erfassung der **festgesetzten** ESt und der Abgleich gegen Berechnungen und Zahlungen.
 ///
 /// Bewusst hier und nicht in den Einstellungen: `grundfreibetrag` dort ist ein *Parameter* der
-/// Schätzung (ein Stammdatum wie Rhythmus oder Satz), die Bescheid-ESt dagegen ein
+/// Berechnung (ein Stammdatum wie Rhythmus oder Satz), die Bescheid-ESt dagegen ein
 /// *Jahresergebnis* – man hat den Bescheid in der Hand, wenn man den Jahresabschluss aufmacht,
 /// und will sofort Abweichung und offenen Betrag sehen.
 private struct BescheidPanel: View {
@@ -98,11 +106,15 @@ private struct BescheidPanel: View {
     var body: some View {
         Panel(titel: "Steuerbescheid \(String(w.jahr))") {
             VStack(spacing: 2) {
-                HStack {
+                // Label links, Eingabe rechts – dieselbe Zeilenrhythmik wie die `Kartenzeile`n
+                // darunter, deren Werte ebenfalls rechts stehen. Feste Feldbreite, damit die
+                // Eingabe nicht über die halbe Karte läuft.
+                HStack(spacing: 12) {
                     Text("ESt laut Bescheid")
                     Spacer(minLength: 12)
-                    GeldFeldOptional("ESt laut Bescheid", wert: bindung)
-                        .labelsHidden().frame(width: 140)
+                    GeldFeldOptional("ESt laut Bescheid", wert: bindung, platzhalter: "z. B. 4.200,00")
+                        .labelsHidden()
+                        .frame(width: 170)
                         .disabled(settings == nil)
                 }
                 .padding(.vertical, 7)
@@ -129,7 +141,7 @@ private struct BescheidPanel: View {
                         label: a.nochZuZahlen >= 0 ? "Noch zu zahlen (Bescheid)" : "Erstattung (Bescheid)",
                         wert: abs(a.nochZuZahlen))
                     Text(
-                        "Positive Abweichung heißt: die Schätzung lag über der Festsetzung, es blieb also etwas übrig. Der offene Betrag verrechnet Vorauszahlungen und bereits geleistete Bescheid-Zahlungen; Solidaritätszuschlag und Kirchensteuer bleiben außen vor."
+                        "Positive Abweichung heißt: die Berechnung lag über der Festsetzung, es blieb also etwas übrig. Der offene Betrag verrechnet Vorauszahlungen und bereits geleistete Bescheid-Zahlungen; Solidaritätszuschlag und Kirchensteuer bleiben außen vor."
                     )
                     .erklaerung()
                 } else if settings == nil {
@@ -137,7 +149,7 @@ private struct BescheidPanel: View {
                         .erklaerung()
                 } else {
                     Text(
-                        "Trag hier die festgesetzte Einkommensteuer aus deinem Bescheid ein – Kontor rechnet dann Abweichung zu beiden Schätzungen und den offenen Betrag aus. Die Nach- oder Rückzahlung selbst gehört als Zahlung ins Modul „Ausgaben“ (Art „ESt-Bescheid“)."
+                        "Trag hier die festgesetzte Einkommensteuer aus deinem Bescheid ein – Kontor rechnet dann Abweichung zu beiden Berechnungen und den offenen Betrag aus. Die Nach- oder Rückzahlung selbst gehört als Zahlung ins Modul „Ausgaben“ (Art „ESt-Bescheid“)."
                     )
                     .erklaerung()
                 }
@@ -154,10 +166,15 @@ private struct BescheidPanel: View {
 /// „Noch zu zahlen (Bescheid)" ein: das sind eigene Festsetzungen.
 private struct SonstigeZahlungenPanel: View {
     let w: Jahreswerte
+    @Environment(Zeitkontext.self) private var zeit
+    @Environment(Navigation.self) private var nav
 
     var body: some View {
         if !w.sonstigeGezahlt.isEmpty {
-            Panel(titel: "Sonstige Steuerzahlungen \(String(w.jahr))") {
+            Panel(
+                titel: "Sonstige Steuerzahlungen \(String(w.jahr))",
+                aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .steuern, zeit: zeit) }
+            ) {
                 VStack(spacing: 2) {
                     ForEach(w.sonstigeGezahlt) { ZahlungLeseZeile(eintrag: $0) }
                     Summenzeile(

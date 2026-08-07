@@ -99,7 +99,7 @@ private struct EinstellungenForm: View {
                 LabeledContent("Versteuerung", value: "Soll (vereinbarte Entgelte)")
                 GeldFeld("Grundfreibetrag (ESt)", wert: grundfreibetragBinding)
                 Text(
-                    "Für die jahresbasierte ESt-Schätzung in der Jahresübersicht. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag)."
+                    "Für die jahresbasierte ESt-Berechnung im Jahresabschluss. Vorbelegt mit dem gesetzlichen Grundtarif des Jahres, hier überschreibbar (bei Zusammenveranlagung/Splitting den doppelten Betrag)."
                 )
                 .font(.caption).foregroundStyle(.secondary)
                 Text("KSK-Beitrag und ESt-Satz werden pro Monat im Monatsabschluss gepflegt (Sidebar-Tab „Werte“).")

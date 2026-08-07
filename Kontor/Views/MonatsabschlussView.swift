@@ -154,6 +154,8 @@ struct MonatsabschlussView: View {
                     context.insert(YearSettings(jahr: jahr, estPauschalSatz: dez("0.15")))
                     try? context.save()
                 }
+                // Nur in der Monatsansicht: in der Jahresansicht gilt der Abschluss je Zeile.
+                if !jahresansicht && abgeschlossen { abschlussBanner }
             }
             .background(Color(nsColor: .windowBackgroundColor))
         }
@@ -256,7 +258,6 @@ struct MonatsabschlussView: View {
         let z = zahlen(monat, einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if abgeschlossen { abschlussBanner }
                 if istZukunft(monat) { zukunftshinweis }
                 heroCard(z)
 
@@ -419,21 +420,16 @@ struct MonatsabschlussView: View {
         .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
     }
 
+    /// Zustand der ganzen Seite, deshalb dieselbe `Hinweisleiste` wie der Hinweis auf fehlende
+    /// Jahres-Einstellungen – nur grün statt orange. Sitzt entsprechend in der gepinnten Kopfzone
+    /// und nicht mehr als Karte im Inhalt.
     private var abschlussBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill").font(.title2).foregroundStyle(Stil.positiv)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Monat abgeschlossen – alles erledigt").font(.headline)
-                if let d = settings?.abschlussDatum(monat: monat) {
-                    Text("Abgeschlossen am \(d.formatted(.dateTime.day().month().year()))")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .karte()
+        Hinweisleiste(
+            symbol: "checkmark.seal.fill", farbe: Stil.positiv,
+            titel: "Monat abgeschlossen – alles erledigt",
+            text: settings?.abschlussDatum(monat: monat).map {
+                "Abgeschlossen am \($0.formatted(.dateTime.day().month().year()))"
+            })
     }
 
     private func listenKarte<Inhalt: View, Fuss: View>(

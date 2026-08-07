@@ -3,6 +3,54 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Art-Filter des Ausgaben-Ledgers – deckt sowohl die `ExpenseEntry`-Arten als auch die beiden
+/// Zahlungs-Kategorien ab (Vorsorge = KSK, Steuern = alles andere).
+///
+/// Liegt bewusst auf Modulebene statt in `AusgabenView`: `AusgabenZiel` trägt genau diesen Typ,
+/// damit ein Querlink auch auf Vorsorge oder Steuern zielen kann. Mit dem früher dafür genutzten
+/// `AusgabeArt` ging das nicht – die beiden Zahlungs-Kategorien existieren dort gar nicht.
+enum AusgabenArtFilter: String, CaseIterable, Identifiable {
+    case alle = "Alle", betriebsausgabe = "Betriebsausgaben", fixkosten = "Fixkosten"
+    case subscription = "Subscriptions", vorsorge = "Vorsorge", steuern = "Steuern"
+    var id: String { rawValue }
+    var symbol: String {
+        switch self {
+        case .alle: "tray.full"
+        case .betriebsausgabe: "briefcase"
+        case .fixkosten: "house"
+        case .subscription: "arrow.triangle.2.circlepath"
+        case .vorsorge: "cross.case"
+        case .steuern: "building.columns"
+        }
+    }
+    /// Hat diese Art überhaupt eine Sparte (privat/betrieblich)? Betriebsausgaben sind
+    /// per Definition betrieblich, Vorsorge/Steuern haben gar keine Sparte → Filter sinnlos.
+    var hatSparte: Bool { self == .alle || self == .fixkosten || self == .subscription }
+    /// VSt/Netto gibt es nur bei Ausgaben (ExpenseEntry), nicht bei Vorsorge/Steuern.
+    var hatVorsteuer: Bool { self != .vorsorge && self != .steuern }
+    /// Vorlagen (Sidebar) existieren nur für wiederkehrende Ausgaben (Fixkosten/Subscription).
+    var hatVorlagen: Bool { self == .alle || self == .fixkosten || self == .subscription }
+    /// Lässt diese Filterwahl Ausgaben (ExpenseEntry) der gegebenen Art durch?
+    func passtAusgabe(_ e: ExpenseEntry) -> Bool {
+        switch self {
+        case .alle: true
+        case .betriebsausgabe: e.artEffektiv == .betriebsausgabe
+        case .fixkosten: e.artEffektiv == .fixkosten
+        case .subscription: e.artEffektiv == .subscription
+        case .vorsorge, .steuern: false
+        }
+    }
+    /// Lässt diese Filterwahl die Zahlung (TaxPayment) durch?
+    func passtZahlung(_ t: TaxPayment) -> Bool {
+        switch self {
+        case .alle: true
+        case .vorsorge: t.kind == .ksk
+        case .steuern: t.kind != .ksk
+        default: false
+        }
+    }
+}
+
 /// Eine Zeile im gemeinsamen Ausgaben-Ledger – entweder eine `ExpenseEntry` (Betriebsausgabe/
 /// Fixkosten/Subscription) oder ein `TaxPayment` (Vorsorgeaufwand/Steuer). Reine Anzeige-Hülle.
 private struct LedgerZeile: Identifiable {
@@ -44,7 +92,7 @@ struct AusgabenView: View {
     /// Im Vorlagen-Tab gewählte Vorlage – steuert den Editor unten in der `VorlagenPanel`.
     /// Liegt hier (statt in der Panel), damit „Vorlage erstellen" sie gleich vorwählen kann.
     @State private var vorlagenAuswahl: Vorlage.ID?
-    @State private var artFilter: ArtFilter = .alle
+    @State private var artFilter: AusgabenArtFilter = .alle
     @State private var sparte: SparteFilter = .alle
     @State private var suche = ""
     @State private var zielAktiv = false
@@ -53,56 +101,6 @@ struct AusgabenView: View {
     enum SidebarModus: String, CaseIterable, Identifiable {
         case eintrag = "Eintrag", vorlagen = "Vorlagen"
         var id: String { rawValue }
-    }
-    enum ArtFilter: String, CaseIterable, Identifiable {
-        case alle = "Alle", betriebsausgabe = "Betriebsausgaben", fixkosten = "Fixkosten"
-        case subscription = "Subscriptions", vorsorge = "Vorsorge", steuern = "Steuern"
-        var id: String { rawValue }
-        /// Mappt eine Querlink-Art (`AusgabeArt`) auf den Tabellen-Filter; `nil` → „Alle".
-        init(ziel art: AusgabeArt?) {
-            switch art {
-            case .betriebsausgabe: self = .betriebsausgabe
-            case .fixkosten: self = .fixkosten
-            case .subscription: self = .subscription
-            case nil: self = .alle
-            }
-        }
-        var symbol: String {
-            switch self {
-            case .alle: "tray.full"
-            case .betriebsausgabe: "briefcase"
-            case .fixkosten: "house"
-            case .subscription: "arrow.triangle.2.circlepath"
-            case .vorsorge: "cross.case"
-            case .steuern: "building.columns"
-            }
-        }
-        /// Hat diese Art überhaupt eine Sparte (privat/betrieblich)? Betriebsausgaben sind
-        /// per Definition betrieblich, Vorsorge/Steuern haben gar keine Sparte → Filter sinnlos.
-        var hatSparte: Bool { self == .alle || self == .fixkosten || self == .subscription }
-        /// VSt/Netto gibt es nur bei Ausgaben (ExpenseEntry), nicht bei Vorsorge/Steuern.
-        var hatVorsteuer: Bool { self != .vorsorge && self != .steuern }
-        /// Vorlagen (Sidebar) existieren nur für wiederkehrende Ausgaben (Fixkosten/Subscription).
-        var hatVorlagen: Bool { self == .alle || self == .fixkosten || self == .subscription }
-        /// Lässt diese Filterwahl Ausgaben (ExpenseEntry) der gegebenen Art durch?
-        func passtAusgabe(_ e: ExpenseEntry) -> Bool {
-            switch self {
-            case .alle: true
-            case .betriebsausgabe: e.artEffektiv == .betriebsausgabe
-            case .fixkosten: e.artEffektiv == .fixkosten
-            case .subscription: e.artEffektiv == .subscription
-            case .vorsorge, .steuern: false
-            }
-        }
-        /// Lässt diese Filterwahl die Zahlung (TaxPayment) durch?
-        func passtZahlung(_ t: TaxPayment) -> Bool {
-            switch self {
-            case .alle: true
-            case .vorsorge: t.kind == .ksk
-            case .steuern: t.kind != .ksk
-            default: false
-            }
-        }
     }
     enum SparteFilter: String, CaseIterable, Identifiable {
         case alle = "Alle", privat = "Privat", betrieblich = "Betrieblich"
@@ -179,7 +177,7 @@ struct AusgabenView: View {
     /// danach zurück, damit er nur einmal wirkt. Der Zeitraum kommt über `zeit.filter`.
     private func konsumiereZiel() {
         guard let ziel = nav.ausgabenZiel else { return }
-        artFilter = ArtFilter(ziel: ziel.art)
+        artFilter = ziel.art ?? .alle
         sparte = ziel.betrieblich.map { $0 ? .betrieblich : .privat } ?? .alle
         nav.ausgabenZiel = nil
     }
@@ -530,11 +528,11 @@ struct AusgabenView: View {
 /// Bereichswahl als nativer segmentierter Picker (Alle/Betriebsausgaben/Fixkosten/Subscriptions/
 /// Vorsorge/Steuern).
 private struct ArtLeiste: View {
-    @Binding var auswahl: AusgabenView.ArtFilter
+    @Binding var auswahl: AusgabenArtFilter
 
     var body: some View {
         Picker("Bereich", selection: $auswahl) {
-            ForEach(AusgabenView.ArtFilter.allCases) { art in
+            ForEach(AusgabenArtFilter.allCases) { art in
                 Text(art.rawValue).tag(art)
             }
         }

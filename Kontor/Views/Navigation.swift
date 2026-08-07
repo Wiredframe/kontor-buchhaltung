@@ -3,7 +3,7 @@ import SwiftUI
 /// Filter-Wunsch für einen Querlink in die Ausgaben-View (Art + Sparte). Der Zeitraum
 /// läuft über den geteilten `Zeitkontext`; `nil` heißt jeweils „nicht einschränken".
 struct AusgabenZiel: Equatable {
-    var art: AusgabeArt?  // nil = alle Arten
+    var art: AusgabenArtFilter?  // nil = alle Arten
     var betrieblich: Bool?  // nil = alle Sparten
 }
 
@@ -17,7 +17,7 @@ final class Navigation {
 
     /// Springt in die Ausgaben-View und filtert sie auf Monat + Art + Sparte vor.
     func zeigeAusgaben(
-        jahr: Int, monat: Int, art: AusgabeArt? = nil,
+        jahr: Int, monat: Int, art: AusgabenArtFilter? = nil,
         betrieblich: Bool? = nil, zeit: Zeitkontext
     ) {
         zeit.filter.modus = .monat
@@ -36,11 +36,18 @@ final class Navigation {
     }
 
     /// Springt in die Ausgaben-View und filtert sie auf das ganze Jahr + Sparte (+ Art) vor.
-    func zeigeAusgabenJahr(jahr: Int, art: AusgabeArt? = nil, betrieblich: Bool? = nil, zeit: Zeitkontext) {
+    func zeigeAusgabenJahr(jahr: Int, art: AusgabenArtFilter? = nil, betrieblich: Bool? = nil, zeit: Zeitkontext) {
         zeit.filter.modus = .jahr
         zeit.filter.jahr = jahr
         ausgabenZiel = AusgabenZiel(art: art, betrieblich: betrieblich)
         modul = .betriebsausgaben
+    }
+
+    /// Springt in die Einnahmen-View und filtert sie auf das ganze Jahr vor.
+    func zeigeEinnahmenJahr(jahr: Int, zeit: Zeitkontext) {
+        zeit.filter.modus = .jahr
+        zeit.filter.jahr = jahr
+        modul = .einnahmen
     }
 }
 

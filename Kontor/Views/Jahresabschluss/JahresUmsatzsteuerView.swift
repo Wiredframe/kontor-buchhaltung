@@ -1,11 +1,19 @@
 import SwiftUI
 
-/// Jahresabschluss → Umsatzsteuer: geschätzte Zahllast je Voranmeldungs-Zeitraum gegen die
+/// Jahresabschluss → Umsatzsteuer: berechnete Zahllast je Voranmeldungs-Zeitraum gegen die
 /// tatsächlich geleisteten USt-Vorauszahlungen.
 struct JahresUmsatzsteuerView: View {
+    @Environment(Zeitkontext.self) private var zeit
+    @Environment(Navigation.self) private var nav
+
     var body: some View {
         JahresSeite(titel: "Umsatzsteuer") { w in
-            ThemaPaar(soll: { USTSollBlock(w: w) }, ist: { USTIstBlock(w: w) })
+            ThemaPaar(
+                // Die Zahllast je Zeitraum steht im Detail in der UStVA (mit ELSTER-Kennzahlen).
+                sollAktion: { nav.modul = .ustva },
+                // Die USt-Vorauszahlungen liegen als Steuer-Zeilen im Ausgaben-Ledger.
+                istAktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .steuern, zeit: zeit) },
+                soll: { USTSollBlock(w: w) }, ist: { USTIstBlock(w: w) })
         }
     }
 }

@@ -28,7 +28,7 @@ enum KontorMCP {
         Ausnahme typ=jahr: über die Jahreszahl adressiert (kein 'id'), und nicht löschbar. \
         Belege: kontor_beleg hängt eine PDF/Bild (Base64) an einnahmen|ausgaben|einkaeufe an (Feld belegPfad, \
         Ablage Belege/<Jahr>/); die beleg-Spalte dieser Listen zeigt den hinterlegten Pfad. \
-        Beträge stets brutto in EUR, Datum als YYYY-MM-DD. Zahlen sind Schätzungen, keine Steuerberatung.
+        Beträge stets brutto in EUR, Datum als YYYY-MM-DD. Zahlen sind Berechnungen der App, keine Steuerberatung.
         """
 
     // MARK: - Tool-Katalog
@@ -84,8 +84,8 @@ enum KontorMCP {
                 beschreibung: """
                     Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
-                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst geschätzt), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung)];
-                    fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst geschätzt), steuerart, betrieblich, umlagefaehig];
+                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst automatisch berechnet), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung)];
+                    fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst automatisch berechnet), steuerart, betrieblich, umlagefaehig];
                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
                     zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
                     aufgaben: titel, monat [, intervall(einmalig|monatlich|quartalsweise|jaehrlich), faelligTag, quartalsMonate, erledigt];

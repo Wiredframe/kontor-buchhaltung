@@ -27,7 +27,7 @@ struct Jahreswerte {
     /// USt-Zahllast je Voranmeldungs-Zeitraum – je nach Rhythmus 12 Monate oder 4 Quartale.
     var ustPerioden: [UStPeriodenwert]
     var ustRhythmus: UStVARhythmus
-    var estRuecklage: Decimal  // Σ ESt-Rücklage über 12 Monate (geschätzt, pauschal)
+    var estRuecklage: Decimal  // Σ ESt-Rücklage über 12 Monate (pauschal berechnet)
     var ksk: KSKTeile
     var zahlungen: [TaxPayment]  // des Jahres, nach Datum sortiert
     var grundfreibetrag: Decimal  // angesetzter Grundfreibetrag (Standard oder lokaler Override)

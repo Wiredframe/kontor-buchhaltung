@@ -10,6 +10,51 @@ import UniformTypeIdentifiers
 /// zurück, `.ksk` auf 0. Das ist kein Absturz und keine Null, sondern eine *glaubwürdig falsche*
 /// Zahl – die Sorte, die niemandem auffällt, weil sie plausibel aussieht. Betrifft jedes Jahr
 /// ohne eigene Einstellungen: ein vorausgeplantes Folgejahr genauso wie ein importiertes Altjahr.
+/// Randlose Hinweisleiste über dem Seiteninhalt: farbig hinterlegter Streifen über die volle
+/// Breite, Symbol links, darunter optional eine Erläuterung, rechts optional eine Aktion.
+///
+/// Für Zustände, die für die ganze Seite gelten (fehlende Jahres-Einstellungen, abgeschlossener
+/// Monat) – bewusst **keine** Karte im Inhalt: der Streifen gehört in die gepinnte Kopfzone und
+/// bleibt beim Scrollen stehen.
+struct Hinweisleiste<Aktion: View>: View {
+    let symbol: String
+    var farbe: Color = .orange
+    let titel: String
+    var text: String? = nil
+    @ViewBuilder var aktion: () -> Aktion
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(farbe)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(titel).font(.callout.weight(.semibold))
+                if let text {
+                    Text(text).font(.caption).foregroundStyle(.secondary)
+                    // **Kein `.fixedSize(horizontal: false, vertical: true)`.** Das stand hier
+                    // gegen Abschneiden – hatte aber einen teuren Nebeneffekt: Sobald die Leiste
+                    // erschien (Sprung in ein Jahr ohne `YearSettings`), meldete der Text eine
+                    // Idealhöhe für eine noch nicht ausverhandelte Breite an. Der ganze
+                    // Fensterinhalt – Detailspalte **und** Seitenleiste – rutschte daraufhin um
+                    // ein paar hundert Punkte nach oben aus dem Fenster und kam nicht zurück.
+                    // Ohne den Modifier bricht der Text ohnehin um (bei 900 pt Fensterbreite auf
+                    // vier Zeilen geprüft), nur eben erst mit der endgültigen Breite.
+                }
+            }
+            Spacer(minLength: 8)
+            aktion()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(farbe.opacity(0.10))
+        .overlay(alignment: .bottom) { Divider() }
+    }
+}
+
+extension Hinweisleiste where Aktion == EmptyView {
+    init(symbol: String, farbe: Color = .orange, titel: String, text: String? = nil) {
+        self.init(symbol: symbol, farbe: farbe, titel: titel, text: text) { EmptyView() }
+    }
+}
+
 struct FehlendeJahresEinstellungen: View {
     let jahr: Int
     /// `nil` = keine Einstellungen für dieses Jahr → Hinweis zeigen.
@@ -18,34 +63,16 @@ struct FehlendeJahresEinstellungen: View {
 
     var body: some View {
         if settings == nil {
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Für \(String(jahr)) sind keine Einstellungen hinterlegt.")
-                        .font(.callout.weight(.semibold))
-                    Text(
-                        "ESt-Rücklage und KSK sind deshalb geschätzt: 15 % Pauschalsatz, KSK 0 €. "
-                            + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen."
-                    )
-                    .font(.caption).foregroundStyle(.secondary)
-                    // **Kein `.fixedSize(horizontal: false, vertical: true)`.** Das stand hier
-                    // gegen Abschneiden – hatte aber einen teuren Nebeneffekt: Sobald das Banner
-                    // erschien (Sprung in ein Jahr ohne `YearSettings`), meldete der Text eine
-                    // Idealhöhe für eine noch nicht ausverhandelte Breite an. Der ganze
-                    // Fensterinhalt – Detailspalte **und** Seitenleiste – rutschte daraufhin um
-                    // ein paar hundert Punkte nach oben aus dem Fenster und kam nicht zurück.
-                    // Ohne den Modifier bricht der Text ohnehin um (bei 900 pt Fensterbreite auf
-                    // vier Zeilen geprüft), nur eben erst mit der endgültigen Breite.
-                }
-                Spacer(minLength: 8)
+            Hinweisleiste(
+                symbol: "exclamationmark.triangle.fill", farbe: .orange,
+                titel: "Für \(String(jahr)) sind keine Einstellungen hinterlegt.",
+                text: "ESt-Rücklage und KSK rechnen deshalb mit Notwerten: 15 % Pauschalsatz, KSK 0 €. "
+                    + "Lege das Jahr in den Einstellungen an, damit hier deine echten Werte stehen."
+            ) {
                 if let beiAnlegen {
                     Button("Jahr anlegen", action: beiAnlegen)
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Color.orange.opacity(0.10))
-            .overlay(alignment: .bottom) { Divider() }
         }
     }
 }
@@ -793,11 +820,11 @@ struct GeldFeld: View {
 struct GeldFeldOptional: View {
     let titel: String
     @Binding var wert: Decimal?
-    var platzhalter: String = "nicht gesetzt"
+    var platzhalter: String = "kein Wert"
     @State private var text = ""
     @FocusState private var fokus: Bool
 
-    init(_ titel: String, wert: Binding<Decimal?>, platzhalter: String = "nicht gesetzt") {
+    init(_ titel: String, wert: Binding<Decimal?>, platzhalter: String = "kein Wert") {
         self.titel = titel
         self._wert = wert
         self.platzhalter = platzhalter
@@ -811,7 +838,12 @@ struct GeldFeldOptional: View {
             .onChange(of: fokus) { _, aktiv in
                 if aktiv { text = wert.map(GeldFormat.roh) ?? "" } else { commit() }
             }
-            .onSubmit { commit() }
+            // Enter **und** Escape geben den Fokus wieder frei. Ohne das kam man aus dem Feld
+            // nicht mehr heraus: In einem Panel ist es oft das einzige fokussierbare Element,
+            // Tab hat also kein Ziel, und ein Klick daneben nimmt einem `TextField` auf macOS
+            // den Fokus nicht ab.
+            .onSubmit { fokus = false }
+            .onExitCommand { fokus = false }
             .onChange(of: wert, initial: true) { _, neu in
                 if !fokus { text = neu.map(GeldFormat.anzeige) ?? "" }
             }

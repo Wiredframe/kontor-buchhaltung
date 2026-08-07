@@ -3,9 +3,15 @@ import SwiftUI
 /// Jahresabschluss → Vorsorge (KSK): Soll aus den je Monat hinterlegten KV/RV/PV-Beträgen
 /// gegen die tatsächlichen Abbuchungen.
 struct JahresVorsorgeView: View {
+    @Environment(Zeitkontext.self) private var zeit
+    @Environment(Navigation.self) private var nav
+
     var body: some View {
         JahresSeite(titel: "Vorsorge (KSK)") { w in
-            ThemaPaar(soll: { KSKSollBlock(w: w) }, ist: { KSKIstBlock(w: w) })
+            ThemaPaar(
+                // Die tatsächlichen KSK-Abbuchungen liegen als Vorsorge-Zeilen im Ledger.
+                istAktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .vorsorge, zeit: zeit) },
+                soll: { KSKSollBlock(w: w) }, ist: { KSKIstBlock(w: w) })
         }
     }
 }

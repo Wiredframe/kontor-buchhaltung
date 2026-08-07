@@ -8,10 +8,10 @@ struct JahresEURView: View {
 
     var body: some View {
         JahresSeite(titel: "EÜR") { w in
-            Panel(
-                titel: "Einnahmenüberschussrechnung (EÜR)",
-                aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, betrieblich: true, zeit: zeit) }
-            ) {
+            // Kein „öffnen" im Panel-Kopf: die EÜR mischt Einnahmen und Ausgaben, ein einzelner
+            // Link sprang nur in die Ausgaben und führte auf der Einnahmenseite in die Irre.
+            // Stattdessen unten je ein eigener Link pro Seite der Rechnung.
+            Panel(titel: "Einnahmenüberschussrechnung (EÜR)") {
                 VStack(spacing: 2) {
                     Kartenzeile(
                         label: "Betriebseinnahmen (Zufluss, netto)", wert: w.a.einnahmenBezahlt,
@@ -20,14 +20,27 @@ struct JahresEURView: View {
                         label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                         minus: true)
                     Summenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn)
-                    Text(
-                        "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto. Klick öffnet die betrieblichen Ausgaben des Jahres."
-                    )
-                    .erklaerung()
+                    Text("Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto.")
+                        .erklaerung()
+                    Divider().padding(.vertical, 6)
+                    HStack(spacing: 16) {
+                        Button("Einnahmen \(String(w.jahr)) öffnen") {
+                            nav.zeigeEinnahmenJahr(jahr: w.jahr, zeit: zeit)
+                        }
+                        Button("Betriebsausgaben \(String(w.jahr)) öffnen") {
+                            nav.zeigeAusgabenJahr(jahr: w.jahr, betrieblich: true, zeit: zeit)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .buttonStyle(.link)
+                    .padding(.vertical, 2)
                 }
             }
 
-            Panel(titel: "Vorsteuer im Jahr") {
+            Panel(
+                titel: "Vorsteuer im Jahr",
+                aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, betrieblich: true, zeit: zeit) }
+            ) {
                 VStack(spacing: 2) {
                     Kartenzeile(
                         label: "Abziehbare Vorsteuer (betrieblich)", wert: w.a.vstGesamt, icon: "percent")
