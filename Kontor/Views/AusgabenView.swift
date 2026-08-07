@@ -3,15 +3,6 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Anzeige-Helfer auf dem Zahlungs-Modell
-
-extension TaxPayment {
-    /// Für Tabelle/Filter maßgebliches Datum: das tatsächliche Zahldatum, sonst die Fälligkeit.
-    var anzeigeDatum: Date { bezahltAm ?? faellig }
-    /// Negativer Betrag = Erstattung (Geld vom Finanzamt zurück bzw. Gutschrift).
-    var istErstattung: Bool { betrag < 0 }
-}
-
 /// Eine Zeile im gemeinsamen Ausgaben-Ledger – entweder eine `ExpenseEntry` (Betriebsausgabe/
 /// Fixkosten/Subscription) oder ein `TaxPayment` (Vorsorgeaufwand/Steuer). Reine Anzeige-Hülle.
 private struct LedgerZeile: Identifiable {

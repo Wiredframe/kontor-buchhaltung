@@ -25,93 +25,10 @@ struct JahresuebersichtView: View {
             .sorted { $0.monat < $1.monat }
     }
 
-    // MARK: Pro Render einmal berechnete Jahreswerte
-
-    /// Bündelt die teuren Jahres-Aggregate in einem Wert – einmal pro Render via `baueWerte()`
-    /// gebaut, statt sie als computed properties bei jedem Zugriff im Body neu zu rechnen.
-    private struct Jahreswerte {
-        var a: JahresAuswertung
-        /// USt-Zahllast je Voranmeldungs-Zeitraum des Jahres – je nach Rhythmus 12 Monate
-        /// oder 4 Quartale (Label + Betrag). Folgt dem `ustvaRhythmus` des Jahres.
-        var ustPerioden: [(label: String, betrag: Decimal)]
-        var ustRhythmus: UStVARhythmus
-        var estRuecklage: Decimal  // Σ ESt-Rücklage über 12 Monate (geschätzt, pauschal)
-        var ksk: (kv: Decimal, rv: Decimal, pv: Decimal)
-        var zahlungen: [TaxPayment]  // des Jahres, nach Datum sortiert
-        var grundfreibetrag: Decimal  // angesetzter Grundfreibetrag (Standard oder lokaler Override)
-        var estVoraussichtlich: Decimal  // jahresbasierte ESt inkl. Grundfreibetrag (realistischer)
-
-        var ustJahr: Decimal { ustPerioden.reduce(Decimal(0)) { $0 + $1.betrag } }
-        var kskGesamt: Decimal { ksk.kv + ksk.rv + ksk.pv }
-        var steuerlast: Decimal { estRuecklage + ustJahr }
-        var bezahltGesamt: Decimal { zahlungen.filter(\.bezahlt).reduce(Decimal(0)) { $0 + $1.betrag } }
-        var estVzBezahlt: Decimal {
-            zahlungen.filter { $0.kind == .estVz && $0.bezahlt }.reduce(Decimal(0)) { $0 + $1.betrag }
-        }
-        // Ist-Zahlungen je Steuerthema (für die rechte „Tatsächlich gezahlt"-Spalte).
-        var ustGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ustVz } }
-        var estGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .estVz || $0.kind == .estBescheid } }
-        var kskGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ksk } }
-        var sonstigeGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .sonstige } }
-    }
-
     /// Einstellungen **genau dieses Jahres** – kein Fallback (sonst zöge die KSK-Jahressumme
     /// die Beiträge eines fremden Jahres heran, wenn das gewählte Jahr keine `YearSettings` hat).
     private var settings: YearSettings? { jahre.first { $0.jahr == jahr } }
 
-    /// Baut die Jahreswerte: Posten/KSK werden **einmal** gemappt, jede Aggregation läuft genau einmal.
-    private func baueWerte() -> Jahreswerte {
-        let einP = einnahmen.flatMap(\.postenListe)
-        let ausP = ausgaben.map(\.posten)
-        let a = Steuer.jahresauswertung(jahr: jahr, einnahmen: einP, ausgaben: ausP)
-        let kskT = kskJahr
-        let est = Steuer.estRuecklageJahr(
-            jahr: jahr, einnahmen: einP, ausgaben: ausP, kskFuer: { jahre.ksk(jahr: $0, monat: $1) },
-            pauschalSatz: { jahre.estSatz(jahr: $0, monat: $1) })
-        // Jahresbasierte, realistischere ESt: berücksichtigt den steuerfreien Grundfreibetrag.
-        // Standard des Jahres, lokal je Jahr überschreibbar; Satz = zuletzt gültiger (Dez.-effektiv),
-        // kein Hochrechnen. Rechnet auf demselben Gewinn/KSK, die oben angezeigt werden.
-        let gfb = settings?.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: jahr)
-        let voraus = Steuer.estVoraussichtlich(
-            gewinn: a.gewinn, ksk: kskT.kv + kskT.rv + kskT.pv,
-            grundfreibetrag: gfb, satz: jahre.estSatz(jahr: jahr, monat: 12))
-        // USt-Zahllast je VA-Zeitraum – Rhythmus aus den Jahres-Einstellungen (monatlich = 12,
-        // sonst 4 Quartale). Die Jahressumme ist in beiden Fällen identisch.
-        let rhythmus = settings?.ustvaRhythmus ?? .vierteljaehrlich
-        let ustP: [(String, Decimal)] =
-            rhythmus == .monatlich
-            ? (1...12).map {
-                (
-                    kurzMonat($0),
-                    Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.monat(jahr, $0)).zahllast
-                )
-            }
-            : (1...4).map {
-                ("Q\($0)", Steuer.ustva(einnahmen: einP, ausgaben: ausP, periode: Periode.quartal(jahr, $0)).zahllast)
-            }
-        let jz = zahlungen.filter { $0.jahr == jahr }.sorted { $0.anzeigeDatum < $1.anzeigeDatum }
-        return Jahreswerte(
-            a: a, ustPerioden: ustP, ustRhythmus: rhythmus, estRuecklage: est, ksk: kskT,
-            zahlungen: jz, grundfreibetrag: gfb, estVoraussichtlich: voraus)
-    }
-
-    /// KSK des Jahres nach Versicherungszweig – Summe der je Monat gültigen Beitragssätze
-    /// (bis zum laufenden Monat im aktuellen Jahr, sonst volles Jahr).
-    private var kskJahr: (kv: Decimal, rv: Decimal, pv: Decimal) {
-        let hJ = appKalender.component(.year, from: Date())
-        let hM = appKalender.component(.month, from: Date())
-        let bis = jahr < hJ ? 12 : (jahr == hJ ? hM : 0)
-        guard bis >= 1, let s = settings else { return (0, 0, 0) }
-        // Exakte Summe der je Monat hinterlegten KV/RV/PV-Beträge.
-        var kv = Decimal(0), rv = Decimal(0), pv = Decimal(0)
-        for m in 1...bis {
-            let t = s.kskTeile(monat: m)
-            kv += t.kv
-            rv += t.rv
-            pv += t.pv
-        }
-        return (kv, rv, pv)
-    }
     /// Themen-Überschrift über einem Soll/Ist-Paar.
     private func themaHeader(_ titel: String) -> some View {
         Text(titel).font(.title2).fontWeight(.semibold).padding(.horizontal, 4).padding(.top, 4)
@@ -220,7 +137,8 @@ struct JahresuebersichtView: View {
 
     var body: some View {
         @Bindable var zeit = zeit
-        let w = baueWerte()
+        let w = Jahreswerte.bauen(
+            jahr: jahr, einnahmen: einnahmen, ausgaben: ausgaben, zahlungen: zahlungen, jahre: jahre)
         return VStack(spacing: 0) {
             HStack {
                 Text("Jahr").foregroundStyle(.secondary)

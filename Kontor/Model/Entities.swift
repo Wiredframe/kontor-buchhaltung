@@ -441,6 +441,11 @@ final class TaxPayment {
         self.bezahltAm = bezahltAm
         self.bemerkung = bemerkung
     }
+
+    /// Für Tabelle/Filter maßgebliches Datum: das tatsächliche Zahldatum, sonst die Fälligkeit.
+    var anzeigeDatum: Date { bezahltAm ?? faellig }
+    /// Negativer Betrag = Erstattung (Geld vom Finanzamt zurück bzw. Gutschrift).
+    var istErstattung: Bool { betrag < 0 }
 }
 
 // MARK: - Privat: Lebensmittel-Einkauf
