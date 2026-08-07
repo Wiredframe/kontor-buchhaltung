@@ -297,6 +297,53 @@ struct ESTGrundfreibetragTests {
     }
 }
 
+// MARK: - Abgleich gegen den Steuerbescheid
+
+struct ESTBescheidTests {
+    private func abgleich(
+        festgesetzt: String, ruecklage: String = "4580.00", voraussichtlich: String = "4105.00",
+        vzBezahlt: String = "3600.00", bescheidBezahlt: String = "0.00"
+    ) -> Steuer.ESTBescheidAbgleich {
+        Steuer.ESTBescheidAbgleich(
+            festgesetzt: dez(festgesetzt), ruecklage: dez(ruecklage),
+            voraussichtlich: dez(voraussichtlich), vzBezahlt: dez(vzBezahlt),
+            bescheidBezahlt: dez(bescheidBezahlt))
+    }
+
+    /// Bescheid 4.200 € gegen Rücklage 4.580 € und Schätzung 4.105 €, VZ 3.600 € geleistet.
+    @Test func abweichungenUndOffenerBetrag() {
+        let a = abgleich(festgesetzt: "4200.00")
+        #expect(a.abweichungRuecklage == dez("380.00"))  // Rücklage lag 380 € über der Festsetzung
+        #expect(a.abweichungVoraussichtlich == dez("-95.00"))  // Schätzung lag 95 € darunter
+        #expect(a.nochZuZahlen == dez("600.00"))  // 4.200 − 3.600
+    }
+
+    /// Mehr Vorauszahlungen als festgesetzt → negativer offener Betrag = Erstattung.
+    @Test func erstattungIstNegativ() {
+        #expect(abgleich(festgesetzt: "4200.00", vzBezahlt: "5000.00").nochZuZahlen == dez("-800.00"))
+    }
+
+    /// Eine bereits überwiesene Nachzahlung wird mitverrechnet – sonst mahnte die App weiter an.
+    @Test func geleisteteNachzahlungWirdVerrechnet() {
+        #expect(abgleich(festgesetzt: "4200.00", bescheidBezahlt: "600.00").nochZuZahlen == 0)
+    }
+
+    /// 0 € ist eine gültige Festsetzung (Gewinn unter dem Grundfreibetrag) und **nicht**
+    /// dasselbe wie „kein Bescheid erfasst": die geleisteten VZ werden voll erstattet.
+    @Test func nullIstEinGueltigerWert() {
+        let a = abgleich(festgesetzt: "0.00", ruecklage: "0.00", voraussichtlich: "0.00", vzBezahlt: "1200.00")
+        #expect(a.nochZuZahlen == dez("-1200.00"))
+        #expect(a.abweichungRuecklage == 0)
+    }
+
+    /// Unterdeckung: die Rücklage lag unter der Festsetzung → negative Abweichung.
+    @Test func unterdeckungIstNegativ() {
+        let a = abgleich(festgesetzt: "6000.00")
+        #expect(a.abweichungRuecklage == dez("-1420.00"))
+        #expect(a.abweichungVoraussichtlich == dez("-1895.00"))
+    }
+}
+
 // MARK: - EÜR-Gewinn (Zuflussprinzip)
 
 struct EUERTests {

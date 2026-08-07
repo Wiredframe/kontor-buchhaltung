@@ -253,6 +253,35 @@ enum Steuer {
         estPauschal(basis: gewinn - grundfreibetrag, ksk: ksk, satz: satz)
     }
 
+    /// Abgleich der **festgesetzten** ESt aus dem Steuerbescheid gegen die beiden Schätzungen
+    /// und die bereits geleisteten Zahlungen.
+    ///
+    /// Rein arithmetisch und ohne Rundung: alle Summanden sind bereits gerundete Beträge.
+    struct ESTBescheidAbgleich: Hashable {
+        /// Im Bescheid festgesetzte Einkommensteuer des Jahres.
+        var festgesetzt: Decimal
+        /// Pauschale ESt-Rücklage (Summe der Monatswerte).
+        var ruecklage: Decimal
+        /// Jahresbasierte Schätzung inkl. Grundfreibetrag.
+        var voraussichtlich: Decimal
+        /// Bereits gezahlte ESt-Vorauszahlungen des Jahres.
+        var vzBezahlt: Decimal
+        /// Bereits geleistete Zahlungen **nach** Bescheid (Nachzahlung positiv, Erstattung negativ).
+        var bescheidBezahlt: Decimal
+
+        /// Schätzung minus Festsetzung. Positiv = die Rücklage reichte, negativ = Unterdeckung.
+        var abweichungRuecklage: Decimal { ruecklage - festgesetzt }
+        var abweichungVoraussichtlich: Decimal { voraussichtlich - festgesetzt }
+
+        /// Offener Betrag laut Bescheid; negativ = Erstattung.
+        ///
+        /// Die Bescheid-Zahlungen werden **mitverrechnet** – sonst mahnte die App eine längst
+        /// überwiesene Nachzahlung weiter an. `SteuerKind.sonstige` bleibt bewusst draußen:
+        /// Solidaritätszuschlag, Kirchensteuer und Säumniszuschläge sind eigene Festsetzungen
+        /// und gehören nicht gegen die Einkommensteuer gerechnet.
+        var nochZuZahlen: Decimal { festgesetzt - vzBezahlt - bescheidBezahlt }
+    }
+
     /// Die in (`jahr`, `monat`) **gebildete** ESt-Rücklage samt zugehöriger Soll-Basis `rn`.
     ///
     /// **Einzige Quelle** für beide Richtungen: die Bildung (`monatsauswertung`) und die
