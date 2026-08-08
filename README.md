@@ -61,7 +61,7 @@ brew install --cask --no-quarantine kontor
 ```
 
 Der Tap heißt seit August 2026 `wiredframe/tap` und enthält alle Wiredframe-Apps. Der alte
-`wiredframe/kontor` funktioniert weiter, bekommt aber keine neuen Versionen mehr – einmal
+`wiredframe/kontor` funktioniert weiter, bekommt aber keine neuen Versionen mehr. Einmal
 `brew untap wiredframe/kontor` und neu tappen genügt.
 
 `brew trust` ist seit **Homebrew 6** für Fremd-Taps Pflicht (ein Cask darf Code ausführen).
