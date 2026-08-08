@@ -57,7 +57,7 @@ selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext lieg
 ```bash
 brew tap wiredframe/tap
 brew trust --cask wiredframe/tap/kontor
-brew install --cask --no-quarantine kontor
+brew install --cask kontor
 ```
 
 Der Tap heißt seit August 2026 `wiredframe/tap` und enthält alle Wiredframe-Apps. Der alte
@@ -65,8 +65,9 @@ Der Tap heißt seit August 2026 `wiredframe/tap` und enthält alle Wiredframe-Ap
 `brew untap wiredframe/kontor` und neu tappen genügt.
 
 `brew trust` ist seit **Homebrew 6** für Fremd-Taps Pflicht (ein Cask darf Code ausführen).
-`--no-quarantine` überspringt den Gatekeeper-Block, weil Kontor nicht notariell signiert ist – sonst
-müsstest du die App beim ersten Start manuell freigeben (siehe oben).
+Kontor ist nicht notariell signiert, macOS setzt den Download deshalb in Quarantäne. Das Cask
+entfernt die Markierung nach der Installation selbst, die App startet also normal. Das frühere
+`--no-quarantine` gibt es seit Homebrew 6 nicht mehr, es bricht mit `invalid option` ab.
 
 
 ## Leitprinzipien (Rechen-/Steuerlogik)
