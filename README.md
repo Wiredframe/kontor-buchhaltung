@@ -55,10 +55,14 @@ selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext lieg
 ### 3. Per Homebrew (voller Funktionsumfang, inkl. MCP)
 
 ```bash
-brew tap wiredframe/kontor
-brew trust --cask wiredframe/kontor/kontor
+brew tap wiredframe/tap
+brew trust --cask wiredframe/tap/kontor
 brew install --cask --no-quarantine kontor
 ```
+
+Der Tap heißt seit August 2026 `wiredframe/tap` und enthält alle Wiredframe-Apps. Der alte
+`wiredframe/kontor` funktioniert weiter, bekommt aber keine neuen Versionen mehr – einmal
+`brew untap wiredframe/kontor` und neu tappen genügt.
 
 `brew trust` ist seit **Homebrew 6** für Fremd-Taps Pflicht (ein Cask darf Code ausführen).
 `--no-quarantine` überspringt den Gatekeeper-Block, weil Kontor nicht notariell signiert ist – sonst
