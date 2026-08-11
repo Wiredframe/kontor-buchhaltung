@@ -207,10 +207,11 @@ Prüfgrößen (synthetisch, exemplarisch):
   (dedupliziert, ohne Überschreiben) herein. Ein neues `YearSettings` legt der Nutzer bei Bedarf an.
 
 ## Architektur & Module
-- **Module:** Übersicht (Dashboard, Start) · Monatsabschluss · Kontoauszug · Aufgaben ·
-  Ausgaben (Betriebsausgaben + Fixkosten + Subscriptions + Vorsorge + Steuern) · Einnahmen ·
-  UStVA · Jahresabschluss (+ 4 Unterseiten) · Privat-Übersicht · Lebensmittel · Anschaffungen ·
-  Einstellungen.
+- **Module** (in Sidebar-Reihenfolge, Gruppen in eckigen Klammern): Übersicht (Dashboard, Start,
+  titellose Section) · [Erfassen] Einnahmen · Ausgaben (Betriebsausgaben + Fixkosten +
+  Subscriptions + Vorsorge + Steuern) · Kontoauszug · Aufgaben · [Auswertungen] Monatsabschluss ·
+  UStVA · Jahresabschluss (+ 4 Unterseiten) · [Privat] Privat-Übersicht · Lebensmittel ·
+  Anschaffungen · [System] Einstellungen.
 - **Jahresabschluss = Übersicht + vier Unterseiten** (`Kontor/Views/Jahresabschluss/`): die
   Übersicht zeigt nur noch **Hero (4 Kernzahlen) + Gewinn-Chart + vier Bereichskarten**, die
   Details liegen auf **EÜR · Einkommensteuer · Umsatzsteuer · Vorsorge (KSK)**. Vorher stand alles
@@ -228,6 +229,16 @@ Prüfgrößen (synthetisch, exemplarisch):
   getaggte `List`-Zeile, das Aufklappen macht ein eigener Chevron-`Button`; Klappzustand in
   `@AppStorage("sidebarOffeneModule")`, und `onChange(of: nav.modul)` klappt das Eltern-Modul
   automatisch auf (sonst zeigte ein Querlink auf eine unsichtbare Zeile).
+- **Sidebar-Gruppierung = zwei Fragen, nicht eine (`ModulGruppe`):** **Erfassen** (Einnahmen,
+  Ausgaben, Kontoauszug, Aufgaben) beantwortet „womit arbeite ich", **Auswertungen**
+  (Monatsabschluss → UStVA → Jahresabschluss + Unterseiten) „was werte ich über welchen Zeitraum
+  aus" – Zeithorizont von oben nach unten steigend. Die frühere Gruppe „Stammdaten" ist **weg**
+  (Einnahmen/Ausgaben sind Bewegungsdaten, keine Stammdaten), „Arbeitsfläche" heißt jetzt
+  „Erfassen" und der Monatsabschluss steht bei den Auswertungen, wo er hingehört. Das **Dashboard
+  hat keinen Zeithorizont** und passt in keine der beiden Gruppen: es steht als **titellose**
+  Section (`ModulGruppe.start`, rawValue `""`) über der Gruppierung. Dafür zwei getrennte
+  `Section`-Initializer (`Section(titel)` bzw. `Section { }`) statt eines `header:`-Closures mit
+  `if let` – ein leerer Header-ViewBuilder erzeugt sonst eine sichtbare Leerzeile darüber.
 - **Ausgaben-Ledger = ein gemeinsames Modul für ALLE Abflüsse:** Die `AusgabenView` zeigt
   `ExpenseEntry` **und** `TaxPayment` in **einer** Tabelle über einen Anzeige-Zeilentyp
   (`LedgerZeile`), gefiltert nach **Art** (Betriebsausgabe/Fixkosten/Subscription/**Vorsorge**=KSK/
@@ -298,7 +309,7 @@ Prüfgrößen (synthetisch, exemplarisch):
   personenbezogener** Start-Regel-Satz (verbreitete SaaS-Tools + KSK) wird per `seedeStartRegeln`
   idempotent beim App-Start angelegt; im JSON-Backup enthalten). **Idempotenz:**
   `ImportBuchung` (Dedup über stabilen Bank-Schlüssel → schon Importiertes wird ausgeblendet).
-  UI: `ImportView` (Karten-Triage, Sidebar-Gruppe Arbeitsfläche). `ImportKategorie` = Triage-Enum (inkl. `ksk`/`steuer`/`steuererstattung`/`erstattung`). **Re-Triage / erneuter Import:** dieselbe CSV erneut
+  UI: `ImportView` (Karten-Triage, Sidebar-Gruppe Erfassen). `ImportKategorie` = Triage-Enum (inkl. `ksk`/`steuer`/`steuererstattung`/`erstattung`). **Re-Triage / erneuter Import:** dieselbe CSV erneut
   laden (CSV nötig). „Erledigte zeigen" ist **immer** verfügbar, sobald Zeilen geladen sind (auch wenn
   *alle* schon importiert sind); pro Zeile „Neu zuordnen" oder Bulk **„Alle erneut zuordnen"** öffnet
   erledigte Buchungen wieder. Erneutes Buchen trifft über `ImportAnwendung.ziel` den bestehenden

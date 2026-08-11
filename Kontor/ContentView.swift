@@ -4,18 +4,20 @@ import SwiftUI
 
 // MARK: - Module
 
-/// Alle Bereiche der App (Phase 1). Die Sidebar wird daraus aufgebaut,
-/// die Reihenfolge hier bestimmt die Reihenfolge im Menü.
+/// Alle Bereiche der App (Phase 1). Die Sidebar wird daraus aufgebaut.
+///
+/// Die Reihenfolge **hier** ist ohne Wirkung aufs Menü – dort zählt `ModulGruppe.module`.
+/// Einzige Ausnahme: die Unterpunkte, die über `kinder` aus `allCases` kommen.
 enum Modul: String, CaseIterable, Identifiable, Hashable {
-    // Arbeitsfläche
+    // Einstieg (titellose Section ganz oben)
     case dashboard
-    case monatsabschluss
+    // Erfassen
+    case einnahmen
+    case betriebsausgaben
     case kontoauszug
     case aufgaben
-    // Stammdaten
-    case betriebsausgaben
-    case einnahmen
     // Auswertungen
+    case monatsabschluss
     case ustva
     case jahresuebersicht
     // …mit vier Unterseiten (eingerückt unter „Jahresabschluss", siehe `eltern`/`kinder`)
@@ -85,21 +87,30 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
     var kinder: [Modul] { Modul.allCases.filter { $0.eltern == self } }
 }
 
-/// Gruppierung der Module in der Sidebar.
+/// Gruppierung der Module in der Sidebar; die Reihenfolge hier und in `module`
+/// bestimmt die Reihenfolge im Menü.
+///
+/// Die Einteilung trennt zwei Fragen: **womit arbeite ich** (Erfassen) und **was werte ich über
+/// welchen Zeitraum aus** (Auswertungen, Zeithorizont von oben nach unten steigend: Monat →
+/// UStVA → Jahr). Das Dashboard hat keinen Zeithorizont und passt unter keinen der beiden
+/// Begriffe – es steht deshalb als **titellose** Section über der Gruppierung.
 enum ModulGruppe: String, CaseIterable, Identifiable {
-    case arbeitsflaeche = "Arbeitsfläche"
-    case stammdaten = "Stammdaten"
+    case start = ""
+    case erfassen = "Erfassen"
     case auswertungen = "Auswertungen"
     case privat = "Privat"
     case system = "System"
 
     var id: String { rawValue }
 
+    /// Kopfzeile der Section; `nil` = Section ohne Kopfzeile.
+    var titel: String? { rawValue.isEmpty ? nil : rawValue }
+
     var module: [Modul] {
         switch self {
-        case .arbeitsflaeche: [.dashboard, .monatsabschluss, .kontoauszug, .aufgaben]
-        case .stammdaten: [.einnahmen, .betriebsausgaben]
-        case .auswertungen: [.ustva, .jahresuebersicht]
+        case .start: [.dashboard]
+        case .erfassen: [.einnahmen, .betriebsausgaben, .kontoauszug, .aufgaben]
+        case .auswertungen: [.monatsabschluss, .ustva, .jahresuebersicht]
         case .privat: [.privatUebersicht, .lebensmittel, .anschaffungen]
         case .system: [.einstellungen]
         }
@@ -130,22 +141,13 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $nav.modul) {
                 ForEach(ModulGruppe.allCases) { gruppe in
-                    Section(gruppe.rawValue) {
-                        ForEach(gruppe.module) { modul in
-                            if modul.kinder.isEmpty {
-                                Label(modul.titel, systemImage: modul.symbol)
-                                    .tag(modul)
-                            } else {
-                                elternZeile(modul)
-                                if offen.contains(modul) {
-                                    ForEach(modul.kinder) { kind in
-                                        Label(kind.titel, systemImage: kind.symbol)
-                                            .padding(.leading, 18)
-                                            .tag(kind)
-                                    }
-                                }
-                            }
-                        }
+                    // Zwei getrennte Initializer statt eines `header:`-Closures mit `if let`:
+                    // ein leerer Header-ViewBuilder erzeugt in der Sidebar-`List` sonst eine
+                    // sichtbare Leerzeile über der ersten Zeile.
+                    if let titel = gruppe.titel {
+                        Section(titel) { zeilen(gruppe) }
+                    } else {
+                        Section { zeilen(gruppe) }
                     }
                 }
                 #if !APPSTORE
@@ -235,6 +237,26 @@ struct ContentView: View {
     }
 
     // MARK: Sidebar-Untermenü
+
+    /// Die Zeilen einer Sidebar-Gruppe: Module mit Unterpunkten als aufklappbare Eltern-Zeile,
+    /// alle anderen als einfache getaggte Zeile.
+    @ViewBuilder private func zeilen(_ gruppe: ModulGruppe) -> some View {
+        ForEach(gruppe.module) { modul in
+            if modul.kinder.isEmpty {
+                Label(modul.titel, systemImage: modul.symbol)
+                    .tag(modul)
+            } else {
+                elternZeile(modul)
+                if offen.contains(modul) {
+                    ForEach(modul.kinder) { kind in
+                        Label(kind.titel, systemImage: kind.symbol)
+                            .padding(.leading, 18)
+                            .tag(kind)
+                    }
+                }
+            }
+        }
+    }
 
     /// Aufgeklappte Eltern-Module.
     private var offen: Set<Modul> {

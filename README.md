@@ -87,20 +87,11 @@ bewusst beachtet werden:
 
 ## Funktionen
 
-**Arbeitsfläche**
-- **Übersicht (Dashboard):** Betrieblicher Gewinn, Frei verfügbar, Steuerrücklage;
-  KPIs (offene Rechnungen, USt-Zahllast, Umsatz, nächste Frist); Gewinn-Trend-Chart;
-  automatische Insights.
-- **Kontoauszug:** In-App-Import des Sparkasse-CSV-CAMT-Exports. Jede Bankbewegung wird
-  per Karten-Triage selbst zugeordnet (Einnahme, Betriebsausgabe, privat, KSK, Steuer,
-  Steuererstattung …); die App **lernt** je Gläubiger/Händler die Zuordnung und schlägt
-  sie beim nächsten Mal vor. Auto-Vorsteuer, idempotent (kein Doppelimport), bereits
-  importierte Auszüge lassen sich erneut durchgehen („Neu zuordnen").
-- **Aufgaben:** einmalig / monatlich / quartalsweise / jährlich (Reminders-Logik – beim
-  Abhaken einer wiederkehrenden Aufgabe erscheint automatisch die nächste fällige).
-  Monats- und Jahresabschluss zeigen die fälligen Aufgaben als Sidebar.
+**Übersicht (Dashboard)** – die Einstiegsseite über allen Bereichen
+- Betrieblicher Gewinn, Frei verfügbar, Steuerrücklage; KPIs (offene Rechnungen, USt-Zahllast,
+  Umsatz, nächste Frist); Gewinn-Trend-Chart; automatische Insights.
 
-**Stammdaten**
+**Erfassen**
 - **Einnahmen:** Ausgangsrechnungen (Kunde, netto/USt/brutto, Rechnungs-/Zahlungsdatum,
   Status offen/bezahlt/ausgefallen, sortierbare Rechnungsnummer). Der Status führt
   Zahlungs- und Ausfalldatum automatisch. Beleg per OCR-Drop.
@@ -113,6 +104,14 @@ bewusst beachtet werden:
   buchen) bzw. „Vormonat duplizieren". Vorsorge/Steuern bilden den **Ist**-Ledger (negativer
   Betrag = Erstattung), primär aus dem Kontoauszug-Import. KSK steht damit doppelt: **Soll**
   (Monatswert, im Monatsabschluss unter „Werte" gepflegt) und **Ist** (Abbuchung im Ledger).
+- **Kontoauszug:** In-App-Import des Sparkasse-CSV-CAMT-Exports. Jede Bankbewegung wird
+  per Karten-Triage selbst zugeordnet (Einnahme, Betriebsausgabe, privat, KSK, Steuer,
+  Steuererstattung …); die App **lernt** je Gläubiger/Händler die Zuordnung und schlägt
+  sie beim nächsten Mal vor. Auto-Vorsteuer, idempotent (kein Doppelimport), bereits
+  importierte Auszüge lassen sich erneut durchgehen („Neu zuordnen").
+- **Aufgaben:** einmalig / monatlich / quartalsweise / jährlich (Reminders-Logik – beim
+  Abhaken einer wiederkehrenden Aufgabe erscheint automatisch die nächste fällige).
+  Monats- und Jahresabschluss zeigen die fälligen Aufgaben als Sidebar.
 
 **Auswertungen** (drei Zeithorizonte)
 - **Monatsabschluss:** Monats- und Jahresansicht; Gewinn-Rechnung und Rücklagenkonto
