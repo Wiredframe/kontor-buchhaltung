@@ -60,7 +60,7 @@ Nächste Schritte:
         gh release create v$VERSION "$ZIP" \\
           --title "Kontor $VERSION" \\
           --notes "Kontor $VERSION – kostenlos & quelloffen. Installation siehe README (nicht notarisiert)."
-   2) Homebrew-Cask aktualisieren (Wiredframe/homebrew-kontor → Casks/kontor.rb):
+   2) Homebrew-Cask aktualisieren (Wiredframe/homebrew-tap → Casks/kontor.rb):
         version "$VERSION"
         sha256 "$SHA"
 EOF
