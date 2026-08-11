@@ -43,6 +43,16 @@ struct UStTests {
         // monatlich: Januar → Dezember Vorjahr.
         let monJan = Steuer.ustVzZuordnung(zahlMonat: 1, zahlJahr: 2026, rhythmus: .monatlich, dauerfrist: false)
         #expect(monJan.jahr == 2025 && monJan.notiz == "USt-VA Dez 2025")
+        // monatlich **mit** Dauerfristverlängerung: am 10.1. ist die November-VA fällig, die
+        // Dezember-VA erst am 10.2. Das Jahr bleibt in beiden Fällen das Vorjahr.
+        let monJanDf = Steuer.ustVzZuordnung(zahlMonat: 1, zahlJahr: 2026, rhythmus: .monatlich, dauerfrist: true)
+        #expect(monJanDf.jahr == 2025 && monJanDf.notiz == "USt-VA Nov 2025")
+        let monFebDf = Steuer.ustVzZuordnung(zahlMonat: 2, zahlJahr: 2026, rhythmus: .monatlich, dauerfrist: true)
+        #expect(monFebDf.jahr == 2025 && monFebDf.notiz == "USt-VA Dez 2025")
+        // vierteljährlich bleibt Q4, egal ob 10.1. (ohne) oder 10.2. (mit Dauerfrist).
+        #expect(
+            Steuer.ustVzZuordnung(zahlMonat: 2, zahlJahr: 2026, rhythmus: .vierteljaehrlich, dauerfrist: true).notiz
+                == "USt-VA Q4 2025")
         // monatlich, März (außerhalb des Fälligkeitsfensters) → laufendes Jahr.
         #expect(
             Steuer.ustVzZuordnung(zahlMonat: 3, zahlJahr: 2026, rhythmus: .monatlich, dauerfrist: false).jahr == 2026)

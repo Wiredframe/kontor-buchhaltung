@@ -202,13 +202,24 @@ enum Steuer {
     /// Die letzte VA eines Jahres (Q4 bzw. Dezember) wird erst im Folgejahr gezahlt – fällig 10.1.
     /// (ohne) bzw. 10.2. (mit **Dauerfristverlängerung**). Eine Zahlung in diesem Fenster zählt zum
     /// **Vorjahr**. `rhythmus`/`dauerfrist` kommen aus den `YearSettings` des Vorjahres.
+    ///
+    /// Der benannte Zeitraum hängt bei **monatlicher** Abgabe zusätzlich am Zahlungsmonat: Die
+    /// Dauerfristverlängerung schiebt jede Voranmeldung um einen Monat, am 10.1. ist dann die
+    /// **November**-VA fällig und erst am 10.2. die Dezember-VA. Vierteljährlich gibt es diese
+    /// Unterscheidung nicht – Q4 ist der einzige Zeitraum, der ins Folgejahr fällt, egal ob er
+    /// am 10.1. oder am 10.2. fällig wird. Das **Jahr** ist in allen Fällen dasselbe (Vorjahr);
+    /// abweichen kann nur der Zeitraum in der Notiz.
     static func ustVzZuordnung(zahlMonat: Int, zahlJahr: Int, rhythmus: UStVARhythmus, dauerfrist: Bool)
         -> (jahr: Int, notiz: String)
     {
         let faelligMonat = dauerfrist ? 2 : 1
         guard zahlMonat <= faelligMonat else { return (zahlJahr, "") }
         let jahr = zahlJahr - 1
-        let zeitraum = rhythmus == .monatlich ? "Dez" : "Q4"
+        let zeitraum: String =
+            switch rhythmus {
+            case .monatlich: (dauerfrist && zahlMonat == 1) ? "Nov" : "Dez"
+            case .vierteljaehrlich: "Q4"
+            }
         return (jahr, "USt-VA \(zeitraum) \(jahr)")
     }
 
