@@ -3,11 +3,18 @@
 # release-appstore.sh — Kontor als Mac-App-Store-Build archivieren.
 #
 # Unterschied zum normalen `release.sh` (GitHub/Homebrew, ad-hoc signiert):
-#   * Compiler-Flag APPSTORE  -> schliesst per `#if !APPSTORE` den MCP-Server
-#     (Rejection Guideline 2.4.5, network.server) UND jeden Spendenaufruf
-#     (Guideline 3.1.1) vollstaendig aus.
-#   * Entitlements OHNE network.server: Kontor/Kontor-AppStore.entitlements.
+#   * Compiler-Flag APPSTORE  -> schliesst per `#if !APPSTORE` jeden Spendenaufruf
+#     aus (Guideline 3.1.1). **Der MCP-Server bleibt drin**: seit 2.2 ist er auch im
+#     Store-Build enthalten, erklaert durch die Review-Notes (Loopback, Token, Opt-in,
+#     In-App-Selbsttest). Die frueheren 2.4.5-Rueckfragen waren Metadaten-Rueckfragen,
+#     keine harte Rejection.
+#   * Eigene Entitlements: Kontor/Kontor-AppStore.entitlements -- **mit** network.server
+#     (der MCP braucht ihn), ohne die uebrigen Dev-Eintraege.
 #   * Ergebnis ist ein .xcarchive + ein hochladbares .pkg -- KEIN ad-hoc-ZIP.
+#
+# Achtung: `-exportArchive` braucht einen in **Xcode angemeldeten** Account (Cloud-Signing).
+# Ohne Login bricht es mit "No Accounts" ab; der ASC-API-Key allein genuegt nicht, er hat
+# keine Cloud-Signing-Rechte ("Cloud signing permission error").
 #
 # Der Upload zu App Store Connect passiert bewusst NICHT hier: er braucht ein
 # "Apple Distribution"-Zertifikat + ASC-Zugang. Am einfachsten per Xcode:

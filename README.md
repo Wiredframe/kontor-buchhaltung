@@ -27,10 +27,9 @@ Kontor ist **kostenlos & quelloffen** und auf **drei Wegen** installierbar – �
 
 **[Kontor Buchhaltung im App Store laden →](https://apps.apple.com/app/kontor-buchhaltung/id6788498504)**
 
-Signiert, automatische Updates, kein Gatekeeper-Umweg. Diese Variante ist bewusst **schlank**:
-**ohne** den optionalen MCP-Server (KI-Zugriff) und ohne In-App-Spende – ansonsten identisch. Wer den
-[KI-Zugriff (MCP)](#funktionen) nutzen will, nimmt den GitHub- oder Homebrew-Build unten. (App Store
-derzeit nur auf Deutsch.)
+Signiert, automatische Updates, kein Gatekeeper-Umweg. Funktional identisch zu den anderen beiden
+Wegen, **inklusive** [KI-Zugriff (MCP)](#funktionen); es fehlt allein der Spendenhinweis (App-Store-
+Richtlinie 3.1.1). (App Store derzeit nur auf Deutsch.)
 
 ### 2. GitHub-Release (voller Funktionsumfang, inkl. MCP)
 
@@ -139,7 +138,7 @@ bewusst beachtet werden:
   erhalten (Dashboard zeigt stets „heute").
 - **Backup:** tägliches Auto-Backup (JSON, letzte 14 Tage), manueller Export/Import
   (dedupliziert, ohne Überschreiben) sowie Komplett-Backup samt Belegen.
-- **KI-Zugriff (MCP, optional – nicht in der App-Store-Variante):** schlanker lokaler MCP-Server (HTTP/JSON-RPC auf
+- **KI-Zugriff (MCP, optional, in allen drei Varianten):** schlanker lokaler MCP-Server (HTTP/JSON-RPC auf
   `127.0.0.1`, Bearer-Token, nur Loopback) für externe Clients wie Claude Code –
   einschaltbar unter Einstellungen → KI-Zugriff. **Tokensparend** ausgelegt: wenige
   grobe Tools, Antworten sind fertige Engine-Zahlen bzw. dichte CSV statt Rohzeilen.
