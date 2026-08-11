@@ -178,7 +178,11 @@ struct AusgabenView: View {
     private func konsumiereZiel() {
         guard let ziel = nav.ausgabenZiel else { return }
         artFilter = ziel.art ?? .alle
-        sparte = ziel.betrieblich.map { $0 ? .betrieblich : .privat } ?? .alle
+        // Vorsorge/Steuern haben keine Sparte und erscheinen nur bei Sparte „Alle“ (siehe
+        // `zeilen`). Ein mitgegebener Sparte-Wunsch ließe die Tabelle dort leer laufen –
+        // deshalb hier ignorieren statt sich auf `onChange(of: artFilter)` zu verlassen,
+        // das bei bereits passendem Art-Filter gar nicht feuert.
+        sparte = artFilter.hatSparte ? (ziel.betrieblich.map { $0 ? .betrieblich : .privat } ?? .alle) : .alle
         nav.ausgabenZiel = nil
     }
 

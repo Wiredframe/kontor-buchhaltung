@@ -237,6 +237,20 @@ final class ExpenseEntry {
     /// Effektive Art (Altbestand ohne `art` = Betriebsausgabe).
     var artEffektiv: AusgabeArt { art ?? .betriebsausgabe }
 
+    /// Erzwingt die Invariante **„Steuerart ohne Vorsteuerabzug ⇒ `vst` = 0"**.
+    ///
+    /// Reverse-Charge (§13b) und steuerfreie Ausgaben ziehen keine Inland-Vorsteuer. Bliebe beim
+    /// Wechsel der Steuerart ein Altwert stehen, zählte ihn KZ 66 als Vorsteuer, die es nicht
+    /// gibt – bei §13b **zusätzlich** zu KZ 67, der Abzug stünde also doppelt in der
+    /// Voranmeldung, und `netto` (= brutto − vst) fiele in der EÜR zu niedrig aus.
+    ///
+    /// Die Editoren erzwingen das schon beim Tippen (`AusgabenView`, `BelegBatchView`, `BelegOCR`);
+    /// diese Methode ist der gemeinsame Haltepunkt für Pfade **ohne** UI – allen voran den
+    /// MCP-Schreibzugriff, der die Felder einzeln setzt.
+    func normalisiereVorsteuer() {
+        if !steuerart.ziehtVorsteuer { vst = 0 }
+    }
+
     init(
         datum: Date,
         bezeichnung: String,

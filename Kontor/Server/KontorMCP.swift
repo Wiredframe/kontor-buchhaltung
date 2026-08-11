@@ -585,7 +585,7 @@ enum KontorMCP {
                 throw fehlt("ausgaben", "datum, bezeichnung, brutto")
             }
             let st: Steuerart = enumWert(f["steuerart"]) ?? .inland19
-            obj = ExpenseEntry(
+            let neueAusgabe = ExpenseEntry(
                 datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
                 brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
                 steuerart: st,
@@ -602,6 +602,9 @@ enum KontorMCP {
                 // dokumentieren nur die Originalrechnung.
                 fremdwaehrung: (f["waehrung"] as? String)?.uppercased(),
                 fremdBetrag: dezArg(f["fremdbetrag"]) ?? 0)
+            // Ein mitgegebenes `vst` darf die Steuerart nicht aushebeln (§13b/steuerfrei = 0).
+            neueAusgabe.normalisiereVorsteuer()
+            obj = neueAusgabe
         case "fixkosten", "subscriptions", "subscription":
             guard let bez = f["bezeichnung"] as? String,
                 let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"]),
@@ -609,12 +612,14 @@ enum KontorMCP {
             else { throw fehlt(typ, "bezeichnung, betrag, datum") }
             let st: Steuerart = enumWert(f["steuerart"]) ?? .steuerfrei
             let zielArt: AusgabeArt = (typ == "fixkosten") ? .fixkosten : .subscription
-            obj = ExpenseEntry(
+            let neueBuchung = ExpenseEntry(
                 datum: dat, bezeichnung: bez, anbieter: f["anbieter"] as? String ?? "",
                 brutto: brutto, vst: dezArg(f["vst"]) ?? Steuer.vorsteuerVorschlag(brutto: brutto, steuerart: st),
                 steuerart: st,
                 betrieblich: f["betrieblich"] as? Bool ?? false,
                 umlagefaehig: f["umlagefaehig"] as? Bool ?? false, art: zielArt)
+            neueBuchung.normalisiereVorsteuer()
+            obj = neueBuchung
         case "vorlagen", "vorlage":
             guard let bez = f["bezeichnung"] as? String,
                 let brutto = dezArg(f["betrag"]) ?? dezArg(f["betragBrutto"]) ?? dezArg(f["brutto"])
@@ -719,6 +724,9 @@ enum KontorMCP {
             if hat("rechnungsnummer") { o.rechnungsnummer = f["rechnungsnummer"] as? String }
             if hat("waehrung") { o.fremdwaehrung = (f["waehrung"] as? String)?.uppercased() }
             if let v = dezArg(f["fremdbetrag"]) { o.fremdBetrag = v }
+            // Steuerart und `vst` werden hier einzeln gesetzt: ohne diesen Abschluss bliebe beim
+            // Wechsel auf Reverse-Charge/steuerfrei die alte Vorsteuer stehen.
+            o.normalisiereVorsteuer()
         case "fixkosten", "subscriptions", "subscription", "fixkosten_eintrag":
             let o = try modell(ExpenseEntry.self, id: id, ctx)
             if let v = datum(f["datum"]) { o.datum = v }
@@ -730,6 +738,7 @@ enum KontorMCP {
             if let v = f["betrieblich"] as? Bool { o.betrieblich = v }
             if let v = f["umlagefaehig"] as? Bool { o.umlagefaehig = v }
             if let v = f["art"] as? String, let a = AusgabeArt(rawValue: v) { o.art = a }
+            o.normalisiereVorsteuer()
         case "vorlagen", "vorlage":
             let o = try modell(Vorlage.self, id: id, ctx)
             if let v = f["bezeichnung"] as? String { o.bezeichnung = v }

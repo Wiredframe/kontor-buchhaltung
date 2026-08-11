@@ -39,7 +39,11 @@ struct JahresEURView: View {
 
             Panel(
                 titel: "Vorsteuer im Jahr",
-                aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, betrieblich: true, zeit: zeit) }
+                // Der Link folgt der Wirkung, nicht der Herkunft: die Vorsteuer mindert die
+                // USt-Zahllast, deshalb landet man bei den Steuerzahlungen im Ledger – wie von
+                // der Umsatz- und der Einkommensteuer-Seite aus. **Ohne** Sparte: Steuerzeilen
+                // zeigt die Tabelle nur bei Sparte „Alle", sonst bliebe sie leer.
+                aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .steuern, zeit: zeit) }
             ) {
                 VStack(spacing: 2) {
                     Kartenzeile(

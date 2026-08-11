@@ -727,6 +727,63 @@ struct MCPServerTests {
         #expect((antwort["result"] as! [String: Any])["isError"] as? Bool == true)
     }
 
+    /// Wechselt eine Ausgabe per MCP auf Reverse-Charge, muss die bisherige Vorsteuer mit
+    /// verschwinden. Sonst zählt KZ 66 eine Vorsteuer, die es nicht gibt – bei §13b **zusätzlich**
+    /// zu KZ 67, der Abzug stünde also doppelt in der Voranmeldung, und `netto` (= brutto − vst)
+    /// fiele in der EÜR zu niedrig aus. Die Editoren erzwingen das beim Tippen, der MCP-Pfad
+    /// setzt die Felder dagegen einzeln.
+    @Test func steuerartwechselOhneVorsteuerNulltDieVorsteuer() async throws {
+        let c = try container()
+        try seed(c)
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 3, 10), bezeichnung: "Steuerartwechsel", anbieter: "Auslandstool",
+                brutto: dez("119"), vst: dez("19"), steuerart: .inland19, art: .betriebsausgabe))
+        try c.mainContext.save()
+
+        let text = await toolText(
+            ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "mit_id": true]]))
+        let zeile = text.split(separator: "\n").map(String.init).first { $0.contains("Steuerartwechsel") }!
+        let id = Bankimport.felder(zeile).last!
+
+        let upd = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": ["typ": "ausgaben", "id": id, "felder": ["steuerart": "reverseCharge"]],
+            ])
+        #expect((upd["result"] as! [String: Any])["isError"] as? Bool == false)
+
+        let e = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+            .first { $0.bezeichnung == "Steuerartwechsel" }
+        #expect(e?.steuerart == .reverseCharge)
+        #expect(e?.vst == 0)
+        #expect(e?.netto == dez("119"))  // volle Ausgabe bleibt in der EÜR
+    }
+
+    /// Dieselbe Invariante beim Anlegen: ein mitgegebenes `vst` darf die Steuerart nicht aushebeln.
+    @Test func anlegenErzwingtVorsteuerNullBeiReverseCharge() async throws {
+        let c = try container()
+        try seed(c)
+        let antwort = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_anlegen",
+                "arguments": [
+                    "typ": "ausgaben",
+                    "felder": [
+                        "datum": "2026-03-10", "bezeichnung": "RC mit Vorsteuer",
+                        "brutto": "35", "steuerart": "reverseCharge", "vst": "5.59",
+                    ],
+                ],
+            ])
+        #expect((antwort["result"] as! [String: Any])["isError"] as? Bool == false)
+        let e = try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>())
+            .first { $0.bezeichnung == "RC mit Vorsteuer" }
+        #expect(e?.vst == 0)
+        #expect(e?.netto == dez("35"))
+    }
+
     @Test func aktualisierenUngueltigeId() async throws {
         let c = try container()
         try seed(c)

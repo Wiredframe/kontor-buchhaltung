@@ -98,6 +98,12 @@ Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
   **Eingabe-Helfer** für die Vorsteuer (KZ 66 summiert satzunabhängig, EÜR nutzt Netto) – deshalb
   **kein** Mischbeleg-/Bucket-Modell wie bei Einnahmen; ein Mischbeleg wird über die tatsächliche VSt
   erfasst (Feld editierbar). `Steuerart.ziehtVorsteuer` = beide Inland-Sätze (steuert das „aus Brutto"-Feld).
+  **Invariante „Steuerart ohne Vorsteuerabzug ⇒ `vst` = 0"** (`ExpenseEntry.normalisiereVorsteuer`):
+  Die Editoren erzwingen sie beim Tippen (`AusgabenView`, `BelegBatchView`, `BelegOCR`), der
+  **MCP-Schreibpfad** setzt die Felder dagegen einzeln und muss sie deshalb am Ende von
+  `anlegen`/`aktualisieren` selbst herstellen. Sonst bleibt beim Wechsel auf §13b/steuerfrei die
+  alte Vorsteuer stehen: KZ 66 zieht sie **zusätzlich** zu KZ 67 (Abzug doppelt in der
+  Voranmeldung), und `netto` = brutto − vst fällt in der EÜR zu niedrig aus.
 - **Reverse-Charge (§13b, Auslands-Tools):** USt 19 % in **KZ 84 (netto) / KZ 85 (USt)**,
   zugleich als Vorsteuer abziehbar → USt-Saldo 0. **Aber:** der Netto-Betrag bleibt eine
   abziehbare Betriebsausgabe in der EÜR (z. B. Figma 35 € = echte Ausgabe).
