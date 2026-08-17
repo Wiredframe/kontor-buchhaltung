@@ -12,17 +12,32 @@ import Foundation
 // sich bewährt haben:
 //
 // 1. **Ohne Betrags- oder Nummernsignal kein Kandidat.** Name und Datum allein reichen nie.
-// 2. **Das Datumsfenster ist Ausschluss, nicht nur Abzug** (außer die Nummer trifft). Sonst
-//    fände die monatlich gleiche Miete oder Subscription den Vormonatseintrag, und
-//    „Überschreiben" verschöbe eine echte Buchung in den falschen Monat.
+// 2. **Das Datumsfenster ist Ausschluss, nicht nur Abzug.** Sonst fände die monatlich gleiche
+//    Miete oder Subscription den Vormonatseintrag, und „Überschreiben" verschöbe eine echte
+//    Buchung in den falschen Monat.
 //
 // Die Asymmetrie dahinter: ein falsches Überschreiben zerstört Daten, ein verpasster Treffer
 // legt nur eine löschbare Dublette an. Im Zweifel also lieber kein Vorschlag.
+//
+// **Die Nummer ist ein starkes Signal, aber kein Freibrief.** Sie darf das enge Datumsfenster
+// weiten (eine vorab per PDF erfasste Rechnung wird Wochen später abgebucht), nicht aber beide
+// Filter gleichzeitig abschalten. Genau das ging einmal schief: eine Belegerkennung hatte aus
+// einer Tabellen-Kopfzeile die Spaltenüberschrift „Kunden-Nr" als Rechnungsnummer gespeichert.
+// Der Schlüssel „KUNDENNR" steckt in jedem SEPA-Verwendungszweck, der „Kunden-Nr." schreibt –
+// eine Stromabschlags-Lastschrift traf damit eine dreiviertel Jahr alte Rechnung über den
+// sechzehnfachen Betrag und überschrieb sie. Daher drei Leitplanken um den Nummerntreffer:
+// ein Schlüssel ohne Ziffern ist keine Nummer (`nummernSchluessel`), das geweitete Fenster ist
+// endlich (`fensterTageNummer`), und ohne bestätigenden Betrag muss die Größenordnung stimmen
+// (`nummerBetragsToleranz`).
 
 /// Punktzahl eines Kandidaten samt der Signale, die dazu geführt haben.
 struct Trefferbewertung: Equatable {
     var punkte: Int
     var gruende: [String]
+    /// Stützt ein **Betragssignal** den Treffer (exakt oder in Fremdwährungs-Toleranz)? Ein
+    /// Treffer allein aus der Rechnungsnummer ist plausibel genug fürs Menü, aber nicht dafür,
+    /// ihn ungefragt als Überschreib-Ziel vorzuwählen.
+    var betragBestaetigt: Bool = false
 
     /// Für die Anzeige in der Import-Karte („Rechnungsnummer, Betrag exakt, 2 Tage").
     var begruendung: String { gruende.joined(separator: ", ") }
@@ -77,20 +92,38 @@ enum Treffersuche {
     /// Fenster für Fremdwährungs-Einträge: zwischen Rechnung und Abbuchung liegen dort
     /// regelmäßig ein bis zwei Wochen.
     static let fensterTageFremd = 14
+    /// Fenster, auf das ein **Nummerntreffer** das enge Fenster weitet. Eine vorab per PDF
+    /// erfasste Rechnung wird Wochen bis Monate später abgebucht – aber nie ein Dreivierteljahr.
+    /// Vorher hob die Nummer das Fenster **unbegrenzt** auf; das war der Weg, auf dem ein
+    /// Zufallstreffer eine Buchung aus einer ganz anderen Periode überschrieb.
+    static let fensterTageNummer = 180
     /// Zulässige Betragsabweichung bei Fremdwährung (Kurs plus Auslandsentgelt).
     static let toleranzFremd = dez("0.05")
+    /// Wie weit der Betrag höchstens abweichen darf, wenn **nur** die Nummer trifft. Rechnung und
+    /// Abbuchung differieren allenfalls um Gebühren oder eine Teilzahlung – ein Sprung um ein
+    /// Vielfaches ist kein Zahlungsvorgang, sondern eine Kollision im Verwendungszweck.
+    static let nummerBetragsToleranz = dez("0.5")
 
     // MARK: Bausteine
+
+    /// Wie viele Ziffern ein Nummern-Schlüssel mindestens tragen muss, um als Rechnungsnummer
+    /// durchzugehen.
+    static let mindestZiffern = 4
 
     /// Alphanumerisch normalisierter Nummern-Schlüssel; `nil`, wenn er zu unspezifisch ist.
     ///
     /// Reine Ziffernfolgen brauchen 5 Stellen: vierstellige Nummern treffen in einem
     /// Verwendungszweck mit Datum und Betrag praktisch zufällig. Nummern mit Buchstaben sind
     /// spezifisch genug ab 4 Zeichen.
+    ///
+    /// **Und immer mindestens vier Ziffern.** Eine „Rechnungsnummer" ohne eine einzige Ziffer ist
+    /// keine, sondern ein von der Belegerkennung eingefangenes Label – „Kunden-Nr", „Rechnung",
+    /// „Invoice No". Als Schlüssel gelesen (`KUNDENNR`) trifft so etwas jeden Verwendungszweck,
+    /// der dasselbe Wort führt, und riss damit die beiden Schutzfilter der Bewertung ein.
     static func nummernSchluessel(_ s: String?) -> String? {
         guard let s else { return nil }
         let key = s.uppercased().filter { $0.isLetter || $0.isNumber }
-        guard !key.isEmpty else { return nil }
+        guard !key.isEmpty, key.filter(\.isNumber).count >= mindestZiffern else { return nil }
         let hatBuchstaben = key.contains(where: \.isLetter)
         return key.count >= (hatBuchstaben ? 4 : 5) ? key : nil
     }
@@ -138,8 +171,14 @@ enum Treffersuche {
     // MARK: Bewertung
 
     /// Bewertet einen Kandidaten. `nil` = kommt nicht in Frage.
+    ///
+    /// `nummerBrauchtBetrag` schaltet die Größenordnungs-Prüfung für den reinen Nummerntreffer.
+    /// Sie gehört dorthin, wo ein Treffer den Datensatz **überschreibt** (Ausgaben). Bei
+    /// Einnahmen wird nur „bezahlt" gesetzt, nichts zerstört – und eine Anzahlung weicht dort
+    /// legitim weit vom Rechnungsbetrag ab.
     static func bewerte(
-        _ k: Trefferkandidat, gegen s: Treffersuchbild, fensterTage: Int = fensterTage
+        _ k: Trefferkandidat, gegen s: Treffersuchbild, fensterTage: Int = fensterTage,
+        nummerBrauchtBetrag: Bool = true
     ) -> Trefferbewertung? {
         var punkte = 0
         var gruende: [String] = []
@@ -171,10 +210,18 @@ enum Treffersuche {
         }
         guard hatBetragssignal || nummerTrifft else { return nil }
 
-        // Datumsfenster: harter Ausschluss, sofern die Nummer nicht trifft.
+        // Trägt **nur** die Nummer den Treffer, muss wenigstens die Größenordnung stimmen: sonst
+        // zieht eine Ziffern-/Wortkollision im Verwendungszweck eine völlig fremde Rechnung heran.
+        if nummerTrifft, !hatBetragssignal, nummerBrauchtBetrag {
+            guard let ab = abweichung(k.betrag, s.betrag), ab <= nummerBetragsToleranz else { return nil }
+        }
+
+        // Datumsfenster: harter Ausschluss. Die Nummer **weitet** es (Vorab-Erfassung per PDF),
+        // hebt es aber nicht auf – unbegrenzt war es der Weg in die falsche Periode.
         let tage = abs(k.datum.timeIntervalSince(s.datum)) / 86_400
-        let imFenster = tage <= Double(k.istFremdwaehrung ? max(fensterTage, fensterTageFremd) : fensterTage)
-        if !imFenster, !nummerTrifft { return nil }
+        let eigenesFenster = k.istFremdwaehrung ? max(fensterTage, fensterTageFremd) : fensterTage
+        let imFenster = tage <= Double(eigenesFenster)
+        guard imFenster || (nummerTrifft && tage <= Double(fensterTageNummer)) else { return nil }
         if imFenster {
             let gerundet = Int(tage.rounded())
             punkte += tage <= 3 ? punkteDatumNah : punkteDatumFenster
@@ -191,7 +238,7 @@ enum Treffersuche {
         }
 
         guard punkte >= mindestpunkte else { return nil }
-        return Trefferbewertung(punkte: punkte, gruende: gruende)
+        return Trefferbewertung(punkte: punkte, gruende: gruende, betragBestaetigt: hatBetragssignal)
     }
 
     /// Die besten Kandidaten aus einer Liste, absteigend nach Punkten. Bei Gleichstand gewinnt
@@ -199,12 +246,15 @@ enum Treffersuche {
     /// (SwiftData liefert sie unsortiert).
     static func beste<T>(
         _ liste: [T], gegen s: Treffersuchbild, fensterTage: Int = fensterTage,
-        maximal: Int = 3, merkmale: (T) -> Trefferkandidat
+        nummerBrauchtBetrag: Bool = true, maximal: Int = 3, merkmale: (T) -> Trefferkandidat
     ) -> [(kandidat: T, bewertung: Trefferbewertung)] {
         liste
             .compactMap { element -> (T, Trefferkandidat, Trefferbewertung)? in
                 let k = merkmale(element)
-                guard let b = bewerte(k, gegen: s, fensterTage: fensterTage) else { return nil }
+                guard
+                    let b = bewerte(
+                        k, gegen: s, fensterTage: fensterTage, nummerBrauchtBetrag: nummerBrauchtBetrag)
+                else { return nil }
                 return (element, k, b)
             }
             .sorted { links, rechts in

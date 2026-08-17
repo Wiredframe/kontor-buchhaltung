@@ -20,6 +20,29 @@ final class ImportZeile: Identifiable {
     /// Begründung des gerade gewählten Ziels („Rechnungsnummer, Betrag exakt, 2 Tage").
     var gewaehlt: ImportAnwendung.Kandidat? { kandidaten.first { $0.id == zielId } }
 
+    /// Wie stark das Überschreiben den gewählten Datensatz verändern würde – `nil`, wenn nichts
+    /// gewählt ist oder die Abweichung im Rahmen liegt.
+    ///
+    /// Ein Überschreiben zerstört den alten Stand ohne Undo. Solange die Begründung nur als graue
+    /// Kleinschrift danebensteht, ist genau das leicht zu übersehen: eine Zeile zeigt prominent
+    /// „E.ON · −46,00 €", das Ziel dahinter war eine dreiviertel Jahr alte Rechnung über den
+    /// sechzehnfachen Betrag.
+    var warnung: String? {
+        guard let k = gewaehlt else { return nil }
+        var teile: [String] = []
+        let neu = abs(buchung.betrag)
+        if k.betrag != neu, Treffersuche.abweichung(k.betrag, neu).map({ $0 > dez("0.2") }) ?? true {
+            teile.append("ändert \(k.betrag.euro) → \(neu.euro)")
+        }
+        let tage = abs(k.datum.timeIntervalSince(buchung.buchungstag)) / 86_400
+        if tage > 31 {
+            teile.append(
+                "verschiebt \(k.datum.formatted(date: .numeric, time: .omitted)) → "
+                    + buchung.buchungstag.formatted(date: .numeric, time: .omitted))
+        }
+        return teile.isEmpty ? nil : teile.joined(separator: " · ")
+    }
+
     init(_ b: Bankbuchung, zuordnung: Zuordnung, bereitsImportiert: Bool) {
         self.buchung = b
         self.zuordnung = zuordnung
@@ -71,10 +94,7 @@ struct ImportView: View {
                     ImportZeileRow(
                         zeile: zeile,
                         buchen: { anwenden(zeile, $0) },
-                        zielNeuBerechnen: {
-                            zeile.kandidaten = ImportAnwendung.kandidaten(zeile.buchung, zeile.zuordnung, context)
-                            zeile.zielId = zeile.kandidaten.first?.id
-                        })
+                        zielNeuBerechnen: { neuBerechnen(zeile) })
                 }
                 .listStyle(.inset)
             }
@@ -157,6 +177,19 @@ struct ImportView: View {
 
     // MARK: - Aktionen
 
+    /// Kandidaten einer Zeile (neu) bestimmen und ein Ziel **nur dann** vorwählen, wenn ein
+    /// Betragssignal es stützt.
+    ///
+    /// Vorher gewann immer `kandidaten.first`: der Primärbutton hieß damit sofort „Überschreiben"
+    /// und zerstörte auf einen Klick einen fremden Datensatz, wenn das Scoring danebenlag. Ein
+    /// unbestätigter Treffer bleibt jetzt im Menü wählbar, der Button sagt aber „Buchen" – im
+    /// Zweifel entsteht eine löschbare Dublette statt eines stillen Datenverlusts (dieselbe
+    /// Asymmetrie, die `Treffersuche` im Kopfkommentar begründet).
+    private func neuBerechnen(_ zeile: ImportZeile) {
+        zeile.kandidaten = ImportAnwendung.kandidaten(zeile.buchung, zeile.zuordnung, context)
+        zeile.zielId = zeile.kandidaten.first.flatMap { $0.betragBestaetigt ? $0.id : nil }
+    }
+
     private func waehleCSV() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -198,8 +231,7 @@ struct ImportView: View {
                 let z = ImportVorschlag.fuer(b, regeln: regeln)
                 let zeile = ImportZeile(
                     b, zuordnung: z, bereitsImportiert: ImportAnwendung.schonVerarbeitet(b, context))
-                zeile.kandidaten = ImportAnwendung.kandidaten(b, z, context)
-                zeile.zielId = zeile.kandidaten.first?.id
+                neuBerechnen(zeile)
                 return zeile
             }
         dateiName = name
@@ -229,6 +261,7 @@ struct ImportView: View {
         for zeile in zeilen where zeile.erledigt {
             zeile.erledigt = false
             zeile.ergebnis = nil
+            neuBerechnen(zeile)
         }
         status = "\(zeilen.count) Buchungen zur erneuten Zuordnung geöffnet."
     }
@@ -237,6 +270,11 @@ struct ImportView: View {
         do {
             zeile.ergebnis = try ImportAnwendung.anwenden(zeile.buchung, zeile.zuordnung, aktion: aktion, context)
             zeile.erledigt = true
+            // Kandidaten der übrigen Zeilen stammen vom Ladezeitpunkt und kennen den eben
+            // angelegten oder geänderten Datensatz nicht. Ohne diese Runde konnten zwei Zeilen
+            // nacheinander **dasselbe** Ziel überschreiben, und ein erneutes Buchen nach einem
+            // „neu anlegen" legte eine Dublette an – obwohl der Hilfetext das Gegenteil verspricht.
+            for offen in zeilen where !offen.erledigt { neuBerechnen(offen) }
         } catch {
             status = "Fehler: \(error.localizedDescription)"
             NSSound.beep()
@@ -269,6 +307,10 @@ private struct ImportZeileRow: View {
                 if !zeile.erledigt, let k = zeile.gewaehlt {
                     Label("\(k.titel) · \(k.detail) · \(k.begruendung)", systemImage: "arrow.turn.down.right")
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    if let warnung = zeile.warnung {
+                        Label(warnung, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption2).foregroundStyle(.orange).lineLimit(1)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,6 +328,7 @@ private struct ImportZeileRow: View {
                     Button("Neu zuordnen") {
                         zeile.erledigt = false
                         zeile.ergebnis = nil
+                        zielNeuBerechnen()  // sonst zeigt die Zeile die Kandidaten vom Ladezeitpunkt
                     }
                     .controlSize(.small)
                     .help("Diese Buchung erneut zuordnen (z. B. zuvor ignoriert)")

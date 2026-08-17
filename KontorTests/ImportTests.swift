@@ -483,15 +483,100 @@ struct ImportTests {
     }
 
     @Test func nummernSchluesselUndTreffer() {
-        // Reine Ziffern brauchen 5 Stellen, mit Buchstaben genügen 4.
+        // Reine Ziffern brauchen 5 Stellen, mit Buchstaben genügen 4 Zeichen – aber immer
+        // mindestens 4 Ziffern.
         #expect(Treffersuche.nummernSchluessel("1234") == nil)
         #expect(Treffersuche.nummernSchluessel("12345") == "12345")
-        #expect(Treffersuche.nummernSchluessel("RE-42") == "RE42")
+        #expect(Treffersuche.nummernSchluessel("RE-42") == nil)  // nur 2 Ziffern
+        #expect(Treffersuche.nummernSchluessel("RE-4242") == "RE4242")
         #expect(Treffersuche.nummernSchluessel(nil) == nil)
+        // Ein Label ist keine Rechnungsnummer: als Schlüssel gelesen träfe „KUNDENNR" jeden
+        // Verwendungszweck, der das Wort führt (siehe `labelAlsRechnungsnummerTrifftNicht`).
+        #expect(Treffersuche.nummernSchluessel("Kunden-Nr") == nil)
+        #expect(Treffersuche.nummernSchluessel("Rechnung") == nil)
+        #expect(Treffersuche.nummernSchluessel("Invoice No") == nil)
         // Trennzeichen dürfen den Treffer nicht verhindern.
         #expect(Treffersuche.nummerTrifft("RE-2026-0042", in: "Zahlung RE 2026 0042 danke"))
         #expect(Treffersuche.nummerTrifft("2026-00042", in: "Ref 202600042"))
         #expect(!Treffersuche.nummerTrifft("1234", in: "Rechnung 1234"))  // zu unspezifisch
+    }
+
+    /// Regression: Die Belegerkennung hatte aus einer Tabellen-Kopfzeile die Spaltenüberschrift
+    /// „Kunden-Nr" als Rechnungsnummer gespeichert. Der daraus gebaute Schlüssel „KUNDENNR" steckt
+    /// in jedem SEPA-Verwendungszweck, der „Kunden-Nr." schreibt – eine Stromabschlags-Lastschrift
+    /// über 46 € traf damit eine dreiviertel Jahr alte Rechnung über 749,66 € und überschrieb sie
+    /// (Betrag, Datum, Steuerart, betrieblich), während Bezeichnung und Anbieter stehen blieben und
+    /// den Schaden tarnten.
+    @Test func labelAlsRechnungsnummerTrifftNicht() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2025, 12, 7), bezeichnung: "Bueroshop", anbieter: "Bueroshop",
+                brutto: dez("749.66"), vst: dez("119.69"), steuerart: .inland19,
+                rechnungsnummer: "Kunden-Nr"))
+        try c.mainContext.save()
+        let b = buchung(
+            "-46,00", text: "FOLGELASTSCHRIFT", name: "Stromanbieter AG",
+            zweck: "Abschlag (Strom) August / 2026 Kunden-Nr. 99999999 / 88888888",
+            monat: 8, am: 14)
+        let z = Zuordnung(kategorie: .fixkosten, betrieblich: false)
+        #expect(ImportAnwendung.kandidaten(b, z, c.mainContext).isEmpty)
+        #expect(ImportAnwendung.ziel(b, z, c.mainContext) == nil)
+    }
+
+    /// Der Nummerntreffer weitet das enge Datumsfenster, hebt es aber nicht auf: eine vorab per
+    /// PDF erfasste Rechnung wird Wochen später abgebucht – nie ein Dreivierteljahr.
+    @Test func nummerWeitetFensterNurEndlich() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 1, 5), bezeichnung: "Werkzeug", anbieter: "Werkzeug",
+                brutto: dez("119"), vst: dez("19"), steuerart: .inland19,
+                rechnungsnummer: "RE-2026-0042"))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        let zweck = "Rechnung RE-2026-0042"
+        // 65 Tage später: weit außerhalb der 5 Tage, aber plausibel → Treffer.
+        #expect(!ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 3, am: 11), z, c.mainContext).isEmpty)
+        // 249 Tage später: jenseits von `fensterTageNummer` → kein Treffer mehr.
+        #expect(ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 9, am: 11), z, c.mainContext).isEmpty)
+    }
+
+    /// Trägt nur die Nummer den Treffer, muss wenigstens die Größenordnung stimmen – sonst zieht
+    /// eine Ziffernkollision im Verwendungszweck eine völlig fremde Rechnung heran.
+    @Test func nummerOhneBetragBrauchtGroessenordnung() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 1), bezeichnung: "Hardware", anbieter: "Hardware",
+                brutto: dez("749.66"), vst: dez("119.69"), steuerart: .inland19,
+                rechnungsnummer: "RE-2026-0042"))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        let zweck = "Rechnung RE-2026-0042"
+        // Faktor 16 daneben → kein Kandidat, obwohl die Nummer trifft.
+        #expect(ImportAnwendung.kandidaten(buchung("-46,00", zweck: zweck, am: 3), z, c.mainContext).isEmpty)
+        // Teilzahlung in derselben Größenordnung → weiterhin ein Kandidat.
+        #expect(!ImportAnwendung.kandidaten(buchung("-520,00", zweck: zweck, am: 3), z, c.mainContext).isEmpty)
+    }
+
+    /// Nur ein betragsgestützter Treffer wird in der UI als Überschreib-Ziel vorgewählt
+    /// (`ImportView.neuBerechnen`); ein reiner Nummerntreffer bleibt eine Option im Menü.
+    @Test func betragBestaetigtUnterscheidetTrefferqualitaet() throws {
+        let c = try container()
+        c.mainContext.insert(
+            ExpenseEntry(
+                datum: tag(2026, 6, 1), bezeichnung: "Hosting", anbieter: "Hosting",
+                brutto: dez("119"), vst: dez("19"), steuerart: .inland19,
+                rechnungsnummer: "RE-2026-0042"))
+        try c.mainContext.save()
+        let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
+        let exakt = ImportAnwendung.kandidaten(buchung("-119,00", name: "Hosting", am: 3), z, c.mainContext)
+        #expect(exakt.first?.betragBestaetigt == true)
+        // Gleiche Nummer, abweichender (aber plausibler) Betrag → Treffer ohne Betragsdeckung.
+        let nurNummer = ImportAnwendung.kandidaten(
+            buchung("-99,00", name: "Hosting", zweck: "Rechnung RE-2026-0042", am: 3), z, c.mainContext)
+        #expect(nurNummer.first?.betragBestaetigt == false)
     }
 
     @Test func ausgabeMatchEngesFenster() throws {

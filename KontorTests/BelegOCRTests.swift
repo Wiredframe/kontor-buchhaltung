@@ -339,6 +339,19 @@ struct BelegOCRTests {
         #expect(BelegOCR.rechnungsnummer(in: ["Rechnung #202605261"]) == "202605261")
     }
 
+    /// Regression: In einer Tabellen-Kopfzeile fand der Regex das erste „Nr" und nahm gierig den
+    /// nächsten Token – die **nächste Spaltenüberschrift** statt eines Werts. Gespeichert wurde
+    /// „Kunden-Nr"; weil dieses Wort in unzähligen SEPA-Verwendungszwecken steht, traf der
+    /// Kontoauszug-Abgleich damit fremde Rechnungen und überschrieb sie. Ein Fehlfund darf die
+    /// Suche außerdem nicht mehr beenden, sondern muss die nächste Zeile zum Zug kommen lassen.
+    @Test func labelIstKeineRechnungsnummer() {
+        #expect(BelegOCR.rechnungsnummer(in: ["Rechnungs-Nr. Kunden-Nr. Auftrags-Nr."]) == nil)
+        #expect(BelegOCR.rechnungsnummer(in: ["Invoice No. Customer No."]) == nil)
+        #expect(
+            BelegOCR.rechnungsnummer(in: ["Rechnungs-Nr. Kunden-Nr.", "Rechnung Nr. 148744256"])
+                == "148744256")
+    }
+
     // MARK: - Optionaler Echtbeleg-Korpus (läuft nur lokal)
 
     /// Misst die Erkennung an **echten** Belegen, ohne dass welche im Repo landen.

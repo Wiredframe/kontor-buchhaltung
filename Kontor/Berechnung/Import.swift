@@ -71,6 +71,14 @@ enum ImportAnwendung {
         var detail: String
         var punkte: Int
         var begruendung: String
+        /// Stützt ein Betragssignal den Treffer? Nur dann wählt die UI ihn ungefragt als
+        /// Überschreib-Ziel vor – ein Treffer allein aus der Rechnungsnummer bleibt eine
+        /// Option im Menü (siehe `Treffersuche`, Kopfkommentar).
+        var betragBestaetigt: Bool = false
+        /// Betrag und Datum des Ziels – die UI warnt damit vor einem Überschreiben, das den
+        /// Datensatz weit verschiebt.
+        var betrag: Decimal = 0
+        var datum: Date = .distantPast
     }
 
     /// Vorhandener Datensatz, der zur Bankzeile+Kategorie passt (für „überschreiben/überspringen"
@@ -101,9 +109,11 @@ enum ImportAnwendung {
             // Rechnungen werden bevorzugt, bezahlte bleiben aber wählbar – sonst fände eine
             // erneut zugeordnete Bankzeile ihre eigene Buchung nicht wieder und legte daneben
             // eine zweite an (derselbe Fehler, den der Steuer-Zweig schon einmal hatte).
+            // `nummerBrauchtBetrag: false` – hier wird nur „bezahlt" gesetzt, nichts überschrieben,
+            // und eine Anzahlung weicht legitim weit vom Rechnungsbetrag ab.
             return Treffersuche.beste(
                 (try? ctx.fetch(FetchDescriptor<Income>())) ?? [], gegen: suchbild,
-                fensterTage: 60, maximal: maximal
+                fensterTage: 60, nummerBrauchtBetrag: false, maximal: maximal
             ) { inc in
                 Trefferkandidat(
                     betrag: inc.brutto, datum: inc.rechnungsdatum, name: inc.kunde,
@@ -115,7 +125,9 @@ enum ImportAnwendung {
                     id: treffer.persistentModelID,
                     titel: treffer.kunde.isEmpty ? "Rechnung" : treffer.kunde,
                     detail: "\(datumText(treffer.rechnungsdatum)) · \(treffer.brutto.euro)",
-                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung,
+                    betragBestaetigt: bewertung.betragBestaetigt,
+                    betrag: treffer.brutto, datum: treffer.rechnungsdatum)
             }
         case .lebensmittel:
             return Treffersuche.beste(
@@ -126,7 +138,9 @@ enum ImportAnwendung {
                 Kandidat(
                     id: treffer.persistentModelID, titel: treffer.ort,
                     detail: "\(datumText(treffer.datum)) · \(treffer.betrag.euro)",
-                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung,
+                    betragBestaetigt: bewertung.betragBestaetigt,
+                    betrag: treffer.betrag, datum: treffer.datum)
             }
         case .anschaffung, .erstattung:
             // Gutschrift = negative Anschaffung; dann über den negierten Preis matchen (Re-Buchung).
@@ -141,7 +155,9 @@ enum ImportAnwendung {
                 Kandidat(
                     id: treffer.persistentModelID, titel: treffer.bezeichnung,
                     detail: "\(datumText(treffer.datum)) · \(treffer.preis.euro)",
-                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung,
+                    betragBestaetigt: bewertung.betragBestaetigt,
+                    betrag: treffer.preis, datum: treffer.datum)
             }
         case .betriebsausgabe, .fixkosten, .subscription:
             // Enges Datumsfenster, außer die Rechnungsnummer trifft: wiederkehrende Kosten
@@ -161,7 +177,9 @@ enum ImportAnwendung {
                     id: treffer.persistentModelID,
                     titel: treffer.bezeichnung.isEmpty ? treffer.anbieter : treffer.bezeichnung,
                     detail: "\(datumText(treffer.datum)) · \(treffer.brutto.euro)",
-                    punkte: bewertung.punkte, begruendung: bewertung.begruendung)
+                    punkte: bewertung.punkte, begruendung: bewertung.begruendung,
+                    betragBestaetigt: bewertung.betragBestaetigt,
+                    betrag: treffer.brutto, datum: treffer.datum)
             }
         case .steuer, .ksk, .steuererstattung, .ignorieren:
             guard let id = zahlungsziel(b, z, ctx) else { return [] }
@@ -169,7 +187,10 @@ enum ImportAnwendung {
                 Kandidat(
                     id: id, titel: z.kategorie.bezeichnung,
                     detail: "\(datumText(b.buchungstag)) · \(betrag.euro)",
-                    punkte: Treffersuche.punkteBetragExakt, begruendung: "vorhandene Zahlung")
+                    punkte: Treffersuche.punkteBetragExakt, begruendung: "vorhandene Zahlung",
+                    // `zahlungsziel` matcht über Steuerart, Steuerjahr und Betrag (bzw. einen
+                    // Termin ohne Betrag) – der Treffer ist betragsseitig gedeckt.
+                    betragBestaetigt: true, betrag: betrag, datum: b.buchungstag)
             ]
         }
     }

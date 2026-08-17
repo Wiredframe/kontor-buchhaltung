@@ -325,18 +325,37 @@ enum BelegOCR {
             let low = z.lowercased()
             guard labels.contains(where: { low.contains($0) }), !verbote.contains(where: { low.contains($0) })
             else { continue }
-            if let r = z.range(of: #"#\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#, options: .regularExpression) {
-                return String(z[r]).replacingOccurrences(of: "#", with: "").trimmingCharacters(in: .whitespaces)
+            if let r = z.range(of: #"#\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#, options: .regularExpression),
+                let n = geprueft(String(z[r]).replacingOccurrences(of: "#", with: ""))
+            {
+                return n
             }
             if let r = z.range(
                 of: #"(?:nr\.?|nummer|number|no\.?)\s*:?\s*[A-Za-z0-9][A-Za-z0-9\-/]*"#,
                 options: [.regularExpression, .caseInsensitive])
             {
                 let s = String(z[r])
-                if let t = s.range(of: #"[A-Za-z0-9\-/]+$"#, options: .regularExpression) { return String(s[t]) }
+                if let t = s.range(of: #"[A-Za-z0-9\-/]+$"#, options: .regularExpression),
+                    let n = geprueft(String(s[t]))
+                {
+                    return n
+                }
             }
         }
         return nil
+    }
+
+    /// Eine Rechnungsnummer ohne Ziffern ist keine, sondern ein eingefangenes **Label**. Genau
+    /// das passierte an einer Tabellen-Kopfzeile („Rechnungs-Nr. Kunden-Nr. Auftrags-Nr."): der
+    /// Regex fand das erste „Nr" und nahm gierig den nächsten Token – die *nächste
+    /// Spaltenüberschrift* statt eines Werts. Gespeichert wurde „Kunden-Nr", und weil dieses Wort
+    /// in unzähligen SEPA-Verwendungszwecken steht, traf der Kontoauszug-Abgleich damit fremde
+    /// Rechnungen und überschrieb sie. Ein Fehlfund beendet die Suche nicht mehr, sondern lässt
+    /// die nächste Zeile zum Zug kommen.
+    private static func geprueft(_ roh: String) -> String? {
+        let n = roh.trimmingCharacters(in: .whitespaces)
+        guard n.count >= Treffersuche.mindestZiffern, n.contains(where: \.isNumber) else { return nil }
+        return n
     }
 
     /// Empfänger (Kunde): Zeile direkt unter der Absender-Zeile („•", kein IBAN/BIC),
