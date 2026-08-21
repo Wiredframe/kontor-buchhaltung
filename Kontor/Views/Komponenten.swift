@@ -223,9 +223,13 @@ func kurzMonat(_ monat: Int) -> String {
 
 /// Zeitraum-Filter für Tabellen-Views: Alle / Jahr / Monat. Kapselt die Filterlogik,
 /// damit alle Views denselben Zustand und dieselbe Semantik nutzen.
+///
+/// **Start-Zustand = aktueller Monat** (nicht „Alle"): Erfassen und Auswerten passieren
+/// fast immer im laufenden Monat, „Alle" war beim App-Start nur eine lange Liste, die man
+/// erst wegfiltern musste. Jahr/Monat stehen ohnehin schon auf heute, der Modus zog nach.
 struct Zeitfilter {
     enum Modus: Hashable { case alle, jahr, monat }
-    var modus: Modus = .alle
+    var modus: Modus = .monat
     var jahr = appKalender.component(.year, from: Date())
     var monat = appKalender.component(.month, from: Date())
 
