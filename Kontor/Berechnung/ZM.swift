@@ -10,7 +10,8 @@ struct ZMZeile: Hashable, Identifiable {
     /// Die Kundennamen hinter dieser UID – nur zur Sichtkontrolle in der App, nicht Teil der Meldung.
     /// Mehr als ein Name ist ein Hinweis auf einen Tippfehler in der UID oder im Kundennamen.
     var kunden: [String]
-    /// Summe der gemeldeten Netto-Beträge (Ausfälle bereits abgezogen).
+    /// Meldebetrag in **vollen Euro** – so nimmt das BZSt-Formular ihn entgegen.
+    /// Ausfälle sind bereits abgezogen.
     var netto: Decimal
     /// Anzahl der eingeflossenen Rechnungen – erklärt, wie die Summe zustande kommt.
     var anzahl: Int
@@ -24,6 +25,7 @@ struct ZMZeile: Hashable, Identifiable {
 /// ZM-Summe von KZ 21 abweicht – und genau diese Differenz ist der Punkt.
 struct ZMLuecke: Hashable, Identifiable {
     var kunde: String
+    /// Ebenfalls in vollen Euro, damit die Rechnung „Summe + Lücke" aufgeht.
     var netto: Decimal
 
     var id: String { kunde }
@@ -42,7 +44,11 @@ struct ZMMeldung: Hashable {
     var ohneUstIdNr: [ZMLuecke]
     /// Summe über alle meldbaren Zeilen (ohne die Rechnungen in `ohneUstIdNr`).
     ///
-    /// Gleich KZ 21 **nur wenn** `istVollstaendig`. Sonst fehlt hier genau `luecke`.
+    /// Deckt sich mit KZ 21 **nur wenn** `istVollstaendig` – sonst fehlt genau `luecke`. Und selbst
+    /// dann kann sie um wenige Euro abweichen: Jede Zeile wird **einzeln** auf volle Euro gekürzt
+    /// (so wird sie gemeldet), KZ 21 kürzt dagegen die Gesamtsumme. Bei zwei Kunden mit je 1.000,50 €
+    /// meldet die ZM 2 × 1.000 €, KZ 21 zeigt 2.001 €. Das ist beiden Formularen inhärent, kein
+    /// Rechenfehler – die View weist die Differenz aus, statt sie zu verstecken.
     var summe: Decimal
 
     /// Was wegen fehlender UID nicht in `summe` steckt – die Differenz zu KZ 21.
@@ -98,11 +104,16 @@ extension Steuer {
 
         let zeilen =
             summen
-            .map { ZMZeile(ustIdNr: $0.key, kunden: $0.value.kunden, netto: $0.value.netto, anzahl: $0.value.anzahl) }
+            .map {
+                ZMZeile(
+                    ustIdNr: $0.key, kunden: $0.value.kunden,
+                    netto: $0.value.netto.volleEuro, anzahl: $0.value.anzahl)
+            }
             .sorted { $0.ustIdNr < $1.ustIdNr }
         return ZMMeldung(
             zeilen: zeilen,
-            ohneUstIdNr: ohne.map { ZMLuecke(kunde: $0.key, netto: $0.value) }.sorted { $0.kunde < $1.kunde },
+            ohneUstIdNr: ohne.map { ZMLuecke(kunde: $0.key, netto: $0.value.volleEuro) }
+                .sorted { $0.kunde < $1.kunde },
             summe: zeilen.reduce(Decimal(0)) { $0 + $1.netto })
     }
 

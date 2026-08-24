@@ -135,16 +135,17 @@ struct UStVAView: View {
                                 UStVAZeile(
                                     kz: "21", label: "Sonstige Leistungen EU-Unternehmer (netto)",
                                     erklaerung:
-                                        "Leistungen an Unternehmer im EU-Ausland: Leistungsort ist beim Kunden (§3a Abs. 2 UStG), "
-                                        + "**er** schuldet die USt. In Deutschland nicht steuerbar – der Betrag wird nur gemeldet, "
-                                        + "nicht besteuert. **Zusätzlich fällig: die Zusammenfassende Meldung** (unten).",
+                                        "Nicht steuerbar – der EU-Kunde schuldet die USt (§3a Abs. 2 UStG). "
+                                        + "**Damit ist es nicht getan: derselbe Umsatz muss zusätzlich in die "
+                                        + "Zusammenfassende Meldung ans BZSt** (§18a, unten). Die beiden ersetzen "
+                                        + "einander nicht.",
                                     wert: e.kz21)
                             }
                             if e.kz45 != 0 {
                                 UStVAZeile(
                                     kz: "45", label: "Übrige nicht steuerbare Umsätze (netto)",
                                     erklaerung:
-                                        "Leistungsort im Drittland (außerhalb der EU). Ebenfalls nur Meldung, keine deutsche USt – "
+                                        "Leistungsort im Drittland (außerhalb der EU). Nur Meldung, keine deutsche USt "
                                         + "und **keine** Zusammenfassende Meldung.",
                                     wert: e.kz45)
                             }
@@ -222,12 +223,22 @@ struct UStVAView: View {
                                         wert: z.netto)
                                 }
                                 // Das Label darf die Gleichheit mit KZ 21 nur behaupten, wenn sie
-                                // stimmt. Fehlt eine UID, weicht die Summe genau um `luecke` ab –
-                                // und ausgerechnet dann wäre „= KZ 21" die irreführendste Stelle
-                                // der ganzen Ansicht.
+                                // stimmt. Sie kann aus zwei Gründen brechen: eine fehlende UID
+                                // (dann fehlt `luecke`) oder die zeilenweise Euro-Kürzung. Beides
+                                // ausgerechnet an der Stelle zu verschweigen, wo abgetippt wird,
+                                // wäre die irreführendste Stelle der ganzen Ansicht.
                                 Summenzeile(
-                                    label: zm.istVollstaendig ? "Summe (= KZ 21)" : "Summe der meldbaren Zeilen",
+                                    label: zm.summe == e.kz21 ? "Summe (= KZ 21)" : "Summe der Meldezeilen",
                                     wert: zm.summe)
+                                if zm.istVollstaendig, zm.summe != e.kz21 {
+                                    Text(
+                                        .init(
+                                            "Weicht um \((e.kz21 - zm.summe).euro) von KZ 21 ab: Jede Meldezeile "
+                                                + "wird **einzeln** auf volle Euro gekürzt, KZ 21 die Gesamtsumme. "
+                                                + "Beide Werte sind so korrekt.")
+                                    )
+                                    .erklaerung()
+                                }
                                 if !zmAufgabeExistiert {
                                     Button {
                                         legeZMAufgabeAn()
@@ -241,7 +252,7 @@ struct UStVAView: View {
                                     ForEach(zm.ohneUstIdNr) { l in
                                         Kartenzeile(label: l.kunde + " · USt-IdNr. fehlt", wert: l.netto)
                                     }
-                                    Kartenzeile(label: "KZ 21 gesamt", wert: zm.summe + zm.luecke)
+                                    Kartenzeile(label: "KZ 21 gesamt", wert: e.kz21)
                                     Label(
                                         .init(
                                             "**Noch nicht meldbar.** Ohne gültige USt-IdNr. trägt der Übergang der "

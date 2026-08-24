@@ -282,6 +282,19 @@ Prüfgrößen (synthetisch, exemplarisch):
   Migrations-sicher, nil = 19 %) + zweiter Bucket `rnNetto2/ust2`; `Income.postenListe` liefert ein bis zwei
   `EinnahmePosten` je Satz-Bucket, sodass die Engine je Satz getrennt rechnet (KZ 81/86, §17) ohne Sonderfall.
   Steuerfreie Umsätze (USt=0) bleiben aus KZ 81/86; kein 0 %/steuerfreier Ausgang, kein Kleinunternehmer.
+- **ELSTER-Rundung: Bemessungsgrundlagen in vollen Euro, Steuerbeträge mit Cent – ENTSCHIEDEN:**
+  Das Formular nimmt **KZ 81/86/21/45/84 nur in vollen Euro** entgegen (Cent bleiben unberücksichtigt,
+  zugunsten des Unternehmers); `Decimal.volleEuro` kürzt **Richtung Null** (nicht `floor` – bei
+  negativem KZ 21 nach §17 sollen die Cents wegfallen, nicht der Betrag wachsen; Foundations `.down`
+  ist echtes floor, deshalb `self < 0 ? .up : .down`). **`ust81`/`ust86` werden aus der gekürzten
+  Bemessung gerechnet** – genau das tut ELSTER mit den übertragenen Kennzahlen. Vorher wich Kontors
+  KZ 83 systematisch von der echten Voranmeldung ab (75 Cent Bemessung = 14 Cent Zahllast; verifiziert
+  gegen ein reales Übertragungsprotokoll Q2/2026, Test `zahllastDeckSichMitDerEchtenVoranmeldung`).
+  **`kz85`/`kz66`/`kz67` bleiben mit Cent** – eigene Eingabefelder im Formular; `kz85` wird
+  **nicht** aus dem gekürzten `kz84` neu gerechnet (im echten Protokoll: KZ 84 = 371 €, KZ 85 =
+  70,62 € aus 371,66). Gekürzt wird **die Satz-Summe, nicht der einzelne Beleg** (3 × 10,90 = 32,70
+  → 32 €, nicht 3 × 10 = 30 €). Nach der Kürzung ist die USt immer exakt: ganzzahlige Bemessung ×
+  19 %/7 % hat nie mehr als zwei Nachkommastellen.
 - **Auslandsumsätze auf der Ausgangsseite (KZ 21 / KZ 45 + ZM) – ENTSCHIEDEN:** `Income.umsatzart`
   (`Umsatzart?`, optional wegen Migration, `nil` = `.inland`) verortet die **Rechnung**, nicht den
   Satz-Bucket: Der Leistungsort hängt am Auftrag, eine Rechnung kann nicht teils im Inland und teils
@@ -298,7 +311,13 @@ Prüfgrößen (synthetisch, exemplarisch):
   RC-Umsätze) davor, rückwirkend mit 19 % in KZ 81 zu rutschen – solche Rechnungen bleiben draußen
   und sind per Hand umzustellen. **ZM** (`Berechnung/ZM.swift`, rein): je USt-IdNr. eine Zeile,
   Meldezeitraum **immer das Quartal** (§18a Abs. 2 UStG, auch bei monatlicher UStVA), Abgabe bis
-  **25. nach Quartalsende** – die **Dauerfristverlängerung gilt dafür nicht**. §17-Ausfall mindert
+  **25. nach Quartalsende** – die **Dauerfristverlängerung gilt dafür nicht**. **ZM ≠ KZ 21:** die
+  beiden ersetzen einander **nicht** (§18a = eigenes Verfahren ans **BZSt**, §18b = Angabe in der
+  **Voranmeldung** ans Finanzamt); die Verwaltung gleicht sie gegeneinander ab, eine ZM ohne KZ 21
+  fällt genau dort auf. ZM-Beträge ebenfalls in **vollen Euro**, aber **je Zeile** gekürzt – dadurch
+  kann die Summe um wenige Euro von KZ 21 abweichen (2 × 1.000,50 € → ZM 2 × 1.000, KZ 21 = 2.001);
+  das Panel weist die Differenz aus, statt sie zu verstecken, und beschriftet die Summe nur dann mit
+  „= KZ 21", wenn sie es wirklich ist. §17-Ausfall mindert
   KZ 21 **und** ZM spiegelbildlich im Ausfallquartal (Abweichung zwischen beiden = Rückfrage vom
   Finanzamt). Rechnungen **ohne UID** werden separat ausgewiesen statt mitsummiert: Ohne gültige UID
   trägt die RC-Konstruktion nicht, dann ist die Rechnung womöglich im Inland steuerpflichtig. Die

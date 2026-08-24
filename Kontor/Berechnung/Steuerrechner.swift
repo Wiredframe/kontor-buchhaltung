@@ -217,21 +217,32 @@ enum Steuer {
     /// deshalb exakt auf – vorher stand ihr die je Beleg gespeicherte USt gegenüber.
     static func ustva(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], periode: Periode) -> UStVAErgebnis {
         let rcUSt = reverseChargeUSt(ausgaben, in: periode)
+        // **Bemessungsgrundlagen in vollen Euro, Steuerbeträge mit Cent** – so nimmt ELSTER die
+        // Werte entgegen, und so muss Kontor sie zeigen, sonst stimmt die abgetippte Zahllast nicht.
+        //
+        // Die USt wird aus der **gekürzten** Bemessung errechnet, nicht aus dem Cent-Betrag: Genau
+        // das tut ELSTER mit den übertragenen KZ 81/86, und schon 75 Cent Bemessungsdifferenz
+        // verschieben die Zahllast um 14 Cent. Vorher wich Kontors KZ 83 deshalb systematisch von
+        // der tatsächlichen Voranmeldung ab.
+        //
+        // `kz85`/`kz66`/`kz67` bleiben dagegen unangetastet: Das sind **Steuer**beträge, im Formular
+        // eigene Eingabefelder mit Cent. Insbesondere wird `kz85` **nicht** aus dem gekürzten `kz84`
+        // neu gerechnet – im Formular ist es ein Eingabefeld, kein aus KZ 84 abgeleiteter Wert.
         let netto19 =
-            umsatzNetto(einnahmen, satz: .satz19, in: periode)
-            - ausfallNetto(einnahmen, satz: .satz19, in: periode)
+            (umsatzNetto(einnahmen, satz: .satz19, in: periode)
+            - ausfallNetto(einnahmen, satz: .satz19, in: periode)).volleEuro
         let netto7 =
-            umsatzNetto(einnahmen, satz: .satz7, in: periode)
-            - ausfallNetto(einnahmen, satz: .satz7, in: periode)
+            (umsatzNetto(einnahmen, satz: .satz7, in: periode)
+            - ausfallNetto(einnahmen, satz: .satz7, in: periode)).volleEuro
         return UStVAErgebnis(
             kz81: netto19,
             ust81: (netto19 * satz19).gerundet(),
             kz86: netto7,
             ust86: (netto7 * satz7).gerundet(),
-            kz21: auslandsUmsatzNetto(einnahmen, art: .euReverseCharge, in: periode),
-            kz45: auslandsUmsatzNetto(einnahmen, art: .drittland, in: periode),
+            kz21: auslandsUmsatzNetto(einnahmen, art: .euReverseCharge, in: periode).volleEuro,
+            kz45: auslandsUmsatzNetto(einnahmen, art: .drittland, in: periode).volleEuro,
             kz66: vorsteuer(ausgaben, in: periode),
-            kz84: reverseChargeNetto(ausgaben, in: periode),
+            kz84: reverseChargeNetto(ausgaben, in: periode).volleEuro,
             kz85: rcUSt,
             kz67: rcUSt,
             korrektur17: ustKorrekturAusfall(einnahmen, in: periode)

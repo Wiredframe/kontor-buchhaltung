@@ -139,6 +139,72 @@ struct AuslandsumsatzTests {
     }
 }
 
+// MARK: - ELSTER-Rundung der Bemessungsgrundlagen
+
+/// Das Formular nimmt **Bemessungsgrundlagen in vollen Euro** (Cent bleiben unberücksichtigt,
+/// zugunsten des Unternehmers), **Steuerbeträge dagegen mit Cent**. Zeigt Kontor die Bemessung
+/// mit Cent, weicht die abgetippte Zahllast systematisch ab.
+struct ELSTERRundungTests {
+    private static let q2 = Periode.quartal(2026, 2)
+
+    @Test func bemessungsgrundlagenWerdenAufVolleEuroGekuerzt() {
+        let rn = EinnahmePosten(
+            rnNetto: dez("9523.75"), ust: dez("1809.51"), satz: .satz19, umsatzart: .inland,
+            rechnungsdatum: tag(2026, 5, 2), zahlungsdatum: nil, status: .offen, ausfalldatum: nil)
+        let e = Steuer.ustva(einnahmen: [rn], ausgaben: [], periode: Self.q2)
+        #expect(e.kz81 == dez("9523"))
+        // USt aus der **gekürzten** Bemessung – genau das rechnet ELSTER aus KZ 81.
+        #expect(e.ust81 == dez("1809.37"))
+    }
+
+    /// Cents fallen weg, sie runden nicht auf: 99 Cent bleiben 99 Cent zu wenig, nie 1 € zu viel.
+    @Test func kuerztRichtungNullStattKaufmaennisch() {
+        #expect(dez("9523.99").volleEuro == dez("9523"))
+        #expect(dez("9523.01").volleEuro == dez("9523"))
+        #expect(dez("9523.00").volleEuro == dez("9523"))
+        // Negative Bemessung (KZ 21 nach §17-Berichtigung): ebenfalls nur die Cents weg.
+        #expect(dez("-4000.75").volleEuro == dez("-4000"))
+    }
+
+    /// Steuerbeträge behalten ihre Cent – sie sind im Formular eigene Eingabefelder.
+    /// Insbesondere wird KZ 85 **nicht** aus dem gekürzten KZ 84 neu gerechnet.
+    @Test func steuerbetraegeBehaltenCent() {
+        let rc = AusgabePosten(
+            brutto: dez("371.66"), vst: 0, steuerart: .reverseCharge,
+            betrieblich: true, datum: tag(2026, 5, 8))
+        let inland = AusgabePosten(
+            brutto: dez("911.90"), vst: dez("145.58"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2026, 5, 9))
+        let e = Steuer.ustva(einnahmen: [], ausgaben: [rc, inland], periode: Self.q2)
+        #expect(e.kz84 == dez("371"))  // Bemessung: volle Euro
+        #expect(e.kz85 == dez("70.62"))  // Steuer: aus 371,66, nicht aus 371
+        #expect(e.kz66 == dez("145.58"))
+        #expect(e.kz67 == dez("70.62"))
+    }
+
+    /// Gegenprobe an einer echten Voranmeldung (Q2/2026, Werte aus dem Übertragungsprotokoll):
+    /// KZ 81 = 9.523, KZ 85 = 70,62, KZ 66 = 283,05, KZ 67 = 70,62 → KZ 83 = 1.526,32.
+    /// Vor der Kürzung lieferte Kontor hier 14 Cent zu viel.
+    @Test func zahllastDeckSichMitDerEchtenVoranmeldung() {
+        let rn = EinnahmePosten(
+            rnNetto: dez("9523.75"), ust: dez("1809.51"), satz: .satz19, umsatzart: .inland,
+            rechnungsdatum: tag(2026, 5, 2), zahlungsdatum: nil, status: .offen, ausfalldatum: nil)
+        let rc = AusgabePosten(
+            brutto: dez("371.66"), vst: 0, steuerart: .reverseCharge,
+            betrieblich: true, datum: tag(2026, 5, 8))
+        let vorsteuer = AusgabePosten(
+            brutto: dez("1773.09"), vst: dez("283.05"), steuerart: .inland19,
+            betrieblich: true, datum: tag(2026, 5, 9))
+        let e = Steuer.ustva(einnahmen: [rn], ausgaben: [rc, vorsteuer], periode: Self.q2)
+        #expect(e.kz81 == dez("9523"))
+        #expect(e.ust81 == dez("1809.37"))
+        #expect(e.kz85 == dez("70.62"))
+        #expect(e.kz66 == dez("283.05"))
+        #expect(e.kz67 == dez("70.62"))
+        #expect(e.zahllast == dez("1526.32"))
+    }
+}
+
 // MARK: - Zusammenfassende Meldung
 
 struct ZMTests {

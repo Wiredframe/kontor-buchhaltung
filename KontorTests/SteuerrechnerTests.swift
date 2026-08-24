@@ -779,13 +779,17 @@ struct MehrsatzTests {
         #expect(Steuer.ustKorrekturAusfall(r, in: q1) == dez("-70"))
     }
 
-    /// ELSTER-Zeilenrundung: erst Netto je Satz summieren, dann einmal runden
-    /// (3 × 10,10 € → 30,30 × 7 % = 2,121 → 2,12; nicht 3 × 0,71 = 2,13).
+    /// ELSTER-Zeilenrundung: erst **Netto je Satz summieren**, dann einmal auf volle Euro kürzen –
+    /// nicht je Beleg. 3 × 10,90 € = 32,70 → KZ 86 = 32 €. Würde je Beleg gekürzt (3 × 10 €),
+    /// stünden dort nur 30 € und die Bemessungsgrundlage wäre um 2 € zu niedrig.
+    ///
+    /// Die USt ist danach immer exakt: eine ganzzahlige Bemessung × 7 % (bzw. 19 %) hat nie mehr
+    /// als zwei Nachkommastellen. Die frühere Zwischenrundung je Beleg ist damit gegenstandslos.
     @Test func zeilenrundungJeSatz() {
-        let r = (1...3).map { _ in e("10.10", "0.71", .satz7) }
+        let r = (1...3).map { _ in e("10.90", "0.76", .satz7) }
         let x = Steuer.ustva(einnahmen: r, ausgaben: [], periode: q1)
-        #expect(x.kz86 == dez("30.30"))
-        #expect(x.ust86 == dez("2.12"))
+        #expect(x.kz86 == dez("32"))
+        #expect(x.ust86 == dez("2.24"))
     }
 
     /// Ausgabenseitig zählt nur die VSt-Summe: eine 7-%-Betriebsausgabe fließt satzunabhängig in

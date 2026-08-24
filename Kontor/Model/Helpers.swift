@@ -35,6 +35,17 @@ extension Decimal {
         return ergebnis
     }
 
+    /// Auf **volle Euro Richtung Null** gekürzt – die Form, in der ELSTER Bemessungsgrundlagen
+    /// entgegennimmt (Cent-Beträge bleiben dort unberücksichtigt, zugunsten des Unternehmers).
+    ///
+    /// Richtung **Null**, nicht Richtung minus unendlich: Bei einer negativen Bemessungsgrundlage
+    /// (KZ 21 nach einer §17-Berichtigung) soll die Kürzung die Cents weglassen, nicht den Betrag
+    /// vergrößern. `-4.000,75 €` wird zu `-4.000 €`, nicht zu `-4.001 €`.
+    ///
+    /// Foundations `.down` ist echtes `floor` und erledigt nur den positiven Fall; für negative
+    /// Werte ist `.up` das Gegenstück Richtung Null.
+    var volleEuro: Decimal { gerundet(0, self < 0 ? .up : .down) }
+
     /// Als Euro-Betrag formatiert, z. B. „1.234,56 €".
     var euro: String {
         formatted(.currency(code: "EUR").locale(Locale(identifier: "de_DE")))
