@@ -271,6 +271,67 @@ struct MCPServerTests {
         #expect(inc.zahlungsdatum == nil)
     }
 
+    /// Der MCP-Schreibpfad setzt die Felder einzeln und muss die Invariante
+    /// „nicht steuerbar ⇒ keine deutsche USt" selbst herstellen. Ohne
+    /// `normalisiereUmsatzsteuer()` bliebe eine mitgeschickte `ust` stehen und liefe über
+    /// `ustSoll` in Rücklage und Voranmeldung – angemeldet würde eine Steuer, die nach
+    /// §3a Abs. 2 UStG gar nicht entstanden ist.
+    @Test func reverseChargeAnlegenLoeschtDieUmsatzsteuer() async throws {
+        let c = try container()
+        try seed(c)
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_anlegen",
+                "arguments": [
+                    "typ": "einnahmen",
+                    "felder": [
+                        "kunde": "Studio Wien", "rnNetto": "4000", "ust": "760",
+                        "rechnungsdatum": "2026-05-12",
+                        "umsatzart": "euReverseCharge", "ustIdNrKunde": "ATU12345678",
+                    ],
+                ],
+            ])
+        let inc = try #require(try c.mainContext.fetch(FetchDescriptor<Income>()).first { $0.kunde == "Studio Wien" })
+        #expect(inc.umsatzartEffektiv == .euReverseCharge)
+        #expect(inc.ustIdNrKunde == "ATU12345678")
+        #expect(inc.ust == 0)
+        #expect(inc.rnNetto == dez("4000"))  // Netto bleibt
+
+        let q2 = Periode.quartal(2026, 2)
+        let e = Steuer.ustva(einnahmen: inc.postenListe, ausgaben: [], periode: q2)
+        #expect(e.kz21 == dez("4000") && e.kz81 == 0 && e.zahllast == 0)
+    }
+
+    /// Dasselbe beim Umstellen einer bestehenden Inlandsrechnung auf Reverse Charge.
+    @Test func umstellenAufReverseChargeLoeschtDieUmsatzsteuer() async throws {
+        let c = try container()
+        try seed(c)
+        let inc = Income(
+            kunde: "Studio Graz", rnNetto: dez("2000"), ust: dez("380"),
+            rechnungsdatum: tag(2026, 5, 3))
+        c.mainContext.insert(inc)
+        try c.mainContext.save()
+
+        let liste = await ruf(
+            c, "tools/call",
+            ["name": "kontor_liste", "arguments": ["typ": "einnahmen", "mit_id": true, "jahr": 2026]])
+        let zeile = try #require(toolText(liste).split(separator: "\n").first { $0.contains("Studio Graz") })
+        let id = try #require(zeile.split(separator: ";").last.map(String.init))
+
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": [
+                    "typ": "einnahmen", "id": id,
+                    "felder": ["umsatzart": "euReverseCharge", "ustIdNrKunde": "ATU99999999"],
+                ],
+            ])
+        #expect(inc.umsatzartEffektiv == .euReverseCharge)
+        #expect(inc.ust == 0)
+    }
+
     /// Regression: `status: "ausgefallen"` ohne Ausfalldatum. Die gesamte §17-Logik filtert auf
     /// `ausfalldatum != nil` – die Rechnung stand für immer als ausgefallen da, ohne dass USt
     /// oder ESt-Rücklage je korrigiert wurden.
@@ -380,8 +441,11 @@ struct MCPServerTests {
         let zeilen = text.split(separator: "\n")
         #expect(
             zeilen.first
-                == "datum;rechnungsnummer;kunde;netto;ust;satz;netto2;ust2;satz2;brutto;status;zahlungsdatum;beleg")
-        #expect(text.contains("2026-02-15;R-1;Testkunde;1000.00;190.00;satz19;0.00;0.00;;1190.00;bezahlt;2026-02-20"))
+                == "datum;rechnungsnummer;kunde;netto;ust;satz;netto2;ust2;satz2;brutto;umsatzart;ustidnr;status;zahlungsdatum;beleg"
+        )
+        #expect(
+            text.contains(
+                "2026-02-15;R-1;Testkunde;1000.00;190.00;satz19;0.00;0.00;;1190.00;inland;;bezahlt;2026-02-20"))
     }
 
     @Test func listeStammdatenUndPrivat() async throws {

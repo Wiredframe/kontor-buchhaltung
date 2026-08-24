@@ -397,6 +397,34 @@ struct BackupTests {
         #expect(nur7.satzEffektiv == .satz7 && !nur7.hatZweitenSatz)
     }
 
+    /// Umsatzart + USt-IdNr. überstehen Export→Import. Fehlten sie im DTO, käme eine
+    /// EU-Reverse-Charge-Rechnung als Inlandsrechnung zurück – KZ 21 und die
+    /// Zusammenfassende Meldung wären nach einem Restore still leer.
+    @Test func roundtripBewahrtUmsatzartUndUstIdNr() throws {
+        let quelle = try kontext()
+        quelle.insert(
+            Income(
+                kunde: "Studio Wien", rnNetto: dez("4000"), ust: 0,
+                rechnungsdatum: tag(2026, 5, 12), status: .offen, rechnungsnummer: "2026-014",
+                umsatzart: .euReverseCharge, ustIdNrKunde: "ATU12345678"))
+        quelle.insert(
+            Income(
+                kunde: "Agentur Berlin", rnNetto: dez("1000"), ust: dez("190"),
+                rechnungsdatum: tag(2026, 5, 20), status: .offen, rechnungsnummer: "2026-015"))
+        try quelle.save()
+
+        let ziel = try kontext()
+        _ = try Backup.importData(try Backup.exportData(quelle), in: ziel)
+        let alle = try ziel.fetch(FetchDescriptor<Income>())
+        let wien = try #require(alle.first { $0.kunde == "Studio Wien" })
+        #expect(wien.umsatzartEffektiv == .euReverseCharge)
+        #expect(wien.ustIdNrKunde == "ATU12345678")
+        #expect(wien.zmPosten?.netto == dez("4000"))
+        let berlin = try #require(alle.first { $0.kunde == "Agentur Berlin" })
+        #expect(berlin.umsatzart == nil)  // nicht gesetzt bleibt nicht gesetzt
+        #expect(berlin.umsatzartEffektiv == .inland)
+    }
+
     /// Ausgaben-Steuerart „Inland 7 %" übersteht Export→Import (String-rawValue, kein DTO-Feld nötig).
     @Test func roundtripBewahrtInland7Ausgabe() throws {
         let quelle = try kontext()

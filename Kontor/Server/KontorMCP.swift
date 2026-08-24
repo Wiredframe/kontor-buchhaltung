@@ -83,7 +83,7 @@ enum KontorMCP {
                 name: "kontor_anlegen",
                 beschreibung: """
                     Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
-                    einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen];
+                    einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen, umsatzart(inland|euReverseCharge|drittland, Default inland), ustIdNrKunde]. umsatzart≠inland ist nicht steuerbar: ust/ust2 werden auf 0 gesetzt (KZ 21 bzw. KZ 45 statt KZ 81/86), euReverseCharge braucht ustIdNrKunde für die Zusammenfassende Meldung;
                     ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst automatisch berechnet), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung)];
                     fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst automatisch berechnet), steuerart, betrieblich, umlagefaehig];
                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
@@ -275,18 +275,45 @@ enum KontorMCP {
             label = "\(jahr) Q\(q)"
         }
         let r = Steuer.ustva(einnahmen: einnahmenPosten(ctx), ausgaben: ausgabenPosten(ctx), periode: periode)
+        // KZ 21/45 nur zeigen, wenn sie belegt sind: In einem Quartal ohne Auslandsumsatz sind
+        // zwei Null-Zeilen bloß Rauschen, und das Tool ist bewusst tokensparend.
+        let ausland =
+            (r.kz21 == 0 ? "" : "\nKZ21 (EU-RC, nicht stb.):     \(g(r.kz21)) €")
+            + (r.kz45 == 0 ? "" : "\nKZ45 (Ausland, nicht stb.):  \(g(r.kz45)) €")
         return """
             UStVA \(label)
             KZ81 (Netto 19 %):           \(g(r.kz81)) €
             USt 19 % (auto):             \(g(r.ust81)) €
             KZ86 (Netto 7 %):            \(g(r.kz86)) €
-            USt 7 % (auto):              \(g(r.ust86)) €
+            USt 7 % (auto):              \(g(r.ust86)) €\(ausland)
             KZ66 (Vorsteuer Inland):     \(g(r.kz66)) €
             KZ84 (§13b Netto):           \(g(r.kz84)) €
             KZ85 (§13b USt):             \(g(r.kz85)) €
             KZ67 (§13b Vorsteuer):       \(g(r.kz67)) €
             §17-Korrektur:               \(g(r.korrektur17)) €
-            Zahllast (KZ83):             \(g(r.zahllast)) €
+            Zahllast (KZ83):             \(g(r.zahllast)) €\(zmText(periode, ctx))
+            """
+    }
+
+    /// Anhang zur UStVA: die **Zusammenfassende Meldung** desselben Zeitraums. Sie hängt hier
+    /// dran, statt ein eigenes Tool zu bekommen – wer die Voranmeldung abfragt, braucht sie im
+    /// selben Atemzug, und ein neuntes Tool kostet in jedem Kontext Token.
+    ///
+    /// Leer, wenn nichts zu melden ist. Fehlende USt-IdNr. werden ausgewiesen, weil die Meldung
+    /// dann nicht abgegeben werden kann.
+    @MainActor private static func zmText(_ periode: Periode, _ ctx: ModelContext) -> String {
+        let m = Steuer.zm(alle(Income.self, ctx).compactMap(\.zmPosten), in: periode)
+        guard !m.istLeer else { return "" }
+        var zeilen = m.zeilen.map { "\($0.ustIdNr);\($0.kunden.joined(separator: "/"));\(g($0.netto))" }
+        if !m.ohneUstIdNr.isEmpty {
+            zeilen.append("OHNE UST-IDNR (nicht meldbar): \(m.ohneUstIdNr.joined(separator: ", "))")
+        }
+        return """
+
+
+            ZM (§18a, Abgabe bis 25. nach Quartalsende; ustidnr;kunde;netto)
+            \(zeilen.joined(separator: "\n"))
+            Summe: \(g(m.summe)) €
             """
     }
 
@@ -351,7 +378,7 @@ enum KontorMCP {
             return csv(
                 kopf([
                     "datum", "rechnungsnummer", "kunde", "netto", "ust", "satz", "netto2", "ust2", "satz2", "brutto",
-                    "status", "zahlungsdatum", "beleg",
+                    "umsatzart", "ustidnr", "status", "zahlungsdatum", "beleg",
                 ]),
                 rows.map {
                     zeile(
@@ -360,7 +387,8 @@ enum KontorMCP {
                             tagText($0.rechnungsdatum), $0.rechnungsnummer ?? "", $0.kunde,
                             g($0.rnNetto), g($0.ust), $0.satzEffektiv.rawValue,
                             g($0.rnNetto2), g($0.ust2), $0.satz2?.rawValue ?? "",
-                            g($0.brutto), $0.status.rawValue,
+                            g($0.brutto), $0.umsatzartEffektiv.rawValue, $0.ustIdNrKunde ?? "",
+                            $0.status.rawValue,
                             $0.zahlungsdatum.map(tagText) ?? "", $0.belegPfad ?? "",
                         ])
                 })
@@ -578,7 +606,14 @@ enum KontorMCP {
                 rechnungsnummer: f["rechnungsnummer"] as? String,
                 satz: enumWert(f["satz"]),
                 rnNetto2: dezArg(f["rnNetto2"]) ?? 0, ust2: dezArg(f["ust2"]) ?? 0,
-                satz2: enumWert(f["satz2"]))
+                satz2: enumWert(f["satz2"]),
+                umsatzart: enumWert(f["umsatzart"]),
+                ustIdNrKunde: f["ustIdNrKunde"] as? String)
+            // Der Schreibpfad setzt die Felder einzeln und muss die Invariante
+            // "nicht steuerbar ⇒ ust = 0" deshalb selbst herstellen – wie bei `ExpenseEntry`
+            // und der Vorsteuer. Sonst meldete eine EU-Rechnung mit versehentlich gesetzter
+            // `ust` eine Steuer an, die gar nicht entstanden ist.
+            (obj as? Income)?.normalisiereUmsatzsteuer()
         case "ausgaben", "ausgabe":
             guard let dat = datum(f["datum"]), let bez = f["bezeichnung"] as? String, let brutto = dezArg(f["brutto"])
             else {
@@ -711,6 +746,9 @@ enum KontorMCP {
             if let v = dezArg(f["rnNetto2"]) { o.rnNetto2 = v }
             if let v = dezArg(f["ust2"]) { o.ust2 = v }
             if hat("satz2") { o.satz2 = enumWert(f["satz2"]) }
+            if hat("umsatzart") { o.umsatzart = enumWert(f["umsatzart"]) }
+            if hat("ustIdNrKunde") { o.ustIdNrKunde = f["ustIdNrKunde"] as? String }
+            o.normalisiereUmsatzsteuer()
         case "ausgaben", "ausgabe":
             let o = try modell(ExpenseEntry.self, id: id, ctx)
             if let v = datum(f["datum"]) { o.datum = v }

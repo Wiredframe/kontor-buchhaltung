@@ -101,6 +101,10 @@ enum Backup {
         var rnNetto2: Decimal? = nil
         var ust2: Decimal? = nil
         var satz2: UStSatz? = nil
+        // Steuerliche Verortung + USt-IdNr. des Kunden (EU-Reverse-Charge). Ebenfalls optional:
+        // ältere Backups kennen die Keys nicht, ihr Bestand ist per Definition `.inland`.
+        var umsatzart: Umsatzart? = nil
+        var ustIdNrKunde: String? = nil
     }
     struct AufgabeDTO: Codable {
         var titel: String
@@ -164,7 +168,8 @@ enum Backup {
                     rechnungsdatum: $0.rechnungsdatum, zahlungsdatum: $0.zahlungsdatum,
                     ausfalldatum: $0.ausfalldatum, status: $0.status, rechnungsnummer: $0.rechnungsnummer,
                     belegPfad: $0.belegPfad,
-                    satz: $0.satz, rnNetto2: $0.rnNetto2, ust2: $0.ust2, satz2: $0.satz2)
+                    satz: $0.satz, rnNetto2: $0.rnNetto2, ust2: $0.ust2, satz2: $0.satz2,
+                    umsatzart: $0.umsatzart, ustIdNrKunde: $0.ustIdNrKunde)
             },
             aufgaben: try context.fetch(FetchDescriptor<MonthlyTask>()).map {
                 AufgabeDTO(
@@ -432,7 +437,8 @@ enum Backup {
                     kunde: d.kunde, rnNetto: d.rnNetto, ust: d.ust, rechnungsdatum: d.rechnungsdatum,
                     zahlungsdatum: d.zahlungsdatum, status: d.status, ausfalldatum: d.ausfalldatum,
                     rechnungsnummer: d.rechnungsnummer, belegPfad: d.belegPfad,
-                    satz: d.satz, rnNetto2: d.rnNetto2 ?? 0, ust2: d.ust2 ?? 0, satz2: d.satz2))
+                    satz: d.satz, rnNetto2: d.rnNetto2 ?? 0, ust2: d.ust2 ?? 0, satz2: d.satz2,
+                    umsatzart: d.umsatzart, ustIdNrKunde: d.ustIdNrKunde))
             neu += 1
         }
 
