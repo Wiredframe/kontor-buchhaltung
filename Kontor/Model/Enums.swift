@@ -52,6 +52,53 @@ enum UStSatz: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Steuerliche Verortung einer **Ausgangsrechnung**: Sie entscheidet, in welche Kennzahl der
+/// UStVA das Netto läuft und ob eine Zusammenfassende Meldung fällig wird.
+///
+/// - `inland`: steuerpflichtiger Umsatz im Inland, USt nach `UStSatz` → KZ 81 (19 %) / KZ 86 (7 %).
+/// - `euReverseCharge`: sonstige Leistung an einen **Unternehmer im übrigen Gemeinschaftsgebiet**.
+///   Leistungsort ist nach `§3a Abs. 2 UStG` beim Kunden, die Steuerschuld geht auf ihn über
+///   (Art. 196 MwStSystRL). Rechnung ohne USt, dafür **KZ 21** und **Zusammenfassende Meldung**
+///   (`§18a UStG`). Ohne gültige USt-IdNr. des Kunden trägt die Konstruktion nicht.
+/// - `drittland`: Leistungsort außerhalb der EU, nicht steuerbar → **KZ 45**, keine ZM.
+///
+/// Der Fall „Privatkunde im EU-Ausland“ ist bewusst **keine** eigene Art: dort liegt der
+/// Leistungsort nach `§3a Abs. 1 UStG` im Inland, das ist ein ganz normaler `inland`-Umsatz
+/// mit 19 %.
+enum Umsatzart: String, Codable, CaseIterable, Identifiable {
+    case inland
+    case euReverseCharge
+    case drittland
+
+    var id: String { rawValue }
+    var bezeichnung: String {
+        switch self {
+        case .inland: "Inland (steuerpflichtig)"
+        case .euReverseCharge: "EU-Reverse-Charge (§3a Abs. 2)"
+        case .drittland: "Drittland (nicht steuerbar)"
+        }
+    }
+    /// Kurzform für Tabellenspalten: „Inland“ bleibt leer, weil es der Regelfall ist.
+    var kuerzel: String {
+        switch self {
+        case .inland: ""
+        case .euReverseCharge: "EU-RC"
+        case .drittland: "Drittland"
+        }
+    }
+    /// Nur Inlandsumsätze tragen deutsche USt; alles andere ist hier nicht steuerbar
+    /// und muss `ust == 0` haben (sonst droht `§14c`-Risiko auf der Rechnung).
+    var schuldetUSt: Bool { self == .inland }
+    /// Löst dieser Umsatz eine Zusammenfassende Meldung aus?
+    var meldepflichtigZM: Bool { self == .euReverseCharge }
+
+    /// Robust gegen Altdaten/unbekannte Werte (Backup-JSON): Unbekanntes → Inland.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Umsatzart(rawValue: raw) ?? .inland
+    }
+}
+
 /// Wiederholungs-Intervall einer Vorlage.
 enum Intervall: String, Codable, CaseIterable, Identifiable {
     case monatlich

@@ -38,11 +38,49 @@ enum Steuer {
     }
 
     /// Netto-Bemessungsgrundlage der zum gegebenen `satz` steuerpflichtigen Umsätze (Soll):
-    /// KZ 81 (19 %) bzw. KZ 86 (7 %). Steuerfreie/nicht steuerbare Umsätze (USt = 0) bleiben außen vor.
+    /// KZ 81 (19 %) bzw. KZ 86 (7 %).
+    ///
+    /// Zwei Filter, die dasselbe Ziel aus verschiedenen Richtungen absichern: `umsatzart == .inland`
+    /// hält nicht steuerbare Auslandsumsätze heraus (die gehören nach KZ 21 / KZ 45), und `ust != 0`
+    /// fängt zusätzlich den **Altbestand** ab – vor Einführung der `Umsatzart` wurde ein
+    /// Reverse-Charge-Ausgangsumsatz als Inlandsrechnung mit „USt 0,00" erfasst. Ohne diesen zweiten
+    /// Filter zöge die Engine für solche Rechnungen rückwirkend 19 % Umsatzsteuer heran.
     static func umsatzNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
         einnahmen
-            .filter { $0.satz == satz && $0.ust != 0 && periode.enthaelt($0.rechnungsdatum) }
+            .filter {
+                $0.umsatzart == .inland && $0.satz == satz && $0.ust != 0
+                    && periode.enthaelt($0.rechnungsdatum)
+            }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
+    }
+
+    /// Netto-Bemessung einer **nicht steuerbaren** Umsatzart in der Periode: KZ 21 (sonstige
+    /// Leistungen an EU-Unternehmer, `§18b Satz 1 Nr. 2 UStG`) bzw. KZ 45 (übrige Umsätze mit
+    /// Leistungsort im Ausland).
+    ///
+    /// Beides sind **reine Meldekennzahlen**: Es hängt keine deutsche USt daran, sie gehen deshalb
+    /// nicht in `zahllast` ein. Uneinbringliche Forderungen mindern die Bemessung im **Ausfall**-
+    /// zeitraum, genau wie bei KZ 81/86 – bei KZ 21 ist dann auch die ZM zu berichtigen.
+    ///
+    /// Maßgeblich ist hier wie überall auf der USt-Seite das **Rechnungsdatum**. Streng genommen
+    /// stellt `§18b UStG` auf den Zeitpunkt der **Ausführung** der Leistung ab; solange im
+    /// Leistungsmonat abgerechnet wird, fällt beides zusammen.
+    static func auslandsUmsatzNetto(_ einnahmen: [EinnahmePosten], art: Umsatzart, in periode: Periode)
+        -> Decimal
+    {
+        guard !art.schuldetUSt else { return 0 }
+        let umsatz =
+            einnahmen
+            .filter { $0.umsatzart == art && periode.enthaelt($0.rechnungsdatum) }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto }
+        let ausfall =
+            einnahmen
+            .filter {
+                $0.umsatzart == art && $0.status == .ausgefallen
+                    && ($0.ausfalldatum.map(periode.enthaelt) ?? false)
+            }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto }
+        return umsatz - ausfall
     }
 
     /// Abziehbare Vorsteuer (Inland) = Σ VSt betrieblicher Ausgaben in der Periode.
@@ -89,7 +127,7 @@ enum Steuer {
     static func ausfallNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
         einnahmen
             .filter {
-                $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
+                $0.umsatzart == .inland && $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
                     && ($0.ausfalldatum.map(periode.enthaelt) ?? false)
             }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
@@ -190,6 +228,8 @@ enum Steuer {
             ust81: (netto19 * satz19).gerundet(),
             kz86: netto7,
             ust86: (netto7 * satz7).gerundet(),
+            kz21: auslandsUmsatzNetto(einnahmen, art: .euReverseCharge, in: periode),
+            kz45: auslandsUmsatzNetto(einnahmen, art: .drittland, in: periode),
             kz66: vorsteuer(ausgaben, in: periode),
             kz84: reverseChargeNetto(ausgaben, in: periode),
             kz85: rcUSt,

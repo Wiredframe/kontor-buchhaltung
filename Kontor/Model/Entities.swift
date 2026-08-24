@@ -375,9 +375,22 @@ final class Income {
     var rnNetto2: Decimal = 0
     var ust2: Decimal = 0
     var satz2: UStSatz?
+    /// Steuerliche Verortung der Rechnung. **Optional** (neu hinzugefügtes Enum-Feld → sonst
+    /// Migrations-Crash bestehender Stores); `nil` = `.inland` (Altbestand). Zugriff über `umsatzartEffektiv`.
+    ///
+    /// Sie steht auf der **Rechnung**, nicht am Satz-Bucket: Der Leistungsort ist eine Eigenschaft
+    /// des Auftrags, nicht einzelner Positionen – eine Rechnung kann nicht teils im Inland und
+    /// teils in Österreich steuerbar sein. Bei `.euReverseCharge`/`.drittland` bleiben beide
+    /// USt-Buckets deshalb bei 0 (`normalisiereUmsatzsteuer`).
+    var umsatzart: Umsatzart?
+    /// USt-IdNr. des Kunden – Pflichtangabe für `.euReverseCharge` (Rechnung **und** Zusammenfassende
+    /// Meldung). Ohne sie ist die ZM unvollständig; die ZM-Auswertung weist solche Rechnungen aus.
+    var ustIdNrKunde: String?
 
     /// Effektiver Satz des Regel-Buckets (Altbestand ohne `satz` = 19 %).
     var satzEffektiv: UStSatz { satz ?? .satz19 }
+    /// Effektive Umsatzart (Altbestand ohne `umsatzart` = Inland).
+    var umsatzartEffektiv: Umsatzart { umsatzart ?? .inland }
     /// Trägt die Rechnung einen zweiten Steuersatz (Mischrechnung)?
     var hatZweitenSatz: Bool { satz2 != nil }
     /// Netto **gesamt** über beide Buckets – Basis für Tabelle/Summen/EÜR/Backup (nie nur `rnNetto`).
@@ -404,7 +417,9 @@ final class Income {
         satz: UStSatz? = nil,
         rnNetto2: Decimal = 0,
         ust2: Decimal = 0,
-        satz2: UStSatz? = nil
+        satz2: UStSatz? = nil,
+        umsatzart: Umsatzart? = nil,
+        ustIdNrKunde: String? = nil
     ) {
         self.kunde = kunde
         self.rnNetto = rnNetto
@@ -419,6 +434,21 @@ final class Income {
         self.rnNetto2 = rnNetto2
         self.ust2 = ust2
         self.satz2 = satz2
+        self.umsatzart = umsatzart
+        self.ustIdNrKunde = ustIdNrKunde
+    }
+
+    /// Erzwingt die Invariante **„nicht steuerbarer Umsatz ⇒ keine deutsche USt"**: Bei
+    /// `.euReverseCharge`/`.drittland` werden beide USt-Buckets auf 0 gesetzt.
+    ///
+    /// Nötig, weil die Umsatzart nachträglich umgestellt werden kann. Bliebe die alte USt stehen,
+    /// liefe sie über `ustSoll` in die Monatsrücklage und über KZ 81/86 in die Voranmeldung –
+    /// angemeldet und abgeführt würde eine Steuer, die gar nicht entstanden ist. Der Editor ruft
+    /// das beim Tippen, der MCP-Schreibpfad am Ende von `anlegen`/`aktualisieren`.
+    func normalisiereUmsatzsteuer() {
+        guard !umsatzartEffektiv.schuldetUSt else { return }
+        ust = 0
+        ust2 = 0
     }
 
     /// Setzt den Status und hält Zahlungs-/Ausfalldatum konsistent:
