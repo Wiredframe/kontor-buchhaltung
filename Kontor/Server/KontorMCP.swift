@@ -305,15 +305,15 @@ enum KontorMCP {
         let m = Steuer.zm(alle(Income.self, ctx).compactMap(\.zmPosten), in: periode)
         guard !m.istLeer else { return "" }
         var zeilen = m.zeilen.map { "\($0.ustIdNr);\($0.kunden.joined(separator: "/"));\(g($0.netto))" }
-        if !m.ohneUstIdNr.isEmpty {
-            zeilen.append("OHNE UST-IDNR (nicht meldbar): \(m.ohneUstIdNr.joined(separator: ", "))")
+        for l in m.ohneUstIdNr {
+            zeilen.append("OHNE UST-IDNR (nicht meldbar);\(l.kunde);\(g(l.netto))")
         }
         return """
 
 
             ZM (§18a, Abgabe bis 25. nach Quartalsende; ustidnr;kunde;netto)
             \(zeilen.joined(separator: "\n"))
-            Summe: \(g(m.summe)) €
+            Summe\(m.istVollstaendig ? " (= KZ 21)" : " der meldbaren Zeilen"): \(g(m.summe)) €
             """
     }
 

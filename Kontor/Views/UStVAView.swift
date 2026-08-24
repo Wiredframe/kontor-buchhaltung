@@ -69,7 +69,7 @@ struct UStVAView: View {
         HStack(alignment: .top, spacing: 8) {
             Text(titel).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 .frame(width: 150, alignment: .leading)
-            Text(text).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
+            Text(.init(text)).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -200,15 +200,17 @@ struct UStVAView: View {
                         Panel(titel: "Zusammenfassende Meldung · Q\(zmQuartal) \(jahr)") {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(
-                                    "Eigene Meldung ans BZSt, **zusätzlich** zur Voranmeldung – je USt-IdNr. eine Zeile. "
-                                        + "Abgabe bis zum **25. nach Quartalsende**; eine Dauerfristverlängerung gilt dafür "
-                                        + "**nicht**."
+                                    .init(
+                                        "Eigene Meldung ans BZSt, **zusätzlich** zur Voranmeldung – je USt-IdNr. eine "
+                                            + "Zeile. Abgabe bis zum **25. nach Quartalsende**; eine "
+                                            + "Dauerfristverlängerung gilt dafür **nicht**.")
                                 )
                                 .erklaerung()
                                 if monatlich {
                                     Text(
-                                        "Auch bei monatlicher Voranmeldung wird quartalsweise gemeldet (§18a Abs. 2 UStG) – "
-                                            + "deshalb steht hier das ganze Quartal."
+                                        .init(
+                                            "Auch bei monatlicher Voranmeldung wird quartalsweise gemeldet "
+                                                + "(§18a Abs. 2 UStG) – deshalb steht hier das ganze Quartal.")
                                     )
                                     .erklaerung()
                                 }
@@ -219,7 +221,13 @@ struct UStVAView: View {
                                         label: z.ustIdNr + " · " + z.kunden.joined(separator: ", "),
                                         wert: z.netto)
                                 }
-                                Summenzeile(label: "Summe (= KZ 21)", wert: zm.summe)
+                                // Das Label darf die Gleichheit mit KZ 21 nur behaupten, wenn sie
+                                // stimmt. Fehlt eine UID, weicht die Summe genau um `luecke` ab –
+                                // und ausgerechnet dann wäre „= KZ 21" die irreführendste Stelle
+                                // der ganzen Ansicht.
+                                Summenzeile(
+                                    label: zm.istVollstaendig ? "Summe (= KZ 21)" : "Summe der meldbaren Zeilen",
+                                    wert: zm.summe)
                                 if !zmAufgabeExistiert {
                                     Button {
                                         legeZMAufgabeAn()
@@ -229,11 +237,17 @@ struct UStVAView: View {
                                     .buttonStyle(.borderless).font(.caption)
                                 }
                                 if !zm.istVollstaendig {
+                                    // Jede Lücke mit Betrag, damit die Differenz zu KZ 21 aufgeht.
+                                    ForEach(zm.ohneUstIdNr) { l in
+                                        Kartenzeile(label: l.kunde + " · USt-IdNr. fehlt", wert: l.netto)
+                                    }
+                                    Kartenzeile(label: "KZ 21 gesamt", wert: zm.summe + zm.luecke)
                                     Label(
-                                        "Ohne USt-IdNr. und daher nicht meldbar: "
-                                            + zm.ohneUstIdNr.joined(separator: ", ")
-                                            + ". Ohne gültige USt-IdNr. trägt der Übergang der Steuerschuld nicht – "
-                                            + "die Rechnung wäre dann im Inland steuerpflichtig.",
+                                        .init(
+                                            "**Noch nicht meldbar.** Ohne gültige USt-IdNr. trägt der Übergang der "
+                                                + "Steuerschuld nicht – die Rechnung wäre dann im Inland "
+                                                + "steuerpflichtig. USt-IdNr. bei den Einnahmen nachtragen, dann "
+                                                + "stimmt die Summe wieder mit KZ 21 überein."),
                                         systemImage: "exclamationmark.triangle"
                                     )
                                     .font(.caption).foregroundStyle(.orange)
@@ -305,7 +319,10 @@ private struct UStVAZeile: View {
                 Text(label)
                     .font(unterzeile ? .subheadline : .body.weight(.medium))
                     .foregroundStyle(unterzeile ? .secondary : .primary)
-                Text(erklaerung).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
+                // `Text(.init(…))` statt `Text(erklaerung)`: SwiftUI parst Markdown nur bei
+                // String-**Literalen**. Sobald der Text zur Laufzeit entsteht (Konkatenation,
+                // Variable), landet er als reiner String im View und die `**` werden sichtbar.
+                Text(.init(erklaerung)).font(.caption).foregroundStyle(Stil.erklaerungFarbe)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)

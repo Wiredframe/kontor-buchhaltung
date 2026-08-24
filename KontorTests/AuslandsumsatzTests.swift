@@ -198,7 +198,11 @@ struct ZMTests {
             ], in: Self.q2)
         #expect(m.zeilen.count == 1)
         #expect(m.summe == dez("4000.00"))
-        #expect(m.ohneUstIdNr == ["Atelier Graz"])
+        // Der Betrag muss mit: 900 + 100, beide ohne verwertbare UID.
+        #expect(m.ohneUstIdNr == [ZMLuecke(kunde: "Atelier Graz", netto: dez("1000.00"))])
+        #expect(m.luecke == dez("1000.00"))
+        // Erst Summe + Lücke ergibt wieder KZ 21.
+        #expect(m.summe + m.luecke == dez("5000.00"))
         #expect(!m.istVollstaendig)
     }
 
@@ -216,6 +220,51 @@ struct ZMTests {
             let kz21 = Steuer.ustva(einnahmen: einnahme.postenListe, ausgaben: [], periode: periode).kz21
             #expect(Steuer.zm(zmPosten, in: periode).summe == kz21)
         }
+    }
+
+    /// Regression: Die View beschriftete die Summe fest mit „= KZ 21". Fehlt eine UID, ist die
+    /// Summe aber um `luecke` kleiner – ausgerechnet dann log das Label. `istVollstaendig` ist
+    /// der Schalter, an dem Label und MCP-Text hängen; erst `summe + luecke` ergibt KZ 21.
+    @Test func summeGleichKZ21NurWennAlleUIDsDaSind() {
+        let mitUID = Income(
+            kunde: "Studio Wien", rnNetto: dez("2060.00"), ust: 0,
+            rechnungsdatum: tag(2026, 5, 12),
+            umsatzart: .euReverseCharge, ustIdNrKunde: "ATU12345678")
+        let ohneUID = Income(
+            kunde: "Atelier Graz", rnNetto: dez("500.00"), ust: 0,
+            rechnungsdatum: tag(2026, 5, 14), umsatzart: .euReverseCharge)
+
+        let kz21 = Steuer.ustva(
+            einnahmen: mitUID.postenListe + ohneUID.postenListe, ausgaben: [], periode: Self.q2
+        ).kz21
+        #expect(kz21 == dez("2560.00"))
+
+        let unvollstaendig = Steuer.zm([mitUID, ohneUID].compactMap(\.zmPosten), in: Self.q2)
+        #expect(!unvollstaendig.istVollstaendig)
+        #expect(unvollstaendig.summe == dez("2060.00"))  // nur die meldbare Zeile
+        #expect(unvollstaendig.luecke == dez("500.00"))
+        #expect(unvollstaendig.summe + unvollstaendig.luecke == kz21)
+
+        // UID nachgetragen → Summe deckt sich wieder mit KZ 21, Lücke weg.
+        ohneUID.ustIdNrKunde = "ATU87654321"
+        let vollstaendig = Steuer.zm([mitUID, ohneUID].compactMap(\.zmPosten), in: Self.q2)
+        #expect(vollstaendig.istVollstaendig)
+        #expect(vollstaendig.luecke == 0)
+        #expect(vollstaendig.summe == kz21)
+    }
+
+    /// Der Fall aus dem Screenshot: **eine einzige** EU-Rechnung, und der fehlt die UID.
+    /// Dann steht KZ 21 auf dem vollen Betrag, während die ZM-Summe 0 zeigt.
+    @Test func einzigeRechnungOhneUIDLaesstDieSummeAufNull() {
+        let ohneUID = Income(
+            kunde: "DERTOUR Austria GmbH", rnNetto: dez("2060.00"), ust: 0,
+            rechnungsdatum: tag(2026, 5, 12), umsatzart: .euReverseCharge)
+        let m = Steuer.zm([ohneUID].compactMap(\.zmPosten), in: Self.q2)
+        #expect(m.zeilen.isEmpty)
+        #expect(m.summe == 0)
+        #expect(!m.istLeer)  // es gibt etwas zu tun – nur nicht meldbar
+        #expect(!m.istVollstaendig)
+        #expect(m.luecke == dez("2060.00"))
     }
 
     @Test func inlandUndDrittlandLoesenKeineMeldungAus() {

@@ -18,20 +18,35 @@ struct ZMZeile: Hashable, Identifiable {
     var id: String { ustIdNr }
 }
 
+/// Ein meldepflichtiger Umsatz, der **nicht** gemeldet werden kann, weil die USt-IdNr. fehlt.
+///
+/// Trägt den Betrag mit, nicht nur den Namen: Ohne ihn bliebe unerklärlich, warum die
+/// ZM-Summe von KZ 21 abweicht – und genau diese Differenz ist der Punkt.
+struct ZMLuecke: Hashable, Identifiable {
+    var kunde: String
+    var netto: Decimal
+
+    var id: String { kunde }
+}
+
 /// Das Ergebnis einer Quartals-ZM: die zu meldenden Zeilen plus die Rechnungen, die
 /// **nicht** gemeldet werden können, weil ihnen die USt-IdNr. fehlt.
 struct ZMMeldung: Hashable {
     var zeilen: [ZMZeile]
-    /// Kundennamen mit EU-Reverse-Charge-Umsatz, aber ohne (verwertbare) USt-IdNr.
+    /// Umsätze mit EU-Reverse-Charge, aber ohne (verwertbare) USt-IdNr.
     ///
     /// Bewusst getrennt ausgewiesen statt stillschweigend unter „ohne UID" mitzusummieren: Ohne
     /// gültige UID des Empfängers trägt die Reverse-Charge-Konstruktion nicht – dann ist nicht nur
     /// die Meldung unvollständig, sondern womöglich die ganze Rechnung falsch (dann nämlich
     /// steuerpflichtig im Inland). Das ist ein Fall zum Nachbessern, keine Fußnote.
-    var ohneUstIdNr: [String]
+    var ohneUstIdNr: [ZMLuecke]
     /// Summe über alle meldbaren Zeilen (ohne die Rechnungen in `ohneUstIdNr`).
+    ///
+    /// Gleich KZ 21 **nur wenn** `istVollstaendig`. Sonst fehlt hier genau `luecke`.
     var summe: Decimal
 
+    /// Was wegen fehlender UID nicht in `summe` steckt – die Differenz zu KZ 21.
+    var luecke: Decimal { ohneUstIdNr.reduce(Decimal(0)) { $0 + $1.netto } }
     /// Ist für dieses Quartal überhaupt etwas zu tun?
     var istLeer: Bool { zeilen.isEmpty && ohneUstIdNr.isEmpty }
     /// Kann die Meldung so abgegeben werden, oder fehlen noch UIDs?
@@ -87,7 +102,7 @@ extension Steuer {
             .sorted { $0.ustIdNr < $1.ustIdNr }
         return ZMMeldung(
             zeilen: zeilen,
-            ohneUstIdNr: ohne.keys.sorted(),
+            ohneUstIdNr: ohne.map { ZMLuecke(kunde: $0.key, netto: $0.value) }.sorted { $0.kunde < $1.kunde },
             summe: zeilen.reduce(Decimal(0)) { $0 + $1.netto })
     }
 
