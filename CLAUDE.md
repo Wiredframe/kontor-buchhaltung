@@ -282,6 +282,32 @@ Prüfgrößen (synthetisch, exemplarisch):
   Migrations-sicher, nil = 19 %) + zweiter Bucket `rnNetto2/ust2`; `Income.postenListe` liefert ein bis zwei
   `EinnahmePosten` je Satz-Bucket, sodass die Engine je Satz getrennt rechnet (KZ 81/86, §17) ohne Sonderfall.
   Steuerfreie Umsätze (USt=0) bleiben aus KZ 81/86; kein 0 %/steuerfreier Ausgang, kein Kleinunternehmer.
+- **Auslandsumsätze auf der Ausgangsseite (KZ 21 / KZ 45 + ZM) – ENTSCHIEDEN:** `Income.umsatzart`
+  (`Umsatzart?`, optional wegen Migration, `nil` = `.inland`) verortet die **Rechnung**, nicht den
+  Satz-Bucket: Der Leistungsort hängt am Auftrag, eine Rechnung kann nicht teils im Inland und teils
+  in Österreich steuerbar sein (Mischrechnungen erben die Art in beide Buckets).
+  `.euReverseCharge` = sonstige Leistung an EU-**Unternehmer** (§3a Abs. 2 UStG, Steuerschuld beim
+  Kunden) → **KZ 21** + **Zusammenfassende Meldung**; `.drittland` → **KZ 45**, keine ZM. Beide
+  Kennzahlen sind **reine Meldung** und bleiben bewusst aus `zahllast` – sonst entstünde Zahllast auf
+  Umsätze ohne deutsches Besteuerungsrecht. **Privatkunden im EU-Ausland sind KEINE eigene Art**:
+  dort liegt der Leistungsort nach §3a Abs. 1 im Inland, das ist ein normaler `inland`-Umsatz mit 19 %.
+  Invariante **„nicht steuerbar ⇒ `ust`/`ust2` = 0"** (`Income.normalisiereUmsatzsteuer`) – Editor
+  beim Umschalten, **MCP-Schreibpfad** am Ende von `anlegen`/`aktualisieren` (setzt Felder einzeln).
+  `umsatzNetto`/`ausfallNetto` filtern auf `.inland`; der **zusätzliche** `ust != 0`-Filter bleibt
+  stehen und schützt den **Altbestand** (vor der Umsatzart als „Inland mit USt 0,00" erfasste
+  RC-Umsätze) davor, rückwirkend mit 19 % in KZ 81 zu rutschen – solche Rechnungen bleiben draußen
+  und sind per Hand umzustellen. **ZM** (`Berechnung/ZM.swift`, rein): je USt-IdNr. eine Zeile,
+  Meldezeitraum **immer das Quartal** (§18a Abs. 2 UStG, auch bei monatlicher UStVA), Abgabe bis
+  **25. nach Quartalsende** – die **Dauerfristverlängerung gilt dafür nicht**. §17-Ausfall mindert
+  KZ 21 **und** ZM spiegelbildlich im Ausfallquartal (Abweichung zwischen beiden = Rückfrage vom
+  Finanzamt). Rechnungen **ohne UID** werden separat ausgewiesen statt mitsummiert: Ohne gültige UID
+  trägt die RC-Konstruktion nicht, dann ist die Rechnung womöglich im Inland steuerpflichtig. Die
+  **UID-Gültigkeit prüft Kontor nicht** (qualifizierte Bestätigungsabfrage beim BZSt braucht Netz,
+  die App ist offline) – `Steuer.normalisiere` vereinheitlicht nur die Schreibweise. Die ZM hängt im
+  MCP an `kontor_ustva` statt ein neuntes Tool zu bekommen; die **ZM-Quartalsaufgabe** legt der Nutzer
+  per Knopf im ZM-Panel an (**kein Seed** – wer keine EU-Kunden hat, braucht sie nie). Maßgeblich ist
+  wie überall auf der USt-Seite das **Rechnungsdatum**; §18b stellt streng genommen auf die
+  **Ausführung** ab, was bei Abrechnung im Leistungsmonat zusammenfällt.
 - **Aufgaben (eine View, Reminders-Logik):** `MonthlyTask` trägt die Wiederkehrung selbst
   (`intervall` einmalig/monatlich/quartalsweise/**jährlich**, `faelligTag`, `quartalsMonate`; jährlich
   nutzt `quartalsMonate` = ein Monat) – kein separates Vorlagen-Entity/-View mehr. Beim Abhaken erzeugt

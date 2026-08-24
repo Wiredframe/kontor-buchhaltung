@@ -537,9 +537,11 @@ struct ImportTests {
         let z = Zuordnung(kategorie: .betriebsausgabe, betrieblich: true, steuerart: .inland19)
         let zweck = "Rechnung RE-2026-0042"
         // 65 Tage später: weit außerhalb der 5 Tage, aber plausibel → Treffer.
-        #expect(!ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 3, am: 11), z, c.mainContext).isEmpty)
+        #expect(
+            !ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 3, am: 11), z, c.mainContext).isEmpty)
         // 249 Tage später: jenseits von `fensterTageNummer` → kein Treffer mehr.
-        #expect(ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 9, am: 11), z, c.mainContext).isEmpty)
+        #expect(
+            ImportAnwendung.kandidaten(buchung("-119,00", zweck: zweck, monat: 9, am: 11), z, c.mainContext).isEmpty)
     }
 
     /// Trägt nur die Nummer den Treffer, muss wenigstens die Größenordnung stimmen – sonst zieht

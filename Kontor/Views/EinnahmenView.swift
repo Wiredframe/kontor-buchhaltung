@@ -42,8 +42,18 @@ struct EinnahmenView: View {
                         .lineLimit(1)
                 }
                 .width(min: 110, ideal: 150)
-                TableColumn("Kunde", value: \.kunde) { Text($0.kunde).lineLimit(1) }
-                    .width(min: 140, ideal: 200)
+                TableColumn("Kunde", value: \.kunde) { e in
+                    HStack(spacing: 4) {
+                        Text(e.kunde).lineLimit(1)
+                        // Nicht steuerbare Umsätze markieren: Eine Zeile mit „USt 0,00" sieht
+                        // sonst wie ein Eingabefehler aus.
+                        if !e.umsatzartEffektiv.kuerzel.isEmpty {
+                            Text(e.umsatzartEffektiv.kuerzel)
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .width(min: 140, ideal: 200)
                 TableColumn("RN (netto)", value: \.nettoGesamt) { e in
                     HStack(spacing: 4) {
                         Text(e.nettoGesamt.euro).monospacedDigit().lineLimit(1)
@@ -199,7 +209,8 @@ struct EinnahmenView: View {
                 Income(
                     kunde: e.kunde, rnNetto: e.rnNetto, ust: e.ust,
                     rechnungsdatum: Date(), status: .offen,
-                    satz: e.satz, rnNetto2: e.rnNetto2, ust2: e.ust2, satz2: e.satz2))
+                    satz: e.satz, rnNetto2: e.rnNetto2, ust2: e.ust2, satz2: e.satz2,
+                    umsatzart: e.umsatzart, ustIdNrKunde: e.ustIdNrKunde))
         }
     }
     private func loesche(_ ids: Set<Income.ID>) {
@@ -254,47 +265,128 @@ struct EinnahmeInspektor: View {
             eintrag.satz2 = $0
         }
     }
+    private var umsatzart: Binding<Umsatzart> {
+        Binding {
+            eintrag.umsatzartEffektiv
+        } set: {
+            eintrag.umsatzart = $0
+            // Beim Wechsel auf einen nicht steuerbaren Umsatz muss die alte USt weg, sonst
+            // liefe sie weiter in Rücklage und Voranmeldung.
+            eintrag.normalisiereUmsatzsteuer()
+        }
+    }
+    private var ustIdNrKunde: Binding<String> {
+        Binding {
+            eintrag.ustIdNrKunde ?? ""
+        } set: {
+            eintrag.ustIdNrKunde = $0.isEmpty ? nil : $0
+        }
+    }
+    /// Fehlt die USt-IdNr., ist nicht nur die Zusammenfassende Meldung unvollständig –
+    /// ohne sie trägt die Reverse-Charge-Konstruktion gar nicht.
+    private var uidFehlt: Bool {
+        eintrag.umsatzartEffektiv.meldepflichtigZM && Steuer.normalisiere(eintrag.ustIdNrKunde) == nil
+    }
+
+    /// Betragsfelder eines **steuerpflichtigen Inlandsumsatzes**: Satz, Netto, USt und
+    /// optional der zweite Satz-Bucket einer Mischrechnung.
+    @ViewBuilder private var inlandFelder: some View {
+        Picker("USt-Satz", selection: satz) {
+            ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+        }
+        GeldFeld("RN (netto)", wert: $eintrag.rnNetto)
+        HStack {
+            GeldFeld("USt", wert: $eintrag.ust)
+            Button("aus Netto") { eintrag.ust = Steuer.ust(ausNetto: eintrag.rnNetto, satz: eintrag.satzEffektiv) }
+        }
+        if eintrag.hatZweitenSatz {
+            Picker("2. USt-Satz", selection: satz2) {
+                ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+            }
+            GeldFeld("2. Netto", wert: $eintrag.rnNetto2)
+            HStack {
+                GeldFeld("2. USt", wert: $eintrag.ust2)
+                Button("aus Netto") {
+                    eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7)
+                }
+            }
+            HStack {
+                LabeledContent("Brutto gesamt", value: eintrag.brutto.euro)
+                Spacer()
+                Button("entfernen", role: .destructive) {
+                    eintrag.satz2 = nil
+                    eintrag.rnNetto2 = 0
+                    eintrag.ust2 = 0
+                }
+                .buttonStyle(.borderless).font(.caption)
+            }
+        } else {
+            LabeledContent("Brutto", value: eintrag.brutto.euro)
+            Button {
+                eintrag.satz2 = (eintrag.satzEffektiv == .satz19 ? .satz7 : .satz19)
+            } label: {
+                Label("Zweiten Steuersatz hinzufügen", systemImage: "plus.circle")
+            }
+            .buttonStyle(.borderless).font(.caption)
+        }
+    }
+
+    /// Felder eines **nicht steuerbaren** Umsatzes. Kein USt-Satz, keine USt-Felder: Es gibt
+    /// hier keine deutsche Steuer, und ein Eingabefeld dafür würde nur dazu verführen, eine
+    /// auszuweisen (`§14c`). Der zweite Netto-Bucket bleibt sichtbar, falls er aus einer
+    /// vorherigen Mischrechnung noch gefüllt ist – sonst wäre Geld in der Rechnung, das
+    /// niemand mehr sieht.
+    @ViewBuilder private var auslandFelder: some View {
+        GeldFeld("RN (netto)", wert: $eintrag.rnNetto)
+        if eintrag.hatZweitenSatz || eintrag.rnNetto2 != 0 {
+            HStack {
+                GeldFeld("2. Netto", wert: $eintrag.rnNetto2)
+                Button("entfernen", role: .destructive) {
+                    eintrag.satz2 = nil
+                    eintrag.rnNetto2 = 0
+                    eintrag.ust2 = 0
+                }
+                .buttonStyle(.borderless).font(.caption)
+            }
+        }
+        LabeledContent("Rechnungsbetrag", value: eintrag.nettoGesamt.euro)
+        if eintrag.umsatzartEffektiv.meldepflichtigZM {
+            TextField("USt-IdNr. Kunde", text: ustIdNrKunde)
+            if uidFehlt {
+                Label(
+                    "Ohne USt-IdNr. des Kunden trägt der Übergang der Steuerschuld nicht – "
+                        + "und die Zusammenfassende Meldung lässt sich nicht abgeben.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption).foregroundStyle(.orange)
+            }
+            Text(
+                "Rechnung ohne USt, mit beiden USt-IdNr. und dem Hinweis "
+                    + "„Steuerschuldnerschaft des Leistungsempfängers“. Der Umsatz läuft in KZ 21 "
+                    + "und in die Zusammenfassende Meldung (Abgabe bis 25. nach Quartalsende)."
+            )
+            .font(.caption).foregroundStyle(.secondary)
+        } else {
+            Text(
+                "Leistungsort im Drittland, in Deutschland nicht steuerbar: Rechnung ohne USt, "
+                    + "Ausweis in KZ 45. Keine Zusammenfassende Meldung."
+            )
+            .font(.caption).foregroundStyle(.secondary)
+        }
+    }
 
     var body: some View {
         Form {
             TextField("Kunde", text: $eintrag.kunde).focused($fokus)
-            Picker("USt-Satz", selection: satz) {
-                ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
+            // Die Umsatzart steht vor allen Betragsfeldern, weil sie darüber entscheidet, ob es
+            // überhaupt eine deutsche USt gibt.
+            Picker("Umsatzart", selection: umsatzart) {
+                ForEach(Umsatzart.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            GeldFeld("RN (netto)", wert: $eintrag.rnNetto)
-            HStack {
-                GeldFeld("USt", wert: $eintrag.ust)
-                Button("aus Netto") { eintrag.ust = Steuer.ust(ausNetto: eintrag.rnNetto, satz: eintrag.satzEffektiv) }
-            }
-            if eintrag.hatZweitenSatz {
-                Picker("2. USt-Satz", selection: satz2) {
-                    ForEach(UStSatz.allCases) { Text($0.bezeichnung).tag($0) }
-                }
-                GeldFeld("2. Netto", wert: $eintrag.rnNetto2)
-                HStack {
-                    GeldFeld("2. USt", wert: $eintrag.ust2)
-                    Button("aus Netto") {
-                        eintrag.ust2 = Steuer.ust(ausNetto: eintrag.rnNetto2, satz: eintrag.satz2 ?? .satz7)
-                    }
-                }
-                HStack {
-                    LabeledContent("Brutto gesamt", value: eintrag.brutto.euro)
-                    Spacer()
-                    Button("entfernen", role: .destructive) {
-                        eintrag.satz2 = nil
-                        eintrag.rnNetto2 = 0
-                        eintrag.ust2 = 0
-                    }
-                    .buttonStyle(.borderless).font(.caption)
-                }
+            if eintrag.umsatzartEffektiv.schuldetUSt {
+                inlandFelder
             } else {
-                LabeledContent("Brutto", value: eintrag.brutto.euro)
-                Button {
-                    eintrag.satz2 = (eintrag.satzEffektiv == .satz19 ? .satz7 : .satz19)
-                } label: {
-                    Label("Zweiten Steuersatz hinzufügen", systemImage: "plus.circle")
-                }
-                .buttonStyle(.borderless).font(.caption)
+                auslandFelder
             }
             DatePicker("Rechnungsdatum", selection: $eintrag.rechnungsdatum, displayedComponents: .date)
             Picker("Status", selection: $eintrag.status) {

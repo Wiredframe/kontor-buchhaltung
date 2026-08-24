@@ -5,6 +5,8 @@ struct UStVAView: View {
     @Query private var einnahmen: [Income]
     @Query private var ausgaben: [ExpenseEntry]
     @Query private var jahre: [YearSettings]
+    @Query private var aufgaben: [MonthlyTask]
+    @Environment(\.modelContext) private var context
 
     @Environment(Zeitkontext.self) private var zeit
     private var jahr: Int { zeit.filter.jahr }
@@ -32,6 +34,35 @@ struct UStVAView: View {
             einnahmen: einnahmen.flatMap(\.postenListe),
             ausgaben: ausgaben.map(\.posten),
             periode: periode)
+    }
+    /// Das Quartal, für das die ZM abzugeben ist – **auch in der Monatsansicht**.
+    /// Meldezeitraum für sonstige Leistungen ist nach `§18a Abs. 2 UStG` das Kalendervierteljahr,
+    /// unabhängig davon, in welchem Rhythmus die Voranmeldung läuft.
+    private var zmQuartal: Int { monatlich ? (monat - 1) / 3 + 1 : quartal }
+    private var zm: ZMMeldung {
+        Steuer.zm(einnahmen.compactMap(\.zmPosten), in: .quartal(jahr, zmQuartal))
+    }
+
+    /// Titel der wiederkehrenden ZM-Aufgabe – zugleich der Schlüssel, über den erkannt wird,
+    /// ob sie schon existiert (dieselbe Dedup-Regel wie `TaskVorlagen.nachAbschluss`).
+    private static let zmAufgabenTitel = "Zusammenfassende Meldung (ZM) abgeben"
+    private var zmAufgabeExistiert: Bool {
+        aufgaben.contains { $0.titel == Self.zmAufgabenTitel && !$0.erledigt }
+    }
+    /// Legt die ZM als **quartalsweise** Aufgabe zum 25. an (Jan/Apr/Jul/Okt).
+    ///
+    /// Bewusst auf Knopfdruck statt im Seed: Wer keine EU-Kunden hat, braucht die Aufgabe nie,
+    /// und eine Dauer-Aufgabe, die man immer wieder wegklickt, erzieht dazu, Aufgaben zu ignorieren.
+    /// Der Knopf erscheint erst, wenn tatsächlich etwas zu melden ist.
+    private func legeZMAufgabeAn() {
+        let faellig =
+            TaskVorlagen.naechsteFaelligkeit(
+                intervall: .quartalsweise, faelligTag: 25, monate: [1, 4, 7, 10], ab: Date())
+        context.insert(
+            MonthlyTask(
+                titel: Self.zmAufgabenTitel, monat: faellig,
+                intervall: .quartalsweise, faelligTag: 25, quartalsMonate: [1, 4, 7, 10]))
+        try? context.save()
     }
 
     private func hinweis(_ titel: String, _ text: String) -> some View {
@@ -98,6 +129,25 @@ struct UStVAView: View {
                                 kz: nil, label: "darauf USt 7 %",
                                 erklaerung: "Berechnet ELSTER automatisch aus KZ 86 – hier zur Kontrolle.",
                                 wert: e.ust86, unterzeile: true)
+                            // Nur zeigen, wenn belegt: Zwei Dauer-Nullzeilen wären für den
+                            // Regelfall (reines Inlandsgeschäft) bloß Ballast.
+                            if e.kz21 != 0 {
+                                UStVAZeile(
+                                    kz: "21", label: "Sonstige Leistungen EU-Unternehmer (netto)",
+                                    erklaerung:
+                                        "Leistungen an Unternehmer im EU-Ausland: Leistungsort ist beim Kunden (§3a Abs. 2 UStG), "
+                                        + "**er** schuldet die USt. In Deutschland nicht steuerbar – der Betrag wird nur gemeldet, "
+                                        + "nicht besteuert. **Zusätzlich fällig: die Zusammenfassende Meldung** (unten).",
+                                    wert: e.kz21)
+                            }
+                            if e.kz45 != 0 {
+                                UStVAZeile(
+                                    kz: "45", label: "Übrige nicht steuerbare Umsätze (netto)",
+                                    erklaerung:
+                                        "Leistungsort im Drittland (außerhalb der EU). Ebenfalls nur Meldung, keine deutsche USt – "
+                                        + "und **keine** Zusammenfassende Meldung.",
+                                    wert: e.kz45)
+                            }
                             UStVAZeile(
                                 kz: "84", label: "§13b Reverse-Charge (netto)",
                                 erklaerung:
@@ -146,6 +196,53 @@ struct UStVAView: View {
                         }
                     }
 
+                    if !zm.istLeer {
+                        Panel(titel: "Zusammenfassende Meldung · Q\(zmQuartal) \(jahr)") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(
+                                    "Eigene Meldung ans BZSt, **zusätzlich** zur Voranmeldung – je USt-IdNr. eine Zeile. "
+                                        + "Abgabe bis zum **25. nach Quartalsende**; eine Dauerfristverlängerung gilt dafür "
+                                        + "**nicht**."
+                                )
+                                .erklaerung()
+                                if monatlich {
+                                    Text(
+                                        "Auch bei monatlicher Voranmeldung wird quartalsweise gemeldet (§18a Abs. 2 UStG) – "
+                                            + "deshalb steht hier das ganze Quartal."
+                                    )
+                                    .erklaerung()
+                                }
+                                ForEach(zm.zeilen) { z in
+                                    // UID zuerst: Sie ist das, was ins Formular getippt wird.
+                                    // Der Kundenname steht nur zur Sichtkontrolle daneben.
+                                    Kartenzeile(
+                                        label: z.ustIdNr + " · " + z.kunden.joined(separator: ", "),
+                                        wert: z.netto)
+                                }
+                                Summenzeile(label: "Summe (= KZ 21)", wert: zm.summe)
+                                if !zmAufgabeExistiert {
+                                    Button {
+                                        legeZMAufgabeAn()
+                                    } label: {
+                                        Label("Als Quartalsaufgabe anlegen (25.)", systemImage: "plus.circle")
+                                    }
+                                    .buttonStyle(.borderless).font(.caption)
+                                }
+                                if !zm.istVollstaendig {
+                                    Label(
+                                        "Ohne USt-IdNr. und daher nicht meldbar: "
+                                            + zm.ohneUstIdNr.joined(separator: ", ")
+                                            + ". Ohne gültige USt-IdNr. trägt der Übergang der Steuerschuld nicht – "
+                                            + "die Rechnung wäre dann im Inland steuerpflichtig.",
+                                        systemImage: "exclamationmark.triangle"
+                                    )
+                                    .font(.caption).foregroundStyle(.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                    }
+
                     Panel(titel: "Hinweise zum Ausfüllen") {
                         VStack(alignment: .leading, spacing: 12) {
                             hinweis(
@@ -161,6 +258,10 @@ struct UStVAView: View {
                             hinweis(
                                 "Vorsteuer",
                                 "Steuerfreie und Reverse-Charge-Eingangsrechnungen haben keine abziehbare Vorsteuer → tauchen nicht in KZ 66 auf."
+                            )
+                            hinweis(
+                                "Kunden im EU-Ausland",
+                                "Bei Unternehmern mit gültiger USt-IdNr. geht die Steuerschuld auf den Kunden über: Rechnung ohne USt, mit beiden USt-IdNr. und dem Hinweis „Steuerschuldnerschaft des Leistungsempfängers“. Der Umsatz läuft in KZ 21 **und** in die Zusammenfassende Meldung. Bei Privatkunden gilt das nicht – dort ist der Leistungsort Deutschland und du berechnest ganz normal 19 %."
                             )
                         }
                     }
