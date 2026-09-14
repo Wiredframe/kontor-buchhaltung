@@ -183,16 +183,26 @@ struct JahrWaehler: View {
 struct MonatJahrWaehler: View {
     @Binding var jahr: Int
     @Binding var monat: Int
+    /// Schmale Fenster: Kurzmonat („Sep") statt fester 140-pt-Spalte.
+    var kompakt = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: kompakt ? 6 : 12) {
             Picker("Monat", selection: $monat) {
-                ForEach(1...12, id: \.self) { Text(monatsName($0)).tag($0) }
+                ForEach(1...12, id: \.self) { Text(kompakt ? kurzMonat($0) : monatsName($0)).tag($0) }
             }
             .labelsHidden()
-            .frame(width: 140)
+            .modifier(MonatsBreite(kompakt: kompakt))
             JahrWaehler(jahr: $jahr)
         }
+    }
+}
+
+/// Feste Spaltenbreite für den Monats-Picker – kompakt trägt er nur seine eigene Breite.
+private struct MonatsBreite: ViewModifier {
+    let kompakt: Bool
+    func body(content: Content) -> some View {
+        if kompakt { content.fixedSize() } else { content.frame(width: 140) }
     }
 }
 
@@ -263,43 +273,51 @@ struct ZeitraumLeiste<Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
-        // Eine Zeile, solange sie passt; sonst bricht das Trailing (z. B. ein
-        // zusätzlicher Filter) in eine zweite Zeile um – senkt die Mindest-Fensterbreite.
+        // Drei Stufen, absteigend breit: eine Zeile · Trailing umgebrochen · zusätzlich
+        // kompakte Steuerelemente (Menü statt Segmente, Kurzmonat, Symbol-Knopf).
+        // Ohne die kompakte Stufe zwingt allein diese Leiste dem Fenster gut 420 pt
+        // Mindestbreite auf – zusammen mit Seitenleiste, Tabelle und Inspector kommt so
+        // eine Mindestbreite jenseits der Bildschirmbreite zustande. macOS 26/27 bricht
+        // das nicht mehr sanft ab, sondern wirft beim erzwungenen Nachlayouten eine
+        // NSGenericException („more Update Constraints in Window passes than there are
+        // views") – die App stürzt ab.
         ViewThatFits(in: .horizontal) {
-            zeile(umgebrochen: false)
-            zeile(umgebrochen: true)
+            zeile(umgebrochen: false, kompakt: false)
+            zeile(umgebrochen: true, kompakt: false)
+            zeile(umgebrochen: true, kompakt: true)
         }
         .padding(.horizontal).padding(.vertical, 10)
     }
 
     @ViewBuilder
-    private var zeitControls: some View {
+    private func zeitControls(kompakt: Bool) -> some View {
         Picker("Zeitraum", selection: $filter.modus) {
             Text("Alle").tag(Zeitfilter.Modus.alle)
             Text("Jahr").tag(Zeitfilter.Modus.jahr)
             Text("Monat").tag(Zeitfilter.Modus.monat)
         }
-        .pickerStyle(.segmented).labelsHidden().fixedSize()
+        .segmenteOderMenue(kompakt: kompakt).labelsHidden().fixedSize()
 
         if filter.modus != .alle {
             JahrWaehler(jahr: $filter.jahr)
         }
         if filter.modus == .monat {
             Picker("Monat", selection: $filter.monat) {
-                ForEach(1...12, id: \.self) { Text(monatsName($0)).tag($0) }
+                ForEach(1...12, id: \.self) { Text(kompakt ? kurzMonat($0) : monatsName($0)).tag($0) }
             }
-            .labelsHidden().frame(width: 130)
+            .labelsHidden()
+            .modifier(ZeitraumMonatsBreite(kompakt: kompakt))
         }
 
-        HeuteButton(deaktiviert: filter.istAktuellerMonat) { filter.aufAktuellenMonat() }
+        HeuteButton(deaktiviert: filter.istAktuellerMonat, kompakt: kompakt) { filter.aufAktuellenMonat() }
     }
 
     @ViewBuilder
-    private func zeile(umgebrochen: Bool) -> some View {
+    private func zeile(umgebrochen: Bool, kompakt: Bool) -> some View {
         if umgebrochen {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
-                    zeitControls
+                HStack(spacing: kompakt ? 8 : 12) {
+                    zeitControls(kompakt: kompakt)
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 12) {
@@ -309,11 +327,30 @@ struct ZeitraumLeiste<Trailing: View>: View {
             }
         } else {
             HStack(spacing: 12) {
-                zeitControls
+                zeitControls(kompakt: kompakt)
                 Spacer(minLength: 8)
                 trailing()
             }
         }
+    }
+}
+
+/// Segmentierter Picker, der auf schmalen Fenstern zum Menü wird. Segmente lassen sich
+/// nicht stauchen – ihre Labelbreite landet 1:1 in der Mindestbreite des Fensters; ein Menü
+/// zeigt nur die aktuelle Auswahl und ist damit beliebig schmal.
+extension View {
+    @ViewBuilder
+    func segmenteOderMenue(kompakt: Bool) -> some View {
+        if kompakt { pickerStyle(.menu) } else { pickerStyle(.segmented) }
+    }
+}
+
+/// Feste Spaltenbreite des Monats-Pickers in der Zeitraum-Leiste – kompakt nur so breit
+/// wie der Kurzmonat.
+private struct ZeitraumMonatsBreite: ViewModifier {
+    let kompakt: Bool
+    func body(content: Content) -> some View {
+        if kompakt { content.fixedSize() } else { content.frame(width: 130) }
     }
 }
 
@@ -429,12 +466,20 @@ struct BelegDropArea: View {
 struct HeuteButton: View {
     var titel = "Aktueller Monat"
     var deaktiviert = false
+    /// Schmale Fenster: nur das Symbol (spart rund 120 pt Mindestbreite der Kopfleiste).
+    var kompakt = false
     let aktion: () -> Void
 
     var body: some View {
-        Button(action: aktion) { Label(titel, systemImage: "calendar.badge.clock") }
-            .disabled(deaktiviert)
-            .help("Auf den aktuellen Zeitraum springen")
+        Button(action: aktion) {
+            if kompakt {
+                Label(titel, systemImage: "calendar.badge.clock").labelStyle(.iconOnly)
+            } else {
+                Label(titel, systemImage: "calendar.badge.clock")
+            }
+        }
+        .disabled(deaktiviert)
+        .help("Auf den aktuellen Zeitraum springen")
     }
 }
 

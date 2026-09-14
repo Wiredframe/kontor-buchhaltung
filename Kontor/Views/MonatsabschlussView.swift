@@ -215,40 +215,53 @@ struct MonatsabschlussView: View {
     // MARK: Kopfzeile
 
     private var kopf: some View {
+        // Zwei Stufen: voll, sonst kompakt (Menü statt Segmente, Kurzmonat, Symbol-Knöpfe).
+        // Die volle Zeile ist gut 640 pt breit und nicht stauchbar; zusammen mit Seitenleiste
+        // und Inspector reichte das, um dem Fenster eine Mindestbreite jenseits des Bildschirms
+        // aufzuzwingen – und macOS 26/27 beendet die App dann mitten im Layout (siehe CLAUDE.md).
+        ViewThatFits(in: .horizontal) {
+            kopfZeile(kompakt: false)
+            kopfZeile(kompakt: true)
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private func kopfZeile(kompakt: Bool) -> some View {
         @Bindable var zeit = zeit
-        return HStack(spacing: 12) {
+        HStack(spacing: kompakt ? 8 : 12) {
             Picker("Ansicht", selection: $jahresansicht) {
                 Text("Monat").tag(false)
                 Text("Jahr").tag(true)
             }
-            .pickerStyle(.segmented).labelsHidden().frame(width: 160)
+            .segmenteOderMenue(kompakt: kompakt).labelsHidden()
+            .modifier(AnsichtBreite(kompakt: kompakt))
 
             if jahresansicht {
                 JahrWaehler(jahr: $zeit.filter.jahr)
             } else {
-                MonatJahrWaehler(jahr: $zeit.filter.jahr, monat: $zeit.filter.monat)
+                MonatJahrWaehler(jahr: $zeit.filter.jahr, monat: $zeit.filter.monat, kompakt: kompakt)
             }
-            HeuteButton(deaktiviert: !jahresansicht && istAktuell) { aufHeute() }
-            Spacer()
+            HeuteButton(deaktiviert: !jahresansicht && istAktuell, kompakt: kompakt) { aufHeute() }
+            Spacer(minLength: kompakt ? 0 : 8)
             if !jahresansicht {
                 if abgeschlossen {
                     Button(role: .destructive) {
                         abschlussAufheben()
                     } label: {
-                        Label("Abschluss aufheben", systemImage: "lock.open")
+                        KopfLabel("Abschluss aufheben", symbol: "lock.open", kompakt: kompakt)
                     }
                     .help("Hebt die Abschluss-Markierung dieses Monats wieder auf.")
                 } else {
                     Button {
                         monatAbschliessen()
                     } label: {
-                        Label("Monat abschließen", systemImage: "checkmark.seal")
+                        KopfLabel("Monat abschließen", symbol: "checkmark.seal", kompakt: kompakt)
                     }
                     .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
                 }
             }
         }
-        .padding()
     }
 
     // MARK: Monatsansicht
@@ -726,5 +739,32 @@ private struct MonatsWerteEditor: View {
             .disabled(abgeschlossen)
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Feste Breite des Monat/Jahr-Umschalters – kompakt nur so breit wie nötig.
+private struct AnsichtBreite: ViewModifier {
+    let kompakt: Bool
+    func body(content: Content) -> some View {
+        if kompakt { content.fixedSize() } else { content.frame(width: 160) }
+    }
+}
+
+/// Knopfbeschriftung der Kopfleiste: kompakt nur das Symbol.
+private struct KopfLabel: View {
+    let titel: String
+    let symbol: String
+    let kompakt: Bool
+    init(_ titel: String, symbol: String, kompakt: Bool) {
+        self.titel = titel
+        self.symbol = symbol
+        self.kompakt = kompakt
+    }
+    var body: some View {
+        if kompakt {
+            Label(titel, systemImage: symbol).labelStyle(.iconOnly)
+        } else {
+            Label(titel, systemImage: symbol)
+        }
     }
 }

@@ -535,13 +535,23 @@ private struct ArtLeiste: View {
     @Binding var auswahl: AusgabenArtFilter
 
     var body: some View {
+        // Sechs Segmente mit Wörtern wie „Betriebsausgaben" sind rund 340 pt breit und lassen
+        // sich nicht stauchen – zusammen mit Seitenleiste, Tabelle und Inspector schob das die
+        // Mindestbreite des Fensters über die Bildschirmbreite. Passt es nicht, wird daraus ein
+        // Menü (zeigt nur die aktuelle Wahl).
+        ViewThatFits(in: .horizontal) {
+            picker.segmenteOderMenue(kompakt: false)
+            picker.segmenteOderMenue(kompakt: true).fixedSize()
+        }
+        .labelsHidden()
+    }
+
+    private var picker: some View {
         Picker("Bereich", selection: $auswahl) {
             ForEach(AusgabenArtFilter.allCases) { art in
-                Text(art.rawValue).tag(art)
+                Label(art.rawValue, systemImage: art.symbol).tag(art)
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
 }
 

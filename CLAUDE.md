@@ -422,6 +422,22 @@ Prüfgrößen (synthetisch, exemplarisch):
   (`Steuer`/`Auswertung`) bzw. dichte CSV (`;`-getrennt, Punkt-Dezimal), keine Rohzeilen-Dumps.** Der
   **Kontoabgleich gehört bewusst NICHT ins MCP** (betragsbasiertes Matching war fehleranfällig) – das macht
   der lernende In-App-CSV-Import. Tests: `KontorTests/MCPServerTests.swift`.
+- **Mindestbreite der Fenster ist ein Stabilitätsthema, nicht nur Kosmetik (macOS 26/27):**
+  Segmentierte Picker und Knöpfe mit Text lassen sich nicht stauchen – ihre Labelbreite landet
+  1:1 in der Mindestbreite des Fensters. Aufsummiert (Seitenleiste 240 + Kopfleiste + Tabellen-
+  Spaltenminima + Inspector) kam die Ausgaben-View auf **1648 pt** und damit über die Breite des
+  Bildschirms; der Monatsabschluss auf 1329. Seit macOS 26/27 ist das nicht mehr nur hässlich:
+  Muss das Fenster beim Modulwechsel wachsen, schaukeln sich `NSHostingView`-Größen-Constraints
+  und AppKit-Layout auf, bis AppKit eine `NSGenericException` wirft („The window has been marked
+  as needing another Update Constraints in Window pass, but it has already had more … passes than
+  there are views in the window") – und die **App stürzt ab** (`+[NSApplication _crashOnException:]`,
+  EXC_BREAKPOINT). Reproduzierbar mit schmalem Fenster (~1000 pt) und Klick auf ein Modul mit
+  großer Mindestbreite; unterhalb ~950 pt und oberhalb des Modul-Minimums trat es nicht auf.
+  Gegenmittel und Regel für neue Views: **jede Kopf-/Filterleiste braucht eine kompakte Stufe**
+  (`ViewThatFits`), die segmentierte Picker zu Menüs macht (`View.segmenteOderMenue(kompakt:)`),
+  lange Monatsnamen zu `kurzMonat` und Textknöpfe zu Symbolknöpfen (`HeuteButton(kompakt:)`,
+  `MonatJahrWaehler(kompakt:)`). Damit liegen alle Module bei **≤ 1150 pt**. Messen lässt sich das
+  ohne Xcode: App starten, Fenster per System Events auf 400 pt setzen, Ist-Breite zurücklesen.
 - **UI-Stil (bewusst zurückhaltend):** `Stil.swift` (`.karte()`-Elevation, `Panel`),
   `Kennzahl` (große Werte). **Icons neutral grau** (`Kennzahl`, `Kartenzeile`); **Card-Titel ohne Icons**
   (`Panel` rendert nur den Titel – nimmt bewusst kein Symbol/Akzent mehr). Semantische Farbe nur in **Summen-/
