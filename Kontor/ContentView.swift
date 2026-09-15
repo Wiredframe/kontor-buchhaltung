@@ -197,6 +197,9 @@ struct ContentView: View {
             .interactiveDismissDisabled()
         }
         .task {
+            // Klick ins Leere gibt den Tastaturfokus ab – macOS-üblich, in SwiftUI aber nicht
+            // von selbst. Siehe `FokusAbgabe`.
+            FokusAbgabe.einrichten()
             aktualisiereJahre(zeit, context)
             #if DEBUG
             // Screenshot-Automatik (nur Dev): per Startargument `-startModul <rawValue>` direkt
