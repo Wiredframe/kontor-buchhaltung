@@ -43,9 +43,11 @@ struct Hinweisleiste<Aktion: View>: View {
             Spacer(minLength: 8)
             aktion()
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(farbe.opacity(0.10))
-        .overlay(alignment: .bottom) { Divider() }
+        // Dezenter Kasten statt farbiger Vollbahn mit Trennlinie – siehe `hinweisKasten`.
+        // Das äußere Padding gehört hierher und nicht zum Aufrufer: Die Leiste sitzt in beiden
+        // Fällen in der gepinnten Kopfzone, die selbst keinen Innenabstand hat.
+        .hinweisKasten()
+        .padding(.horizontal).padding(.bottom, 10)
     }
 }
 

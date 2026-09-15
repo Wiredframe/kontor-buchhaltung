@@ -427,14 +427,12 @@ struct MonatsabschlussView: View {
                 .font(.callout).foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        .hinweisKasten()
     }
 
     /// Zustand der ganzen Seite, deshalb dieselbe `Hinweisleiste` wie der Hinweis auf fehlende
-    /// Jahres-Einstellungen – nur grün statt orange. Sitzt entsprechend in der gepinnten Kopfzone
-    /// und nicht mehr als Karte im Inhalt.
+    /// Jahres-Einstellungen – unterschieden nur durch die Symbolfarbe. Sitzt entsprechend in der
+    /// gepinnten Kopfzone und nicht als Karte im Inhalt.
     private var abschlussBanner: some View {
         Hinweisleiste(
             symbol: "checkmark.seal.fill", farbe: Stil.positiv,

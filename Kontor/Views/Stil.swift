@@ -35,6 +35,19 @@ extension View {
         modifier(InspektorGrund())
     }
 
+    /// Dezenter Hinweis-Kasten: abgerundete graue Fläche mit Innenabstand.
+    ///
+    /// Der gemeinsame Rahmen aller Hinweise – „Monat abgeschlossen", „keine Einstellungen
+    /// hinterlegt", „liegt in der Zukunft". Bewusst **neutral grau statt farbig**: Die Hinweise
+    /// stehen direkt unter der Titelleiste, und eine vollflächig grün oder orange eingefärbte
+    /// Bahn über die ganze Fensterbreite erschlug dort alles andere. Die Farbe trägt jetzt allein
+    /// das Symbol – das genügt, um Erfolg von Warnung zu unterscheiden.
+    func hinweisKasten() -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+    }
+
     /// Einheitlicher Erklär-/Hinweistext unter Abschluss-Karten: klein, **linksbündig**,
     /// mehrzeilig und mit etwas mehr Kontrast als `.secondary` (aber gedämpft, nicht `.primary`).
     func erklaerung() -> some View {
