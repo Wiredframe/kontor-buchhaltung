@@ -138,8 +138,11 @@ struct MonatsabschlussView: View {
     }
 
     var body: some View {
-        Group {
-            if jahresansicht { jahresAnsicht } else { monatsAnsicht }
+        // Die zwölf Monatsauswertungen genau einmal je Body-Durchlauf – Tabelle und Summenzeile
+        // teilen sich dasselbe Ergebnis. In der Monatsansicht wird gar nichts davon gerechnet.
+        let zeilen = jahresansicht ? jahresZeilen : []
+        return Group {
+            if jahresansicht { jahresAnsicht(zeilen) } else { monatsAnsicht }
         }
         // Kopf als gepinnter Top-Inset: sonst zieht die native Jahres-`Table` ihren Scroll-Inhalt
         // unter die Titelleiste und schiebt den ganzen View nach oben. Über safeAreaInset insetten
@@ -497,23 +500,40 @@ struct MonatsabschlussView: View {
         }
     }
 
-    private var jahresAnsicht: some View {
-        // GeometryReader klemmt die Gesamthöhe hart auf die verfügbare Höhe. Ohne das dehnt die
-        // native `Table` (unter dem oberen safeAreaInset-Kopf) den ganzen View auf ihre Inhaltshöhe
-        // aus – der ganze Detailbereich wird überhoch und die Summenzeile landet weit unter dem
-        // Fensterrand. Mit fixer Höhe füllt die Table den Platz über der gepinnten Summenzeile.
+    /// Die Jahresansicht: nur noch die Tabelle. Die Summenzeile hängt als bottom-`safeAreaInset`
+    /// am `body` (wie der Kopf oben), nicht mehr in einem `GeometryReader`.
+    ///
+    /// Die Jahresansicht: Tabelle und gepinnte Summenzeile, beide aus **denselben** bereits
+    /// gerechneten Zeilen.
+    ///
+    /// **Der `GeometryReader` muss bleiben**, auch wenn er teuer aussieht. Er klemmt die
+    /// Gesamthöhe auf die verfügbare; ohne ihn meldet die native `Table` ihre Inhaltshöhe als
+    /// Idealhöhe nach oben und das **Fenster** wächst mit (gemessen: 1435 pt Mindesthöhe statt
+    /// der gesetzten 900). Zwei Alternativen sind praktisch durchgefallen:
+    /// `.frame(maxHeight: .infinity)` klemmt nicht, und `.containerRelativeFrame(.vertical)`
+    /// **stürzt ab** – mit genau der `NSGenericException` aus dem Update-Constraints-Karussell,
+    /// die weiter oben in CLAUDE.md beschrieben ist (`abort()` im
+    /// `__NSWindowGetDisplayCycleObserverForUpdateConstraints`-Block).
+    ///
+    /// Teuer war nicht der `GeometryReader` selbst, sondern **was in seinem Closure stand**: Der
+    /// Closure läuft bei jeder Größenänderung neu, und darin wurde `jahresZeilen` gerechnet –
+    /// zwölf Monatsauswertungen über den gesamten Datenbestand, gleich zweimal, weil die
+    /// Summenzeile sie ein zweites Mal abrief. Im Profil war der Hauptthread beim Ziehen am
+    /// Fensterrand zu 98 % beschäftigt (Ausgaben-View zum Vergleich: 13 %). Jetzt kommen die
+    /// Zeilen **fertig** aus dem `body` herein; der Closure baut nur noch Views.
+    private func jahresAnsicht(_ zeilen: [MonatsZeile]) -> some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
-                jahresTabelle
+                jahresTabelle(zeilen)
                 Divider()
-                jahresSumme()
+                jahresSumme(zeilen)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
     }
 
-    private var jahresTabelle: some View {
-        Table(jahresZeilen) {
+    private func jahresTabelle(_ zeilen: [MonatsZeile]) -> some View {
+        Table(zeilen) {
             TableColumn("Monat") { z in
                 HStack(spacing: 5) {
                     if settings?.istAbgeschlossen(monat: z.id) == true {
@@ -547,8 +567,7 @@ struct MonatsabschlussView: View {
     /// Kopf oben), damit sie am Fensterrand pinnt statt am potenziell überhohen Table-Rahmen der
     /// nativen `Table` (die dehnt sich auf ihre Inhaltshöhe und schöbe eine innenliegende Fußzeile
     /// weit unter den sichtbaren Bereich). Klick kopiert.
-    private func jahresSumme() -> some View {
-        let zeilen = jahresZeilen
+    private func jahresSumme(_ zeilen: [MonatsZeile]) -> some View {
         let aktiv = zeilen.filter { !$0.zukunft }
         return VStack(spacing: 6) {
             // Das Label muss den Split benennen, statt eine Regel für alles zu behaupten:
