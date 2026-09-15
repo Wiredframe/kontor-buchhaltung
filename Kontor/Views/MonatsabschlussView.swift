@@ -16,7 +16,18 @@ struct MonatsabschlussView: View {
     @Environment(Zeitkontext.self) private var zeit
     private var jahr: Int { zeit.filter.jahr }
     private var monat: Int { zeit.filter.monat }
-    @State private var jahresansicht = false
+    /// Monats- oder Jahresansicht – **abgeleitet aus dem geteilten Zeitraum**, kein eigener
+    /// Zustand. Vorher gab es beides nebeneinander: einen Monat/Jahr-Umschalter und einen
+    /// Zeitraum-Wähler, die widersprüchlich stehen konnten (Kopfzeile „September 2026", darunter
+    /// die Jahrestabelle). Jetzt ist die Ansicht schlicht die Granularität des Zeitraums.
+    private var jahresansicht: Bool { zeit.filter.modus == .jahr }
+    /// Schreibt der Umschalter, liest `jahresansicht`: beide auf demselben Zustand.
+    private var ansichtsWahl: Binding<Bool> {
+        Binding(
+            get: { jahresansicht },
+            set: { zeit.filter.modus = $0 ? .jahr : .monat }
+        )
+    }
     @State private var zeigeAufgaben = true
     @State private var sidebarModus: SidebarModus = .aufgaben
 
@@ -47,11 +58,7 @@ struct MonatsabschlussView: View {
     private var istAktuell: Bool {
         jahr == appKalender.component(.year, from: Date()) && monat == appKalender.component(.month, from: Date())
     }
-    private func aufHeute() {
-        jahresansicht = false
-        zeit.filter.jahr = appKalender.component(.year, from: Date())
-        zeit.filter.monat = appKalender.component(.month, from: Date())
-    }
+    private func aufHeute() { zeit.filter = .dieserMonat() }
 
     /// Betriebsausgaben des Monats (Einzelposten + wiederkehrend) – privat bleibt außen vor.
     private var monatsAusgaben: [ExpenseEntry] {
@@ -138,19 +145,19 @@ struct MonatsabschlussView: View {
     }
 
     var body: some View {
+        @Bindable var zeit = zeit
         // Die zwölf Monatsauswertungen genau einmal je Body-Durchlauf – Tabelle und Summenzeile
         // teilen sich dasselbe Ergebnis. In der Monatsansicht wird gar nichts davon gerechnet.
         let zeilen = jahresansicht ? jahresZeilen : []
         return Group {
             if jahresansicht { jahresAnsicht(zeilen) } else { monatsAnsicht }
         }
-        // Kopf als gepinnter Top-Inset: sonst zieht die native Jahres-`Table` ihren Scroll-Inhalt
-        // unter die Titelleiste und schiebt den ganzen View nach oben. Über safeAreaInset insetten
-        // ScrollView (Monat) und Table (Jahr) einheitlich unter die Kopfleiste.
+        // Warnbanner als gepinnter Top-Inset: sonst zieht die native Jahres-`Table` ihren
+        // Scroll-Inhalt unter die Titelleiste und schiebt den ganzen View nach oben. Über
+        // safeAreaInset insetten ScrollView (Monat) und Table (Jahr) einheitlich darunter.
+        // Die Bedienelemente stehen in der Titelleiste, nicht mehr hier.
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
-                kopf
-                Divider()
                 // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
                 // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
                 FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
@@ -164,7 +171,38 @@ struct MonatsabschlussView: View {
         }
         .navigationTitle("Monatsabschluss")
         .toolbar {
-            ToolbarItem {
+            // Zwei kurze Segmente duerfen segmentiert bleiben: In der Titelleiste zaehlt ihre
+            // Breite nicht zur Mindestbreite des Fensters, und sie sind schneller zu treffen als
+            // ein Menue. Sie schreiben denselben Zustand wie der Chip (siehe `jahresansicht`).
+            ToolbarItem(placement: .navigation) {
+                Picker("Ansicht", selection: ansichtsWahl) {
+                    Text("Monat").tag(false)
+                    Text("Jahr").tag(true)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                .help("Einzelnen Monat oder das ganze Jahr zeigen")
+            }
+            ToolbarItem(placement: .principal) {
+                ZeitraumChip(filter: $zeit.filter, umfang: .monatJahr)
+            }
+            ToolbarItemGroup {
+                if !jahresansicht {
+                    if abgeschlossen {
+                        Button(role: .destructive) {
+                            abschlussAufheben()
+                        } label: {
+                            Label("Abschluss aufheben", systemImage: "lock.open")
+                        }
+                        .help("Hebt die Abschluss-Markierung dieses Monats wieder auf.")
+                    } else {
+                        Button {
+                            monatAbschliessen()
+                        } label: {
+                            Label("Monat abschließen", systemImage: "checkmark.seal")
+                        }
+                        .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
+                    }
+                }
                 Button {
                     zeigeAufgaben.toggle()
                 } label: {
@@ -210,61 +248,9 @@ struct MonatsabschlussView: View {
         // Screenshot-Automatik (nur Dev): Startargument `-startJahr YES` öffnet direkt die
         // Jahresansicht (in Release wegkompiliert).
         .task {
-            if UserDefaults.standard.bool(forKey: "startJahr") { jahresansicht = true }
+            if UserDefaults.standard.bool(forKey: "startJahr") { zeit.filter.modus = .jahr }
         }
         #endif
-    }
-
-    // MARK: Kopfzeile
-
-    private var kopf: some View {
-        // Zwei Stufen: voll, sonst kompakt (Menü statt Segmente, Kurzmonat, Symbol-Knöpfe).
-        // Die volle Zeile ist gut 640 pt breit und nicht stauchbar; zusammen mit Seitenleiste
-        // und Inspector reichte das, um dem Fenster eine Mindestbreite jenseits des Bildschirms
-        // aufzuzwingen – und macOS 26/27 beendet die App dann mitten im Layout (siehe CLAUDE.md).
-        ViewThatFits(in: .horizontal) {
-            kopfZeile(kompakt: false)
-            kopfZeile(kompakt: true)
-        }
-        .padding()
-    }
-
-    @ViewBuilder
-    private func kopfZeile(kompakt: Bool) -> some View {
-        @Bindable var zeit = zeit
-        HStack(spacing: kompakt ? 8 : 12) {
-            Picker("Ansicht", selection: $jahresansicht) {
-                Text("Monat").tag(false)
-                Text("Jahr").tag(true)
-            }
-            .segmenteOderMenue(kompakt: kompakt).labelsHidden()
-            .modifier(AnsichtBreite(kompakt: kompakt))
-
-            if jahresansicht {
-                JahrWaehler(jahr: $zeit.filter.jahr)
-            } else {
-                MonatJahrWaehler(jahr: $zeit.filter.jahr, monat: $zeit.filter.monat, kompakt: kompakt)
-            }
-            HeuteButton(deaktiviert: !jahresansicht && istAktuell, kompakt: kompakt) { aufHeute() }
-            Spacer(minLength: kompakt ? 0 : 8)
-            if !jahresansicht {
-                if abgeschlossen {
-                    Button(role: .destructive) {
-                        abschlussAufheben()
-                    } label: {
-                        KopfLabel("Abschluss aufheben", symbol: "lock.open", kompakt: kompakt)
-                    }
-                    .help("Hebt die Abschluss-Markierung dieses Monats wieder auf.")
-                } else {
-                    Button {
-                        monatAbschliessen()
-                    } label: {
-                        KopfLabel("Monat abschließen", symbol: "checkmark.seal", kompakt: kompakt)
-                    }
-                    .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
-                }
-            }
-        }
     }
 
     // MARK: Monatsansicht
@@ -764,32 +750,5 @@ private struct MonatsWerteEditor: View {
             .disabled(abgeschlossen)
         }
         .formStyle(.grouped)
-    }
-}
-
-/// Feste Breite des Monat/Jahr-Umschalters – kompakt nur so breit wie nötig.
-private struct AnsichtBreite: ViewModifier {
-    let kompakt: Bool
-    func body(content: Content) -> some View {
-        if kompakt { content.fixedSize() } else { content.frame(width: 160) }
-    }
-}
-
-/// Knopfbeschriftung der Kopfleiste: kompakt nur das Symbol.
-private struct KopfLabel: View {
-    let titel: String
-    let symbol: String
-    let kompakt: Bool
-    init(_ titel: String, symbol: String, kompakt: Bool) {
-        self.titel = titel
-        self.symbol = symbol
-        self.kompakt = kompakt
-    }
-    var body: some View {
-        if kompakt {
-            Label(titel, systemImage: symbol).labelStyle(.iconOnly)
-        } else {
-            Label(titel, systemImage: symbol)
-        }
     }
 }

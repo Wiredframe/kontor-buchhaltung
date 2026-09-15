@@ -27,7 +27,6 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
     @AppStorage("jahresabschlussAufgabenOffen") private var zeigeAufgaben = true
 
     private var jahr: Int { zeit.filter.jahr }
-    private var istAktuellesJahr: Bool { jahr == appKalender.component(.year, from: Date()) }
     private var settings: YearSettings? { jahre.first { $0.jahr == jahr } }
     /// Nur jährliche Aufgaben des gewählten Jahres – für die Abschluss-Sidebar.
     private var jahresAufgaben: [MonthlyTask] {
@@ -50,17 +49,6 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
         // Zone (das Warnbanner kommt und geht mit dem Jahr) verschieben nicht den Seiteninhalt.
         .safeAreaInset(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
-                HStack {
-                    Text("Jahr").foregroundStyle(.secondary)
-                    JahrWaehler(jahr: $zeit.filter.jahr)
-                    HeuteButton(titel: "Aktuelles Jahr", deaktiviert: istAktuellesJahr) {
-                        zeit.filter.jahr = appKalender.component(.year, from: Date())
-                    }
-                    Spacer()
-                    kopfRechts()
-                }
-                .padding()
-                Divider()
                 // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
                 // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
                 FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
@@ -73,7 +61,12 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
         .seitenGrund()
         .navigationTitle(titel)
         .toolbar {
-            ToolbarItem {
+            // Nur das Jahr ist hier sinnvoll – die Seiten rechnen ausschliesslich je Jahr.
+            ToolbarItem(placement: .principal) {
+                ZeitraumChip(filter: $zeit.filter, umfang: .nurJahr)
+            }
+            ToolbarItemGroup {
+                kopfRechts()
                 Button {
                     zeigeAufgaben.toggle()
                 } label: {
