@@ -49,48 +49,75 @@ struct ZeitraumChip: View {
         .help(hilfe)
     }
 
+    /// Die Schnellwahl als **inline-`Picker`**, nicht als Knopfliste.
+    ///
+    /// Grund ist das Häkchen: Ein `Button` mit `Label(…, systemImage: "checkmark")` rendert im
+    /// macOS-Menü kein Häkchen, ein `Picker` setzt es von selbst an den ausgewählten Eintrag –
+    /// und zwar genauso, wie es das Filtermenü der Ausgaben-View schon tut. So sieht man dem
+    /// geöffneten Menü an, welcher Zeitraum gerade gilt, statt es nur als Sprungbrett zu haben.
     @ViewBuilder private var eintraege: some View {
-        if Zeitfilter.erlaubt(.monat, in: umfang) {
-            Section {
-                wahl("Dieser Monat", .dieserMonat())
-                wahl("Letzter Monat", .letzterMonat())
+        Picker("Zeitraum", selection: auswahl) {
+            if Zeitfilter.erlaubt(.monat, in: umfang) {
+                Text("Dieser Monat").tag(Schnellwahl.dieserMonat)
+                Text("Letzter Monat").tag(Schnellwahl.letzterMonat)
+                Divider()
+            }
+            if Zeitfilter.erlaubt(.quartal, in: umfang) {
+                Text("Dieses Quartal").tag(Schnellwahl.diesesQuartal)
+                Text("Letztes Quartal").tag(Schnellwahl.letztesQuartal)
+                Divider()
+            }
+            Text("Dieses Jahr").tag(Schnellwahl.diesesJahr)
+            Text("Letztes Jahr").tag(Schnellwahl.letztesJahr)
+            if Zeitfilter.erlaubt(.alle, in: umfang) {
+                Divider()
+                Text("Gesamt").tag(Schnellwahl.gesamt)
             }
         }
-        if Zeitfilter.erlaubt(.quartal, in: umfang) {
-            Section {
-                wahl("Dieses Quartal", .diesesQuartal())
-                wahl("Letztes Quartal", .letztesQuartal())
-            }
-        }
-        Section {
-            wahl("Dieses Jahr", .diesesJahr())
-            wahl("Letztes Jahr", .letztesJahr())
-        }
-        if Zeitfilter.erlaubt(.alle, in: umfang) {
-            Section {
-                wahl("Gesamt", .gesamt)
+        .pickerStyle(.inline)
+    }
+
+    /// Die angebotenen Zeiträume. `.keiner` steht für „mit den Pfeilen irgendwohin gewandert" –
+    /// dann ist keiner der Einträge angehakt, was genau richtig ist.
+    private enum Schnellwahl: Hashable {
+        case keiner, dieserMonat, letzterMonat, diesesQuartal, letztesQuartal
+        case diesesJahr, letztesJahr, gesamt
+
+        var filter: Zeitfilter? {
+            switch self {
+            case .keiner: nil
+            case .dieserMonat: .dieserMonat()
+            case .letzterMonat: .letzterMonat()
+            case .diesesQuartal: .diesesQuartal()
+            case .letztesQuartal: .letztesQuartal()
+            case .diesesJahr: .diesesJahr()
+            case .letztesJahr: .letztesJahr()
+            case .gesamt: .gesamt
             }
         }
     }
 
-    /// Ein Menüeintrag. Der aktive Zeitraum bekommt ein Häkchen, damit der Chip den Zustand
-    /// zeigt und nicht nur ein Sprungbrett ist.
-    private func wahl(_ titel: String, _ ziel: Zeitfilter) -> some View {
-        Button {
-            filter = ziel
-        } label: {
-            if istAktiv(ziel) {
-                Label(titel, systemImage: "checkmark")
-            } else {
-                Text(titel)
-            }
-        }
+    private var auswahl: Binding<Schnellwahl> {
+        Binding(
+            get: { aktuelle },
+            set: { if let neu = $0.filter { filter = neu } }
+        )
     }
 
-    /// Gleicht nur die Felder ab, die den Zeitraum ausmachen: Im Jahres-Modus ist der Monat
+    /// Welcher Eintrag trägt gerade das Häkchen?
+    ///
+    /// Verglichen wird nur, was den Zeitraum ausmacht: Im Jahres-Modus ist der Monat
     /// bedeutungslos und darf das Häkchen nicht verhindern.
-    private func istAktiv(_ ziel: Zeitfilter) -> Bool {
-        guard filter.modus == ziel.modus else { return false }
+    private var aktuelle: Schnellwahl {
+        let kandidaten: [Schnellwahl] = [
+            .dieserMonat, .letzterMonat, .diesesQuartal, .letztesQuartal,
+            .diesesJahr, .letztesJahr, .gesamt,
+        ]
+        return kandidaten.first { passt($0.filter) } ?? .keiner
+    }
+
+    private func passt(_ ziel: Zeitfilter?) -> Bool {
+        guard let ziel, filter.modus == ziel.modus else { return false }
         switch filter.modus {
         case .alle: return true
         case .jahr: return filter.jahr == ziel.jahr

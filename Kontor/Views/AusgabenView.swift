@@ -172,8 +172,27 @@ struct AusgabenView: View {
         }
     }
 
+    /// Schränkt gerade einer der beiden Filter die Tabelle ein?
+    private var filtertAktiv: Bool { artFilter != .alle || sparte != .alle }
+
+    /// Beschriftung des Filter-Menüs in der Toolbar: die Art, und die Sparte nur, wenn sie
+    /// gesetzt ist und für diese Art überhaupt eine Rolle spielt.
+    private var filterTitel: String {
+        guard artFilter.hatSparte, sparte != .alle else { return artFilter.rawValue }
+        return "\(artFilter.rawValue) · \(sparte.rawValue)"
+    }
+
+    /// In welchen Monat neue bzw. duplizierte Einträge gebucht werden.
+    ///
+    /// **Auch der Quartals-Modus zählt.** Steht der Zeitraum sichtbar auf Q3 2026, wäre ein
+    /// Rückfall auf „heute" eine Überraschung: Der neue Eintrag landete außerhalb des Zeitraums,
+    /// den man gerade vor sich hat. Genommen wird dann der erste Monat des Quartals, den
+    /// `Zeitfilter` in `monat` ohnehin bereithält. Nur bei Jahr und Gesamt gibt es keinen
+    /// sinnvollen Monat – dort bleibt es bei heute.
     private var zielJahrMonat: (jahr: Int, monat: Int) {
-        if zeit.filter.modus == .monat { return (zeit.filter.jahr, zeit.filter.monat) }
+        if zeit.filter.modus == .monat || zeit.filter.modus == .quartal {
+            return (zeit.filter.jahr, zeit.filter.monat)
+        }
         return (appKalender.component(.year, from: Date()), appKalender.component(.month, from: Date()))
     }
     private func ersterTag(_ jahr: Int, _ monat: Int) -> Date {
@@ -197,26 +216,6 @@ struct AusgabenView: View {
         @Bindable var zeit = zeit
         let liste = zeilen.sorted(using: sortOrder)
         return VStack(spacing: 0) {
-            ZeitraumLeiste(filter: $zeit.filter) {
-                // Sparte-Filter rechts in der Zeitleiste – spart Breite in der Bereichszeile.
-                if artFilter.hatSparte {
-                    Picker("Sparte", selection: $sparte) {
-                        ForEach(SparteFilter.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented).fixedSize().labelsHidden()
-                }
-            }
-            Divider()
-            HStack(spacing: 12) {
-                ArtLeiste(auswahl: $artFilter)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal).padding(.vertical, 8)
-            .onChange(of: artFilter) { _, neu in
-                if !neu.hatSparte { sparte = .alle }
-                if !neu.hatVorlagen { sidebarModus = .eintrag }
-            }
-            Divider()
             Table(liste, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("Datum", value: \.datum) {
                     Text($0.datum, format: .dateTime.day().month().year()).lineLimit(1)
@@ -295,7 +294,44 @@ struct AusgabenView: View {
         .navigationTitle("Ausgaben")
         .onAppear(perform: konsumiereZiel)
         .searchable(text: $suche, prompt: "Bezeichnung oder Anbieter suchen")
+        .onChange(of: artFilter) { _, neu in
+            if !neu.hatSparte { sparte = .alle }
+            if !neu.hatVorlagen { sidebarModus = .eintrag }
+        }
         .toolbar {
+            // Zeitraum mittig in der Titelleiste statt als eigene Leiste im Inhalt (siehe
+            // `ZeitraumChip`).
+            ToolbarItem(placement: .principal) {
+                ZeitraumChip(filter: $zeit.filter)
+            }
+            // Art und Sparte in **einem** Menü statt in zwei Leisten: Sechs Segmente mit Wörtern
+            // wie „Betriebsausgaben" waren rund 340 pt breit und ließen sich nicht stauchen, und
+            // zwei getrennte Toolbar-Items würden die Leiste jedes Mal umbrechen lassen, wenn die
+            // Sparte je nach Art verschwindet. So bleibt die Breite stabil, und die Beschriftung
+            // sagt, wonach gerade gefiltert wird.
+            ToolbarItem {
+                Menu {
+                    Picker("Bereich", selection: $artFilter) {
+                        ForEach(AusgabenArtFilter.allCases) { art in
+                            Label(art.rawValue, systemImage: art.symbol).tag(art)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    if artFilter.hatSparte {
+                        Picker("Sparte", selection: $sparte) {
+                            ForEach(SparteFilter.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+                    }
+                } label: {
+                    // Ein aktiver Filter muss sichtbar sein: Die Toolbar zeigt sonst nur das
+                    // Symbol, und man sucht nach Zeilen, die ein vergessener Filter ausblendet.
+                    // Unfiltriert bleibt es beim Symbol, das spart Breite.
+                    let l = Label(filterTitel, systemImage: artFilter.symbol)
+                    if filtertAktiv { l.labelStyle(.titleAndIcon) } else { l.labelStyle(.iconOnly) }
+                }
+                .help("Nach Art und Sparte filtern")
+            }
             ToolbarItemGroup {
                 Menu {
                     Section("Ausgabe") {
@@ -419,7 +455,10 @@ struct AusgabenView: View {
         case .betriebsausgabe, .fixkosten, .subscription:
             let art: AusgabeArt =
                 typ == .fixkosten ? .fixkosten : typ == .subscription ? .subscription : .betriebsausgabe
-            let datum = zeit.filter.modus == .monat ? ersterTag(zielJahrMonat.jahr, zielJahrMonat.monat) : Date()
+            // Im Monats- wie im Quartals-Modus in den sichtbaren Zeitraum buchen (siehe
+            // `zielJahrMonat`), sonst auf heute.
+            let imZeitraum = zeit.filter.modus == .monat || zeit.filter.modus == .quartal
+            let datum = imZeitraum ? ersterTag(zielJahrMonat.jahr, zielJahrMonat.monat) : Date()
             let e = ExpenseEntry(
                 datum: datum, bezeichnung: "", anbieter: "", brutto: 0, vst: 0,
                 steuerart: .inland19, betrieblich: true,
@@ -532,34 +571,6 @@ struct AusgabenView: View {
         sidebarModus = .vorlagen
         zeigeInspektor = true
         vorlagenAuswahl = neu.id
-    }
-}
-
-// MARK: - Bereichswahl (Art)
-
-/// Bereichswahl als nativer segmentierter Picker (Alle/Betriebsausgaben/Fixkosten/Subscriptions/
-/// Vorsorge/Steuern).
-private struct ArtLeiste: View {
-    @Binding var auswahl: AusgabenArtFilter
-
-    var body: some View {
-        // Sechs Segmente mit Wörtern wie „Betriebsausgaben" sind rund 340 pt breit und lassen
-        // sich nicht stauchen – zusammen mit Seitenleiste, Tabelle und Inspector schob das die
-        // Mindestbreite des Fensters über die Bildschirmbreite. Passt es nicht, wird daraus ein
-        // Menü (zeigt nur die aktuelle Wahl).
-        ViewThatFits(in: .horizontal) {
-            picker.segmenteOderMenue(kompakt: false)
-            picker.segmenteOderMenue(kompakt: true).fixedSize()
-        }
-        .labelsHidden()
-    }
-
-    private var picker: some View {
-        Picker("Bereich", selection: $auswahl) {
-            ForEach(AusgabenArtFilter.allCases) { art in
-                Label(art.rawValue, systemImage: art.symbol).tag(art)
-            }
-        }
     }
 }
 

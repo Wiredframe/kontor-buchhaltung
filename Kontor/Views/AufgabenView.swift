@@ -24,8 +24,6 @@ struct AufgabenView: View {
     var body: some View {
         @Bindable var zeit = zeit
         return VStack(spacing: 0) {
-            ZeitraumLeiste(filter: $zeit.filter)
-            Divider()
             Table(anzeige, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn("", value: \.erledigtSort) { t in
                     Button {
@@ -67,6 +65,11 @@ struct AufgabenView: View {
         .navigationTitle("Aufgaben")
         .searchable(text: $suche, prompt: "Aufgabe suchen")
         .toolbar {
+            // Zeitraum mittig in der Titelleiste statt als eigene Leiste im Inhalt: So trägt er
+            // nichts zur Mindestbreite des Fensters bei (siehe `ZeitraumChip`).
+            ToolbarItem(placement: .principal) {
+                ZeitraumChip(filter: $zeit.filter)
+            }
             ToolbarItemGroup {
                 Button {
                     neu()
