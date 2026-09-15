@@ -44,10 +44,9 @@ struct Hinweisleiste<Aktion: View>: View {
             aktion()
         }
         // Dezenter Kasten statt farbiger Vollbahn mit Trennlinie – siehe `hinweisKasten`.
-        // Das äußere Padding gehört hierher und nicht zum Aufrufer: Die Leiste sitzt in beiden
-        // Fällen in der gepinnten Kopfzone, die selbst keinen Innenabstand hat.
+        // Den Abstand nach außen setzt der Hinweis-Stapel des Aufrufers, damit mehrere
+        // Hinweise untereinander gleichmäßig sitzen.
         .hinweisKasten()
-        .padding(.horizontal).padding(.bottom, 10)
     }
 }
 

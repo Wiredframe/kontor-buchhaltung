@@ -44,11 +44,13 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
             }
             .padding()
         }
+        // Keine Trennlinie zwischen Hinweis-Zone und Inhalt – wie im Monatsabschluss.
+        .scrollEdgeEffektAus()
         // Kopf als gepinnter Top-Inset statt als VStack über der ScrollView – dasselbe Muster wie
         // in `MonatsabschlussView`. Der Kopf bleibt beim Scrollen stehen, und Höhenwechsel dieser
         // Zone (das Warnbanner kommt und geht mit dem Jahr) verschieben nicht den Seiteninhalt.
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
+            VStack(spacing: 8) {
                 // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
                 // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
                 FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
@@ -56,6 +58,7 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
                     try? context.save()
                 }
             }
+            .padding(.horizontal).padding(.bottom, 10)
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .seitenGrund()

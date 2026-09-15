@@ -157,7 +157,10 @@ struct MonatsabschlussView: View {
         // safeAreaInset insetten ScrollView (Monat) und Table (Jahr) einheitlich darunter.
         // Die Bedienelemente stehen in der Titelleiste, nicht mehr hier.
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
+            // **Alle** Hinweise zur Seite stehen hier beieinander, auch der Zukunfts-Hinweis –
+            // er stand früher im Inhalt und bekam dort den 24-pt-Abstand des Karten-Stapels,
+            // was ihn weit von den anderen Hinweisen absetzte.
+            VStack(spacing: 8) {
                 // Ohne YearSettings rechnen ESt und KSK still mit Fallbacks weiter (15 % / 0 €) –
                 // plausibel aussehende, falsche Zahlen. Das gehört sichtbar gemacht, nicht versteckt.
                 FehlendeJahresEinstellungen(jahr: jahr, settings: settings) {
@@ -166,7 +169,9 @@ struct MonatsabschlussView: View {
                 }
                 // Nur in der Monatsansicht: in der Jahresansicht gilt der Abschluss je Zeile.
                 if !jahresansicht && abgeschlossen { abschlussBanner }
+                if !jahresansicht && istZukunft(monat) { zukunftshinweis }
             }
+            .padding(.horizontal).padding(.bottom, 10)
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .navigationTitle("Monatsabschluss")
@@ -270,7 +275,6 @@ struct MonatsabschlussView: View {
         let z = zahlen(monat, einP: einP, ausP: ausP)
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if istZukunft(monat) { zukunftshinweis }
                 heroCard(z)
 
                 HStack(alignment: .top, spacing: 14) {
@@ -314,6 +318,10 @@ struct MonatsabschlussView: View {
             }
             .padding()
         }
+        // Keine Trennlinie zwischen Hinweis-Zone und Inhalt: macOS zeichnet dort beim Scrollen
+        // von sich aus eine Kante. Der Modifier muss an die ScrollView selbst, am umgebenden
+        // Container bleibt er wirkungslos.
+        .scrollEdgeEffektAus()
         .seitenGrund()
     }
 

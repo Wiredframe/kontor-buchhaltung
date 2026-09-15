@@ -43,7 +43,7 @@ extension View {
     /// Bahn über die ganze Fensterbreite erschlug dort alles andere. Die Farbe trägt jetzt allein
     /// das Symbol – das genügt, um Erfolg von Warnung zu unterscheiden.
     func hinweisKasten() -> some View {
-        padding(12)
+        padding(.horizontal, 12).padding(.vertical, 9)
             .frame(maxWidth: .infinity)
             .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
     }
@@ -92,6 +92,21 @@ struct Panel<Inhalt: View>: View {
             .padding(.horizontal, 16).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .karte()
+        }
+    }
+}
+
+extension View {
+    /// Blendet die Kante aus, die macOS 26 am oberen Scroll-Rand einzeichnet.
+    ///
+    /// Auf älteren Systemen gibt es den Effekt nicht, dort ist der Aufruf wirkungslos – deshalb
+    /// hinter `if #available` statt als harte Anforderung.
+    @ViewBuilder
+    func scrollEdgeEffektAus() -> some View {
+        if #available(macOS 26.0, *) {
+            scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            self
         }
     }
 }
