@@ -183,7 +183,7 @@ Prüfgrößen (synthetisch, exemplarisch):
 
 ## Weitere Architektur-Hinweise
 - **Tabellen-UX:** alle Tabellen mit `.inspector()`-Flyout (Live-`@Bindable`,
-  kein Sheet), Inline-„+", sortierbaren Headern, Jahr/Monat-Filter (Ausgaben/Einnahmen).
+  kein Sheet), Inline-„+", sortierbaren Headern, Zeitraum über den `ZeitraumChip` in der Titelleiste.
   In-Tabellen-Status-Toggle, „Duplizieren (heute)", „bezahlt → heutiges Datum".
 - **Entitäten:** `GroceryEntry` (Lebensmittel, wöchentlich, Budget 50 €),
   `PurchaseEntry` (Bestellungen/Anschaffungen, Budget 80 €); `Income.rechnungsnummer`;
@@ -433,11 +433,36 @@ Prüfgrößen (synthetisch, exemplarisch):
   there are views in the window") – und die **App stürzt ab** (`+[NSApplication _crashOnException:]`,
   EXC_BREAKPOINT). Reproduzierbar mit schmalem Fenster (~1000 pt) und Klick auf ein Modul mit
   großer Mindestbreite; unterhalb ~950 pt und oberhalb des Modul-Minimums trat es nicht auf.
-  Gegenmittel und Regel für neue Views: **jede Kopf-/Filterleiste braucht eine kompakte Stufe**
-  (`ViewThatFits`), die segmentierte Picker zu Menüs macht (`View.segmenteOderMenue(kompakt:)`),
-  lange Monatsnamen zu `kurzMonat` und Textknöpfe zu Symbolknöpfen (`HeuteButton(kompakt:)`,
-  `MonatJahrWaehler(kompakt:)`). Damit liegen alle Module bei **≤ 1150 pt**. Messen lässt sich das
-  ohne Xcode: App starten, Fenster per System Events auf 400 pt setzen, Ist-Breite zurücklesen.
+  Gegenmittel und Regel für neue Views: **Zeitraum-, Filter- und Aktionssteuerung gehören in die
+  Fenster-Toolbar** (`.toolbar`/`ToolbarItem`), nicht in den Content-Bereich. Toolbar-Items
+  addieren ihre Breite **nicht** in die Mindestbreite des Fensters; reicht der Platz nicht,
+  schiebt AppKit sie selbst ins »-Überlaufmenü. Damit fällt die Ursache strukturell weg, statt
+  nur abgefedert zu werden. Die frühere Kompakt-Stufe per `ViewThatFits`
+  (`segmenteOderMenue(kompakt:)`, `HeuteButton`, `MonatJahrWaehler`, `ZeitraumLeiste`) ist
+  **ersatzlos entfernt**; sie war zudem selbst ein Performance-Problem, weil `ViewThatFits` bei
+  jeder Größenänderung **alle** Varianten baut und misst. Der Zeitraum läuft überall über den
+  geteilten **`ZeitraumChip`** (`‹ September 2026 ⌄ ›`; die Pfeile schieben in der Granularität
+  des Modus, das Menü bietet nur relative Zeiträume – **kein Kalender, kein Monatsraster**).
+  Damit liegen alle Module bei **≤ 1050 pt** (vorher 1148).
+
+  **Verifiziert wird das mit dem Breitenraster, nicht mit Augenmaß:** Fenster von 650 bis 1350 pt
+  in 50-pt-Schritten, bei jeder Breite reihum **jedes** Sidebar-Modul anspringen, nach jedem
+  Schritt `pgrep -x Kontor` prüfen. Genau das hat einen selbst eingebauten Absturz gefunden, den
+  kein Einzeltest zeigte (siehe nächster Punkt). Einzelne Mindestbreiten misst man so: App
+  starten (`-startModul <rawValue>`), Fenster per System Events auf 400 pt setzen, Ist-Breite
+  zurücklesen.
+- **Geteilten Zustand NIE in `onAppear` schreiben (AttributeGraph-Absturz):** Der `ZeitraumChip`
+  rief beim Erscheinen `filter.begrenzeAuf(umfang)` auf, um den geteilten `Zeitfilter` auf die
+  Granularitäten zu klemmen, die das Modul kann. Ergebnis: reproduzierbarer Absturz beim
+  Modulwechsel im schmalen Fenster – **nicht** das Update-Constraints-Karussell von oben, sondern
+  `AG::precondition_failure` aus `UpdateAppKitOutlineTableCoordinator` (der Sidebar-Outline).
+  Ursache: `begrenzeAuf` ist `mutating` und löst über ein `@Binding` **immer** einen
+  Schreibvorgang aus, auch wenn sich der Wert nicht ändert. Da `Zeitfilter` im geteilten
+  `Zeitkontext` liegt, invalidiert das jede View, die ihn liest – mitten im Aufbau des
+  Modulwechsels. Ein `guard` davor und ein `Task { @MainActor }` drumherum haben **nicht**
+  gereicht. Richtig ist, den geteilten Zustand beim Erscheinen gar nicht anzufassen: Der Chip
+  normalisiert **lesend** auf einer Kopie (`ZeitraumChip.sicht`), geschrieben wird erst bei einer
+  echten Nutzeraktion.
 - **`Table` zwingt dem Fenster eine Mindesthöhe auf – Gegenmittel ist `minHeight: 0`:** Die native
   SwiftUI-`Table` meldet ihre **Inhaltshöhe als Mindesthöhe** nach oben durch. Steht sie in einem
   Detailbereich, wächst das **Fenster** mit und lässt sich nicht mehr kleiner ziehen (gemessen in
