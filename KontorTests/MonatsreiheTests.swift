@@ -62,12 +62,31 @@ struct MonatsreiheTests {
                 kskFuer: { _, _ in dez("180.00") }, fixkostenPrivat: 0,
                 pauschalSatz: { _, _ in dez("0.15") })
             #expect(punkt.rn == a.rn)
+            #expect(punkt.ausgaben == a.betriebsausgabenNetto)
             #expect(punkt.gewinn == a.betrieblicherGewinn)
             #expect(punkt.steuerRuecklage == a.steuerRuecklage)
         }
         let r = Self.reihe()
         #expect(r[2].gewinn == dez("10000.00"))  // März: nur Umsatz
         #expect(r[4].gewinn == dez("-1000.00"))  // Mai: nur die Ausgabe
+    }
+
+    /// Die Ausgaben-Kennzahl des Charts ist **netto** und passt zum Gewinn derselben Zeile:
+    /// Umsatz minus Ausgaben. Brutto (1.190 €) waere falsch, die Vorsteuer ist ein
+    /// durchlaufender Posten.
+    @Test func ausgabenSindNettoUndPassenZumGewinn() {
+        let r = Self.reihe()
+        #expect(r[4].ausgaben == dez("1000.00"))  // Mai: 1.190 brutto minus 190 Vorsteuer
+        #expect(r[2].ausgaben == 0)  // Maerz: nur Umsatz, keine Ausgabe
+        for punkt in r {
+            #expect(punkt.gewinn == punkt.rn - punkt.ausgaben)
+        }
+    }
+
+    /// Ausgaben werden **positiv** gefuehrt, nicht als negativer Betrag: Der Chart zeigt sie als
+    /// eigene Saeule, nicht als Abzug vom Gewinn.
+    @Test func ausgabenSindPositiv() {
+        #expect(Self.reihe().allSatisfy { $0.ausgaben >= 0 })
     }
 
     /// Ohne Privatdaten bleibt `frei` nil – ein Wert ohne Privatkosten wäre still viel zu hoch.

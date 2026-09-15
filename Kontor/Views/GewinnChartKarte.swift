@@ -3,11 +3,13 @@ import SwiftUI
 
 /// Kennzahl des Monats-Trendcharts.
 enum TrendMetrik: String, CaseIterable, Identifiable {
-    case gewinn, frei, ruecklage
+    // Reihenfolge = Reihenfolge im Umschalter: erst das Ergebnis, dann was es aufzehrt.
+    case gewinn, ausgaben, frei, ruecklage
     var id: String { rawValue }
     var kurz: String {
         switch self {
         case .gewinn: "Gewinn"
+        case .ausgaben: "Ausgaben"
         case .frei: "Frei"
         case .ruecklage: "Rücklage"
         }
@@ -15,6 +17,7 @@ enum TrendMetrik: String, CaseIterable, Identifiable {
     var lang: String {
         switch self {
         case .gewinn: "Betrieblicher Gewinn"
+        case .ausgaben: "Betriebliche Ausgaben (netto)"
         case .frei: "Frei verfügbar"
         case .ruecklage: "Steuerrücklage"
         }
@@ -27,6 +30,7 @@ enum TrendMetrik: String, CaseIterable, Identifiable {
     func wert(_ p: Monatsreihe.Punkt) -> Decimal? {
         switch self {
         case .gewinn: p.gewinn
+        case .ausgaben: p.ausgaben
         case .frei: p.frei
         case .ruecklage: p.steuerRuecklage
         }

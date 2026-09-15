@@ -15,6 +15,10 @@ enum Monatsreihe {
     struct Punkt: Hashable {
         var monat: Int
         var rn: Decimal
+        /// Betriebliche Ausgaben **netto** – dieselbe Größe, die vom Umsatz abgezogen den
+        /// Gewinn ergibt. Netto und nicht brutto, weil die Vorsteuer ein durchlaufender Posten
+        /// ist und die EÜR ebenfalls mit Netto rechnet.
+        var ausgaben: Decimal
         var gewinn: Decimal
         var steuerRuecklage: Decimal
         var frei: Decimal?
@@ -43,7 +47,7 @@ enum Monatsreihe {
                 privatVariabel: privatVariabel?(m) ?? 0,
                 pauschalSatz: satzFuer)
             return Punkt(
-                monat: m, rn: a.rn, gewinn: a.betrieblicherGewinn,
+                monat: m, rn: a.rn, ausgaben: a.betriebsausgabenNetto, gewinn: a.betrieblicherGewinn,
                 steuerRuecklage: a.steuerRuecklage,
                 frei: mitPrivat ? a.verfuegbar : nil)
         }
