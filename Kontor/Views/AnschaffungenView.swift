@@ -91,8 +91,13 @@ struct AnschaffungenView: View {
                 }
             }
             // Der Inspector-Schalter steht **allein**, nicht in der Gruppe der Aktionen: Er
-            // tut etwas grundlegend anderes (Ansicht umschalten statt Daten anlegen), und die
-            // Gruppierung in einer gemeinsamen Kapsel legte genau das Gegenteil nahe.
+            // tut etwas grundlegend anderes (Ansicht umschalten statt Daten anzulegen), und die
+            // gemeinsame Kapsel legte genau das Gegenteil nahe.
+            //
+            // Ein eigenes `ToolbarItem` reicht dafür **nicht**: macOS fasst benachbarte Items
+            // optisch weiter zu einer Kapsel zusammen. Erst der `ToolbarSpacer` trennt sie
+            // sichtbar – den gibt es ab macOS 26, darunter bleibt es beim alten Bild.
+            if #available(macOS 26.0, *) { ToolbarSpacer(.fixed) }
             ToolbarItem {
                 Button {
                     zeigeInspektor.toggle()

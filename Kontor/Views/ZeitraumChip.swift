@@ -45,14 +45,18 @@ struct ZeitraumChip: View {
             // setzen und dem Text eine **Mindestbreite** geben. Ohne die wandern die beiden
             // Pfeile bei jedem Wechsel der Beschriftung („September 2026" gegen „Q3 2026")
             // ein Stück – man zielt dann jedes Mal woandershin.
+            //
+            // Das Chevron hängt **im Text** statt daneben in einer `HStack`: SwiftUI liest ein
+            // `Image` neben einem `Text` im Menü-Label als Label-Symbol und zieht es nach
+            // **vorn** – dann steht „⌄ September 2026" statt „September 2026 ⌄". Als
+            // Text-Baustein bleibt die Lesereihenfolge erhalten; die schmalen Leerzeichen davor
+            // sind der gewünschte Abstand.
             Menu {
                 eintraege
             } label: {
-                HStack(spacing: 7) {
-                    Text(sicht.beschriftung)
-                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
-                }
-                .frame(minWidth: 118)
+                (Text(sicht.beschriftung) + Text("\u{2009}\u{2009}")
+                    + Text(Image(systemName: "chevron.down")).font(.caption2.weight(.semibold)))
+                    .frame(minWidth: 118)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
