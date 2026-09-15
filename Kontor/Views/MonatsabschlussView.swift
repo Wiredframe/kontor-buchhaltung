@@ -500,36 +500,42 @@ struct MonatsabschlussView: View {
         }
     }
 
-    /// Die Jahresansicht: nur noch die Tabelle. Die Summenzeile hängt als bottom-`safeAreaInset`
-    /// am `body` (wie der Kopf oben), nicht mehr in einem `GeometryReader`.
-    ///
     /// Die Jahresansicht: Tabelle und gepinnte Summenzeile, beide aus **denselben** bereits
     /// gerechneten Zeilen.
     ///
-    /// **Der `GeometryReader` muss bleiben**, auch wenn er teuer aussieht. Er klemmt die
-    /// Gesamthöhe auf die verfügbare; ohne ihn meldet die native `Table` ihre Inhaltshöhe als
-    /// Idealhöhe nach oben und das **Fenster** wächst mit (gemessen: 1435 pt Mindesthöhe statt
-    /// der gesetzten 900). Zwei Alternativen sind praktisch durchgefallen:
-    /// `.frame(maxHeight: .infinity)` klemmt nicht, und `.containerRelativeFrame(.vertical)`
-    /// **stürzt ab** – mit genau der `NSGenericException` aus dem Update-Constraints-Karussell,
-    /// die weiter oben in CLAUDE.md beschrieben ist (`abort()` im
-    /// `__NSWindowGetDisplayCycleObserverForUpdateConstraints`-Block).
+    /// **`minHeight: 0` ist hier die tragende Zutat, nicht `maxHeight`.** Die native `Table`
+    /// meldet ihre Inhaltshöhe als Mindesthöhe nach oben durch; ohne Gegenmittel wächst das
+    /// **Fenster** mit und lässt sich nicht mehr kleiner ziehen. `maxHeight` setzt nur die
+    /// Obergrenze und ändert daran nichts – erst ein ausdrückliches `minHeight: 0` kappt die
+    /// Weitergabe nach oben. Gemessen am Fenster (Soll 1400 × 900):
     ///
-    /// Teuer war nicht der `GeometryReader` selbst, sondern **was in seinem Closure stand**: Der
-    /// Closure läuft bei jeder Größenänderung neu, und darin wurde `jahresZeilen` gerechnet –
-    /// zwölf Monatsauswertungen über den gesamten Datenbestand, gleich zweimal, weil die
-    /// Summenzeile sie ein zweites Mal abrief. Im Profil war der Hauptthread beim Ziehen am
-    /// Fensterrand zu 98 % beschäftigt (Ausgaben-View zum Vergleich: 13 %). Jetzt kommen die
-    /// Zeilen **fertig** aus dem `body` herein; der Closure baut nur noch Views.
+    /// | Variante | Ergebnis |
+    /// |---|---|
+    /// | `.frame(maxHeight: .infinity)` | 1400 × **1436** – klemmt nicht |
+    /// | `.safeAreaInset(edge: .bottom)` an der Tabelle | 1400 × **1436** – klemmt nicht |
+    /// | `.containerRelativeFrame(.vertical)` | **App beendet sich** (siehe unten) |
+    /// | `GeometryReader` + `.frame(width:height:)` | 1400 × 900, aber Closure je Resize-Frame |
+    /// | **`.frame(minHeight: 0, maxHeight: .infinity)`** | **1400 × 900** |
+    ///
+    /// `containerRelativeFrame` ist dabei nicht nur wirkungslos, sondern gefährlich: Es löst
+    /// dieselbe `NSGenericException` aus dem Update-Constraints-Karussell aus, die in CLAUDE.md
+    /// für die Fensterbreite beschrieben ist (`abort()` aus
+    /// `__NSWindowGetDisplayCycleObserverForUpdateConstraints_block_invoke`).
+    ///
+    /// Der frühere `GeometryReader` funktionierte, war aber teuer – nicht er selbst, sondern
+    /// **was in seinem Closure stand**: Der Closure läuft bei jeder Größenänderung neu, und
+    /// darin wurde `jahresZeilen` gerechnet, zwölf Monatsauswertungen über den gesamten
+    /// Datenbestand, gleich zweimal, weil die Summenzeile sie ein zweites Mal abrief. Im Profil
+    /// war der Hauptthread beim Ziehen am Fensterrand zu 98 % beschäftigt (Ausgaben-View zum
+    /// Vergleich: 13 %). Jetzt kommen die Zeilen fertig aus dem `body` herein, und der
+    /// Layout-Modifier baut überhaupt nichts mehr neu.
     private func jahresAnsicht(_ zeilen: [MonatsZeile]) -> some View {
-        GeometryReader { geo in
-            VStack(spacing: 0) {
-                jahresTabelle(zeilen)
-                Divider()
-                jahresSumme(zeilen)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+        VStack(spacing: 0) {
+            jahresTabelle(zeilen)
+            Divider()
+            jahresSumme(zeilen)
         }
+        .frame(minHeight: 0, maxHeight: .infinity)
     }
 
     private func jahresTabelle(_ zeilen: [MonatsZeile]) -> some View {

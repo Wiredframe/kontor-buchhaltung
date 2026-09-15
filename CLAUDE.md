@@ -438,15 +438,21 @@ Prüfgrößen (synthetisch, exemplarisch):
   lange Monatsnamen zu `kurzMonat` und Textknöpfe zu Symbolknöpfen (`HeuteButton(kompakt:)`,
   `MonatJahrWaehler(kompakt:)`). Damit liegen alle Module bei **≤ 1150 pt**. Messen lässt sich das
   ohne Xcode: App starten, Fenster per System Events auf 400 pt setzen, Ist-Breite zurücklesen.
-  **Dasselbe Karussell gibt es in der Höhe, und `containerRelativeFrame` löst es aus:** Die
-  Jahresansicht des Monatsabschlusses braucht einen `GeometryReader`, der die Gesamthöhe auf die
-  verfügbare klemmt – ohne ihn meldet die native `Table` ihre Inhaltshöhe als Idealhöhe nach oben
-  und das **Fenster** wächst mit (gemessen 1435 pt Mindesthöhe statt der gesetzten 900).
-  `.frame(maxHeight: .infinity)` klemmt dort **nicht**, und `.containerRelativeFrame(.vertical)`
-  als vermeintlich moderner Ersatz **beendet die App** mit genau derselben Exception
-  (`abort()` aus `__NSWindowGetDisplayCycleObserverForUpdateConstraints_block_invoke`). Der
-  `GeometryReader` bleibt deshalb; teuer war nicht er, sondern **was in seinem Closure stand**
-  (siehe `MonatsabschlussView.jahresAnsicht`).
+- **`Table` zwingt dem Fenster eine Mindesthöhe auf – Gegenmittel ist `minHeight: 0`:** Die native
+  SwiftUI-`Table` meldet ihre **Inhaltshöhe als Mindesthöhe** nach oben durch. Steht sie in einem
+  Detailbereich, wächst das **Fenster** mit und lässt sich nicht mehr kleiner ziehen (gemessen in
+  der Monatsabschluss-Jahresansicht: 1436 pt statt der gesetzten 900). Das ist dieselbe Klasse
+  aufgezwungener Mindestgröße wie oben bei der Breite. Gemessene Varianten:
+  `.frame(maxHeight: .infinity)` klemmt **nicht** (maxHeight ist nur die Obergrenze),
+  `.safeAreaInset(edge: .bottom)` an der Tabelle klemmt **nicht**,
+  `.containerRelativeFrame(.vertical)` **beendet die App** mit genau der `NSGenericException`
+  aus dem Update-Constraints-Karussell (`abort()` aus
+  `__NSWindowGetDisplayCycleObserverForUpdateConstraints_block_invoke`). Ein `GeometryReader`
+  mit `.frame(width:height:)` funktioniert, ist aber teuer: sein Closure läuft bei **jeder**
+  Größenänderung neu, und was darin steht, wird pro Resize-Frame neu gebaut. **Richtig ist
+  `.frame(minHeight: 0, maxHeight: .infinity)`** – ein reiner Layout-Modifier, der die Weitergabe
+  der Mindesthöhe kappt, ohne irgendetwas neu auszuwerten (siehe
+  `MonatsabschlussView.jahresAnsicht`). Merksatz: Nicht `maxHeight` klemmt, sondern `minHeight`.
 - **UI-Stil (bewusst zurückhaltend):** `Stil.swift` (`.karte()`-Elevation, `Panel`),
   `Kennzahl` (große Werte). **Icons neutral grau** (`Kennzahl`, `Kartenzeile`); **Card-Titel ohne Icons**
   (`Panel` rendert nur den Titel – nimmt bewusst kein Symbol/Akzent mehr). Semantische Farbe nur in **Summen-/
