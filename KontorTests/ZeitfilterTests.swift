@@ -277,3 +277,46 @@ struct ZeitfilterTests {
         #expect(!Zeitfilter.erlaubt(.monat, in: .nurJahr))
     }
 }
+
+// MARK: - Umfang: Monat oder Quartal (UStVA)
+
+/// Die UStVA rechnet je Monat **oder** Quartal – ein Jahreszeitraum ergibt dort keinen Sinn.
+struct ZeitfilterUmfangUStVATests {
+
+    @Test func monatQuartalLaesstBeideStehen() {
+        for m in [Zeitfilter.Modus.monat, .quartal] {
+            var f = Zeitfilter(modus: m, jahr: 2026, monat: 5)
+            f.begrenzeAuf(.monatQuartal)
+            #expect(f.modus == m)
+        }
+    }
+
+    @Test func monatQuartalZiehtJahrUndGesamtAufDenMonat() {
+        for m in [Zeitfilter.Modus.jahr, .alle] {
+            var f = Zeitfilter(modus: m, jahr: 2026, monat: 5)
+            f.begrenzeAuf(.monatQuartal)
+            #expect(f.modus == .monat)
+            #expect(f.monat == 5)  // der gesetzte Monat bleibt erhalten
+        }
+    }
+
+    @Test func erlaubtKenntDenUStVAUmfang() {
+        #expect(Zeitfilter.erlaubt(.monat, in: .monatQuartal))
+        #expect(Zeitfilter.erlaubt(.quartal, in: .monatQuartal))
+        #expect(!Zeitfilter.erlaubt(.jahr, in: .monatQuartal))
+        #expect(!Zeitfilter.erlaubt(.alle, in: .monatQuartal))
+    }
+
+    /// Der `ZeitraumChip` normalisiert den geteilten Filter **nur lesend** (eine Kopie), statt
+    /// ihn beim Erscheinen zu überschreiben. Diese Kopie muss unabhängig vom Original sein –
+    /// sonst wäre genau der Schreibvorgang zurück, der beim Modulwechsel den AttributeGraph
+    /// zerrissen hat.
+    @Test func begrenzeAufAendertNurDieKopie() {
+        let original = Zeitfilter(modus: .quartal, jahr: 2026, monat: 7)
+        var kopie = original
+        kopie.begrenzeAuf(.nurJahr)
+        #expect(kopie.modus == .jahr)
+        #expect(original.modus == .quartal)
+        #expect(original.periode == Periode.quartal(2026, 3))
+    }
+}

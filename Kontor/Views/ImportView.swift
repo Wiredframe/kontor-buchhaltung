@@ -100,6 +100,16 @@ struct ImportView: View {
             }
         }
         .navigationTitle("Kontoauszug")
+        .toolbar {
+            ToolbarItem {
+                Button {
+                    waehleCSV()
+                } label: {
+                    Label("CSV wählen …", systemImage: "doc.badge.plus")
+                }
+                .help("Sparkasse-Export im Format CSV-CAMT V8 laden")
+            }
+        }
         #if DEBUG
         .task {
             // Screenshot-Modus (-startModul kontoauszug): einen Demo-Auszug laden, damit der
@@ -126,14 +136,12 @@ struct ImportView: View {
     #endif
 
     private var kopf: some View {
+        // Kein eigener Titel mehr: „Kontoauszug" steht schon in der Titelleiste, und „CSV
+        // wählen" liegt als Hauptaktion daneben in der Toolbar. Hier bleibt, was sich mit dem
+        // Zustand ändert – Dateiname, Zähler und die Knöpfe, die erst mit geladenen Zeilen
+        // auftauchen. Die wären in der Toolbar unruhig, weil sie kommen und gehen.
         VStack(alignment: .leading, spacing: 12) {
-            Text("Sparkasse-Kontoauszug (CSV-CAMT V8)").font(.headline)
             HStack(spacing: 12) {
-                Button {
-                    waehleCSV()
-                } label: {
-                    Label("CSV wählen …", systemImage: "doc.badge.plus")
-                }
                 if let dateiName { Text(dateiName).font(.callout).foregroundStyle(.secondary).lineLimit(1) }
                 Spacer()
                 if !zeilen.isEmpty {

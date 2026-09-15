@@ -18,23 +18,47 @@ struct ZeitraumChip: View {
     /// Welche Granularitäten dieses Modul anbietet.
     var umfang: Zeitfilter.Umfang = .voll
 
+    /// Der Zeitraum **so, wie dieses Modul ihn sieht**.
+    ///
+    /// Der `Zeitfilter` ist modulübergreifend geteilt, aber nicht jedes Modul kann mit jeder
+    /// Granularität rechnen. Statt den geteilten Zustand beim Erscheinen zurechtzubiegen,
+    /// normalisiert der Chip ihn **nur für sich**: Beschriftung und Pfeile arbeiten auf dieser
+    /// Kopie, geschrieben wird erst, wenn jemand wirklich klickt.
+    ///
+    /// **Das ist keine Kosmetik, sondern der Grund für einen Absturz gewesen.** Vorher stand
+    /// hier ein `onAppear`, das `begrenzeAuf(umfang)` auf dem Binding aufrief. `begrenzeAuf` ist
+    /// `mutating` und löst über ein `@Binding` auch dann einen Schreibvorgang aus, wenn sich
+    /// nichts ändert – und eine Zustandsänderung mitten im Aufbau eines Modulwechsels zerreißt
+    /// den AttributeGraph (`AG::precondition_failure` aus der Sidebar-Outline, reproduzierbar
+    /// beim Wechsel in ein schmales Fenster). Rein lesend gibt es das Problem nicht.
+    private var sicht: Zeitfilter {
+        var f = filter
+        f.begrenzeAuf(umfang)
+        return f
+    }
+
     var body: some View {
         HStack(spacing: 2) {
-            pfeil("chevron.left", hilfe: "Einen Zeitraum zurück") { filter.zurueck() }
+            pfeil("chevron.left", hilfe: "Einen Zeitraum zurück") { schiebe { $0.zurueck() } }
 
-            Menu(filter.beschriftung) { eintraege }
+            Menu(sicht.beschriftung) { eintraege }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .padding(.horizontal, 6)
                 .help("Zeitraum wählen")
 
-            pfeil("chevron.right", hilfe: "Einen Zeitraum vor") { filter.vor() }
+            pfeil("chevron.right", hilfe: "Einen Zeitraum vor") { schiebe { $0.vor() } }
         }
         .padding(.horizontal, 4)
-        // Hält den geteilten Zeitraum in dem, was dieses Modul auswerten kann. Ohne das zeigte
-        // die Kopfzeile nach einem Modulwechsel „Q3 2026" an, während die Seite längst je Monat
-        // rechnet.
-        .onAppear { filter.begrenzeAuf(umfang) }
+    }
+
+    /// Verschiebt den Zeitraum. Arbeitet auf `sicht`, damit ein Pfeilklick in einem Modul mit
+    /// eingeschränktem Umfang die richtige Schrittweite nimmt (und dabei den geteilten Filter
+    /// gleich mit normalisiert – hier ist das erlaubt, es ist eine Nutzeraktion).
+    private func schiebe(_ schritt: (inout Zeitfilter) -> Void) {
+        var f = sicht
+        schritt(&f)
+        filter = f
     }
 
     /// Ein Pfeil-Knopf. Die Klickfläche ist bewusst größer als das Symbol: Ein nacktes Chevron
@@ -45,7 +69,7 @@ struct ZeitraumChip: View {
             Image(systemName: symbol).font(.body.weight(.medium))
         }
         .buttonStyle(PfeilStil())
-        .disabled(filter.modus == .alle)
+        .disabled(sicht.modus == .alle)
         .help(hilfe)
     }
 
@@ -67,8 +91,10 @@ struct ZeitraumChip: View {
                 Text("Letztes Quartal").tag(Schnellwahl.letztesQuartal)
                 Divider()
             }
-            Text("Dieses Jahr").tag(Schnellwahl.diesesJahr)
-            Text("Letztes Jahr").tag(Schnellwahl.letztesJahr)
+            if Zeitfilter.erlaubt(.jahr, in: umfang) {
+                Text("Dieses Jahr").tag(Schnellwahl.diesesJahr)
+                Text("Letztes Jahr").tag(Schnellwahl.letztesJahr)
+            }
             if Zeitfilter.erlaubt(.alle, in: umfang) {
                 Divider()
                 Text("Gesamt").tag(Schnellwahl.gesamt)
@@ -117,12 +143,13 @@ struct ZeitraumChip: View {
     }
 
     private func passt(_ ziel: Zeitfilter?) -> Bool {
-        guard let ziel, filter.modus == ziel.modus else { return false }
-        switch filter.modus {
+        let s = sicht
+        guard let ziel, s.modus == ziel.modus else { return false }
+        switch s.modus {
         case .alle: return true
-        case .jahr: return filter.jahr == ziel.jahr
-        case .quartal: return filter.jahr == ziel.jahr && filter.quartal == ziel.quartal
-        case .monat: return filter.jahr == ziel.jahr && filter.monat == ziel.monat
+        case .jahr: return s.jahr == ziel.jahr
+        case .quartal: return s.jahr == ziel.jahr && s.quartal == ziel.quartal
+        case .monat: return s.jahr == ziel.jahr && s.monat == ziel.monat
         }
     }
 }

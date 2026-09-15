@@ -96,7 +96,12 @@ extension Zeitfilter {
     /// Jahresabschluss-Seiten ausschließlich je Jahr. Der `ZeitraumChip` normalisiert den
     /// geteilten Filter beim Erscheinen darauf – sonst behauptet die Kopfzeile einen Zeitraum,
     /// nach dem die Seite gar nicht rechnet.
-    enum Umfang { case voll, monatJahr, nurJahr }
+    /// - `voll`: Monat, Quartal, Jahr, Gesamt (Tabellen)
+    /// - `monatJahr`: Monat oder Jahr (Monatsabschluss)
+    /// - `monatQuartal`: Monat oder Quartal (UStVA – eine Voranmeldung gilt je Monat oder
+    ///   Quartal, ein Jahreszeitraum ergibt dort keinen Sinn)
+    /// - `nurJahr`: nur Jahr (Jahresabschluss)
+    enum Umfang { case voll, monatJahr, monatQuartal, nurJahr }
 
     /// Klemmt den Modus in den erlaubten Umfang. Passt er schon, bleibt alles unverändert.
     mutating func begrenzeAuf(_ umfang: Umfang) {
@@ -107,6 +112,9 @@ extension Zeitfilter {
             // Quartal → dessen erster Monat (`monat` trägt ihn bereits), Gesamt → Jahr.
             if modus == .quartal { modus = .monat }
             if modus == .alle { modus = .jahr }
+        case .monatQuartal:
+            // Jahr und Gesamt fallen auf den Monat zurueck, der ohnehin gesetzt ist.
+            if modus == .jahr || modus == .alle { modus = .monat }
         case .nurJahr:
             if modus != .jahr { modus = .jahr }
         }
@@ -117,6 +125,7 @@ extension Zeitfilter {
         switch umfang {
         case .voll: true
         case .monatJahr: modus == .monat || modus == .jahr
+        case .monatQuartal: modus == .monat || modus == .quartal
         case .nurJahr: modus == .jahr
         }
     }

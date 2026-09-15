@@ -53,13 +53,6 @@ struct PrivatUebersichtView: View {
     private var einkaeufeMonat: Decimal {
         anschaffungen.filter { periode.enthaelt($0.datum) }.reduce(0) { $0 + $1.preis }
     }
-    private var istAktuell: Bool {
-        jahr == appKalender.component(.year, from: Date()) && monat == appKalender.component(.month, from: Date())
-    }
-    private func aufHeute() {
-        zeit.filter.jahr = appKalender.component(.year, from: Date())
-        zeit.filter.monat = appKalender.component(.month, from: Date())
-    }
 
     // Verlauf über das gewählte Jahr – je Monat die tatsächlich erfassten Beträge.
     private var chartDaten: [(name: String, wert: Double)] {
@@ -81,14 +74,6 @@ struct PrivatUebersichtView: View {
     var body: some View {
         @Bindable var zeit = zeit
         return VStack(spacing: 0) {
-            HStack {
-                MonatJahrWaehler(jahr: $zeit.filter.jahr, monat: $zeit.filter.monat)
-                HeuteButton(deaktiviert: istAktuell) { aufHeute() }
-                Spacer()
-            }
-            .padding()
-            Divider()
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
@@ -143,6 +128,13 @@ struct PrivatUebersichtView: View {
         }
         .seitenGrund()
         .navigationTitle("Privat-Übersicht")
+        .toolbar {
+            // Die Seite rechnet je Monat (Fixkosten, Abos, Budgets) – Quartal und Gesamt
+            // hätten hier keine Entsprechung.
+            ToolbarItem(placement: .principal) {
+                ZeitraumChip(filter: $zeit.filter, umfang: .monatJahr)
+            }
+        }
     }
 
     private var diagramm: some View {

@@ -12,22 +12,23 @@ struct UStVAView: View {
     private var jahr: Int { zeit.filter.jahr }
     private var monat: Int { zeit.filter.monat }
     private var settings: YearSettings? { jahre.first { $0.jahr == jahr } }
-    @State private var quartal = (appKalender.component(.month, from: Date()) - 1) / 3 + 1
-    @State private var monatlich = false
+    /// Rhythmus und Zeitraum kommen **beide** aus dem geteilten `Zeitfilter`: monatliche
+    /// Voranmeldung = Modus `.monat`, vierteljährliche = `.quartal`.
+    ///
+    /// Vorher führte die View dafür eigene `@State` (`monatlich`, `quartal`) **neben** dem
+    /// geteilten Jahr/Monat – zwei Quellen für denselben Zeitraum, die auseinanderlaufen
+    /// konnten. Jetzt beschriftet der Chip „September 2026" bzw. „Q3 2026", und seine Pfeile
+    /// springen von selbst in der richtigen Schrittweite.
+    private var monatlich: Bool { zeit.filter.modus == .monat }
+    private var quartal: Int { zeit.filter.quartal }
+    private var periode: Periode { zeit.filter.periode ?? .quartal(jahr, quartal) }
 
-    private var periode: Periode {
-        monatlich ? Periode.monat(jahr, monat) : Periode.quartal(jahr, quartal)
-    }
-    private var istAktuell: Bool {
-        let j = appKalender.component(.year, from: Date())
-        let m = appKalender.component(.month, from: Date())
-        guard jahr == j else { return false }
-        return monatlich ? monat == m : quartal == (m - 1) / 3 + 1
-    }
-    private func aufHeute() {
-        zeit.filter.jahr = appKalender.component(.year, from: Date())
-        zeit.filter.monat = appKalender.component(.month, from: Date())
-        quartal = (monat - 1) / 3 + 1
+    /// Schreibt der Rhythmus-Umschalter, liest `monatlich`.
+    private var rhythmusWahl: Binding<Bool> {
+        Binding(
+            get: { monatlich },
+            set: { zeit.filter.modus = $0 ? .monat : .quartal }
+        )
     }
     /// Die Voranmeldung für den gewählten Zeitraum.
     ///
@@ -88,31 +89,6 @@ struct UStVAView: View {
         let e = ergebnis
         let zm = zmMeldung
         return VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Picker("Rhythmus", selection: $monatlich) {
-                    Text("Quartal").tag(false)
-                    Text("Monat").tag(true)
-                }
-                .pickerStyle(.segmented).labelsHidden().frame(width: 170)
-
-                if monatlich {
-                    Picker("Monat", selection: $zeit.filter.monat) {
-                        ForEach(1...12, id: \.self) { Text(monatsName($0)).tag($0) }
-                    }
-                    .labelsHidden().frame(width: 140)
-                } else {
-                    Picker("Quartal", selection: $quartal) {
-                        ForEach(1...4, id: \.self) { Text("Q\($0)").tag($0) }
-                    }
-                    .labelsHidden().frame(width: 90)
-                }
-                JahrWaehler(jahr: $zeit.filter.jahr)
-                HeuteButton(deaktiviert: istAktuell) { aufHeute() }
-                Spacer()
-            }
-            .padding()
-            Divider()
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Text(
@@ -307,9 +283,27 @@ struct UStVAView: View {
             .seitenGrund()
         }
         .navigationTitle("UStVA")
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Picker("Rhythmus", selection: rhythmusWahl) {
+                    Text("Quartal").tag(false)
+                    Text("Monat").tag(true)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                .help("Rhythmus der Voranmeldung")
+            }
+            ToolbarItem(placement: .principal) {
+                // Jahr und Gesamt wären hier sinnlos: Eine Voranmeldung gilt je Monat oder
+                // Quartal.
+                ZeitraumChip(filter: $zeit.filter, umfang: .monatQuartal)
+            }
+        }
         .onChange(of: jahr, initial: true) { _, _ in
-            // Default-Rhythmus aus den Jahres-Einstellungen übernehmen (manuell weiter umschaltbar).
-            monatlich = (settings?.ustvaRhythmus == .monatlich)
+            // Default-Rhythmus aus den Jahres-Einstellungen übernehmen (manuell weiter
+            // umschaltbar). Nur setzen, wenn der Zeitraum noch gar nicht dazu passt – sonst
+            // überschriebe ein Jahreswechsel die Wahl, die man gerade getroffen hat.
+            let soll: Zeitfilter.Modus = settings?.ustvaRhythmus == .monatlich ? .monat : .quartal
+            if !Zeitfilter.erlaubt(zeit.filter.modus, in: .monatQuartal) { zeit.filter.modus = soll }
         }
     }
 }
