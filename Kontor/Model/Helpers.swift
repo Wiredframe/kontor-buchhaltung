@@ -47,10 +47,18 @@ extension Decimal {
     var volleEuro: Decimal { gerundet(0, self < 0 ? .up : .down) }
 
     /// Als Euro-Betrag formatiert, z. B. „1.234,56 €".
-    var euro: String {
-        formatted(.currency(code: "EUR").locale(Locale(identifier: "de_DE")))
-    }
+    ///
+    /// Das Format ist **einmal** aufgebaut (`euroFormat`), nicht je Aufruf: `.currency(code:)`
+    /// samt `Locale` kostet bei jedem Zugriff, und eine einzige Tabellenzeile ruft `euro` drei-
+    /// bis viermal auf (Betrag, VSt, Netto). Bei ein paar hundert Zeilen summiert sich das.
+    var euro: String { formatted(euroFormat) }
 }
+
+/// Einheitliches Euro-Format für die ganze App: de_DE, Währungscode EUR.
+///
+/// Bewusst eine Konstante statt einer Berechnung je Aufruf – siehe `Decimal.euro`. Das Ergebnis
+/// ist Zeichen für Zeichen dasselbe wie vorher (`GeldformatTests`).
+let euroFormat = Decimal.FormatStyle.Currency(code: "EUR", locale: Locale(identifier: "de_DE"))
 
 // MARK: - Kalender / Datum
 

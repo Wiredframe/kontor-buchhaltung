@@ -6,10 +6,11 @@ struct DashboardView: View {
     @Query private var einnahmen: [Income]
     @Query private var ausgaben: [ExpenseEntry]
     @Query private var jahre: [YearSettings]
-    @Query private var tasks: [MonthlyTask]
     @Query private var lebensmittel: [GroceryEntry]
     @Query private var anschaffungen: [PurchaseEntry]
-    @Query private var steuern: [TaxPayment]
+    // Bewusst **keine** Queries auf `MonthlyTask`/`TaxPayment`: Das Dashboard zeigt weder
+    // Aufgaben noch Zahlungen. Sie standen hier ungenutzt und kosteten je einen Fetch samt
+    // Change-Tracking – jede Aufgabe und jede Steuerzahlung baute den View neu auf.
 
     @Environment(Navigation.self) private var nav
     @State private var chartJahr = appKalender.component(.year, from: Date())
