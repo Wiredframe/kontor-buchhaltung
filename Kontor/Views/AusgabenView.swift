@@ -147,9 +147,16 @@ struct AusgabenView: View {
         }
         return rows
     }
-    private var ausgewaehlt: LedgerZeile? {
+    /// Die gewählte Zeile – **aus der bereits gebauten Liste**, nicht aus einem frischen
+    /// `zeilen`-Durchlauf.
+    ///
+    /// Vorher war das eine Computed Property, die selbst `zeilen` aufrief. Zusammen mit dem
+    /// Aufruf in `body` und den zwei Lesezugriffen im Inspector baute der Ledger sich damit
+    /// dreimal je Body-Durchlauf komplett neu auf, jedes Mal über alle Ausgaben **und** alle
+    /// Zahlungen.
+    private func ausgewaehlt(in liste: [LedgerZeile]) -> LedgerZeile? {
         guard selection.count == 1, let id = selection.first else { return nil }
-        return zeilen.first { $0.id == id }
+        return liste.first { $0.id == id }
     }
 
     /// Vorlagen reagieren auf die Bereichs-/Sparte-Wahl der Tabelle: bei „Fixkosten" nur
@@ -355,9 +362,10 @@ struct AusgabenView: View {
                 // (sonst zentriert der VStack alles vertikal).
                 Group {
                     if sidebarModus == .eintrag || !artFilter.hatVorlagen {
-                        if let e = ausgewaehlt?.ausgabe {
+                        let gewaehlt = ausgewaehlt(in: liste)
+                        if let e = gewaehlt?.ausgabe {
                             AusgabeInspektor(eintrag: e)
-                        } else if let t = ausgewaehlt?.zahlung {
+                        } else if let t = gewaehlt?.zahlung {
                             ZahlungInspektor(eintrag: t)
                         } else {
                             LeereInspektorView(hinweis: "Zeile wählen – oder Tab Vorlagen zum Einfügen.")

@@ -15,6 +15,11 @@ struct EinnahmenView: View {
     @State private var zielAktiv = false
     @State private var batchAuftrag: BelegBatchAuftrag?
 
+    /// Die Rechnungen des gewählten Zeitraums, passend zur Suche.
+    ///
+    /// **Im Body genau einmal abrufen** und danach weiterreichen: Tabelle, die drei Summen und
+    /// der Zähler in der Fußzeile lasen früher je einzeln diese Computed Property, was den
+    /// Filter fünfmal je Body-Durchlauf über alle Rechnungen laufen ließ.
     private var gefiltert: [Income] {
         alle.filter { e in
             zeit.filter.enthaelt(e.rechnungsdatum)
@@ -23,15 +28,14 @@ struct EinnahmenView: View {
                     || (e.rechnungsnummer?.localizedCaseInsensitiveContains(suche) ?? false))
         }
     }
-    private var anzeige: [Income] { gefiltert.sorted(using: sortOrder) }
     private var ausgewaehlt: Income? { selection.count == 1 ? alle.first { $0.id == selection.first } : nil }
-
-    private var summeRN: Decimal { gefiltert.reduce(0) { $0 + $1.nettoGesamt } }
-    private var summeUSt: Decimal { gefiltert.reduce(0) { $0 + $1.ustGesamt } }
-    private var summeOffen: Decimal { gefiltert.filter { $0.status == .offen }.reduce(0) { $0 + $1.brutto } }
 
     var body: some View {
         @Bindable var zeit = zeit
+        // Einmal filtern, dann überall dieselbe Liste: Tabelle, Summen und Zähler – siehe
+        // `gefiltert`.
+        let liste = gefiltert
+        let anzeige = liste.sorted(using: sortOrder)
         return VStack(spacing: 0) {
             ZeitraumLeiste(filter: $zeit.filter)
             Divider()
@@ -146,11 +150,13 @@ struct EinnahmenView: View {
         }
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 24) {
-                SummenWert(titel: "RN (netto)", wert: summeRN)
-                SummenWert(titel: "USt", wert: summeUSt)
-                SummenWert(titel: "offen (brutto)", wert: summeOffen)
+                SummenWert(titel: "RN (netto)", wert: liste.reduce(0) { $0 + $1.nettoGesamt })
+                SummenWert(titel: "USt", wert: liste.reduce(0) { $0 + $1.ustGesamt })
+                SummenWert(
+                    titel: "offen (brutto)",
+                    wert: liste.reduce(0) { $0 + ($1.status == .offen ? $1.brutto : 0) })
                 Spacer()
-                Text("\(gefiltert.count) Einträge").font(.caption).foregroundStyle(.secondary)
+                Text("\(liste.count) Einträge").font(.caption).foregroundStyle(.secondary)
             }
             .padding(.horizontal).padding(.vertical, 10)
             .background(.bar)

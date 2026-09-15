@@ -29,7 +29,13 @@ struct UStVAView: View {
         zeit.filter.monat = appKalender.component(.month, from: Date())
         quartal = (monat - 1) / 3 + 1
     }
-    private var e: UStVAErgebnis {
+    /// Die Voranmeldung für den gewählten Zeitraum.
+    ///
+    /// **Im Body genau einmal abrufen** (`let e = ergebnis`), nicht je Kennzahl: Der Body liest
+    /// gut zwei Dutzend Felder, und jeder Zugriff auf eine Computed Property baut die
+    /// Posten-Arrays neu auf und lässt `Steuer.ustva` komplett durchlaufen (intern rund zehn
+    /// Durchläufe über alle Einnahmen und Ausgaben).
+    private var ergebnis: UStVAErgebnis {
         Steuer.ustva(
             einnahmen: einnahmen.flatMap(\.postenListe),
             ausgaben: ausgaben.map(\.posten),
@@ -39,7 +45,8 @@ struct UStVAView: View {
     /// Meldezeitraum für sonstige Leistungen ist nach `§18a Abs. 2 UStG` das Kalendervierteljahr,
     /// unabhängig davon, in welchem Rhythmus die Voranmeldung läuft.
     private var zmQuartal: Int { monatlich ? (monat - 1) / 3 + 1 : quartal }
-    private var zm: ZMMeldung {
+    /// Die Zusammenfassende Meldung des Quartals. Wie `ergebnis` im Body **einmal** abrufen.
+    private var zmMeldung: ZMMeldung {
         Steuer.zm(einnahmen.compactMap(\.zmPosten), in: .quartal(jahr, zmQuartal))
     }
 
@@ -76,6 +83,10 @@ struct UStVAView: View {
 
     var body: some View {
         @Bindable var zeit = zeit
+        // Beide Auswertungen genau einmal je Body-Durchlauf, nicht je Kennzahl – siehe
+        // `ergebnis`. Ab hier ist `e`/`zm` ein fertiger Wert, kein Rechenauftrag.
+        let e = ergebnis
+        let zm = zmMeldung
         return VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Picker("Rhythmus", selection: $monatlich) {
