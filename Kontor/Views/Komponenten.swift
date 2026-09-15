@@ -206,65 +206,7 @@ private struct MonatsBreite: ViewModifier {
     }
 }
 
-private let _deMonthSymbols: [String] = {
-    let df = DateFormatter()
-    df.locale = Locale(identifier: "de_DE")
-    return df.monthSymbols ?? []
-}()
-
-private let _deShortMonthSymbols: [String] = {
-    let df = DateFormatter()
-    df.locale = Locale(identifier: "de_DE")
-    return df.shortMonthSymbols ?? []
-}()
-
-func monatsName(_ monat: Int) -> String {
-    guard monat >= 1, monat <= _deMonthSymbols.count else { return "\(monat)" }
-    return _deMonthSymbols[monat - 1]
-}
-
-/// Kurzer Monatsname (z. B. „Jan"), de_DE – für Chart-Achsen und kompakte Tabellen.
-func kurzMonat(_ monat: Int) -> String {
-    guard monat >= 1, monat <= _deShortMonthSymbols.count else { return "\(monat)" }
-    return _deShortMonthSymbols[monat - 1]
-}
-
-// MARK: - Zeitraum-Filter (Tabellen)
-
-/// Zeitraum-Filter für Tabellen-Views: Alle / Jahr / Monat. Kapselt die Filterlogik,
-/// damit alle Views denselben Zustand und dieselbe Semantik nutzen.
-///
-/// **Start-Zustand = aktueller Monat** (nicht „Alle"): Erfassen und Auswerten passieren
-/// fast immer im laufenden Monat, „Alle" war beim App-Start nur eine lange Liste, die man
-/// erst wegfiltern musste. Jahr/Monat stehen ohnehin schon auf heute, der Modus zog nach.
-struct Zeitfilter {
-    enum Modus: Hashable { case alle, jahr, monat }
-    var modus: Modus = .monat
-    var jahr = appKalender.component(.year, from: Date())
-    var monat = appKalender.component(.month, from: Date())
-
-    /// Trifft `datum` auf den eingestellten Zeitraum zu?
-    func enthaelt(_ datum: Date) -> Bool {
-        let c = appKalender.dateComponents([.year, .month], from: datum)
-        switch modus {
-        case .alle: return true
-        case .jahr: return c.year == jahr
-        case .monat: return c.year == jahr && c.month == monat
-        }
-    }
-
-    var istAktuellerMonat: Bool {
-        modus == .monat
-            && jahr == appKalender.component(.year, from: Date())
-            && monat == appKalender.component(.month, from: Date())
-    }
-
-    mutating func aufAktuellenMonat() {
-        modus = .monat
-        jahr = appKalender.component(.year, from: Date())
-        monat = appKalender.component(.month, from: Date())
-    }
-}
+// MARK: - Zeitraum-Leiste (Tabellen)
 
 /// Einheitliche Zeitraum-Kopfzeile (Alle/Jahr/Monat) mit Schnellzugriff
 /// „Aktueller Monat" – im Stil des Monatsabschlusses. Optionaler Inhalt rechts.

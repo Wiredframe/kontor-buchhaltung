@@ -70,6 +70,35 @@ let appKalender: Calendar = {
     return kalender
 }()
 
+// MARK: - Monatsnamen
+
+// Beide Symbol-Listen einmal aufgebaut: ein `DateFormatter` je Aufruf wäre in Chart-Achsen und
+// Tabellenzellen spürbar.
+
+private let _deMonthSymbols: [String] = {
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "de_DE")
+    return df.monthSymbols ?? []
+}()
+
+private let _deShortMonthSymbols: [String] = {
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "de_DE")
+    return df.shortMonthSymbols ?? []
+}()
+
+/// Ausgeschriebener Monatsname (z. B. „September"), de_DE.
+func monatsName(_ monat: Int) -> String {
+    guard monat >= 1, monat <= _deMonthSymbols.count else { return "\(monat)" }
+    return _deMonthSymbols[monat - 1]
+}
+
+/// Kurzer Monatsname (z. B. „Jan"), de_DE – für Chart-Achsen und kompakte Tabellen.
+func kurzMonat(_ monat: Int) -> String {
+    guard monat >= 1, monat <= _deShortMonthSymbols.count else { return "\(monat)" }
+    return _deShortMonthSymbols[monat - 1]
+}
+
 /// Jahr auf einen sicher darstellbaren Bereich klemmen.
 ///
 /// Die gregorianische Datumskonstruktion liefert erst bei absurden Jahren `nil`
