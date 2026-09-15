@@ -67,6 +67,11 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
             }
             ToolbarItemGroup {
                 kopfRechts()
+            }
+            // Der Inspector-Schalter steht **allein**, nicht in der Gruppe der Aktionen: Er
+            // tut etwas grundlegend anderes (Ansicht umschalten statt Daten exportieren), und
+            // die Gruppierung in einer gemeinsamen Kapsel legte genau das Gegenteil nahe.
+            ToolbarItem {
                 Button {
                     zeigeAufgaben.toggle()
                 } label: {

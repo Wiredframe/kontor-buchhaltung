@@ -203,6 +203,11 @@ struct MonatsabschlussView: View {
                         .help("Friert den aktuellen Stand ein und markiert den Monat als erledigt.")
                     }
                 }
+            }
+            // Der Inspector-Schalter steht **allein**, nicht in der Gruppe der Aktionen: Er
+            // tut etwas grundlegend anderes (Ansicht umschalten statt Daten anlegen), und die
+            // Gruppierung in einer gemeinsamen Kapsel legte genau das Gegenteil nahe.
+            ToolbarItem {
                 Button {
                     zeigeAufgaben.toggle()
                 } label: {

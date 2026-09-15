@@ -143,6 +143,11 @@ struct EinnahmenView: View {
                     Label("Belege importieren", systemImage: "doc.viewfinder")
                 }
                 .help("PDF- oder Bild-Belege importieren – Felder werden per Texterkennung vorausgefüllt")
+            }
+            // Der Inspector-Schalter steht **allein**, nicht in der Gruppe der Aktionen: Er
+            // tut etwas grundlegend anderes (Ansicht umschalten statt Daten anlegen), und die
+            // Gruppierung in einer gemeinsamen Kapsel legte genau das Gegenteil nahe.
+            ToolbarItem {
                 Button {
                     zeigeInspektor.toggle()
                 } label: {

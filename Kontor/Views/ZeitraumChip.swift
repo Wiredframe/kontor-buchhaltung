@@ -41,11 +41,24 @@ struct ZeitraumChip: View {
         HStack(spacing: 2) {
             pfeil("chevron.left", hilfe: "Einen Zeitraum zurück") { schiebe { $0.zurueck() } }
 
-            Menu(sicht.beschriftung) { eintraege }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .padding(.horizontal, 6)
-                .help("Zeitraum wählen")
+            // Eigenes Label statt `Menu(titel)`: nur so lässt sich der Abstand zum Chevron
+            // setzen und dem Text eine **Mindestbreite** geben. Ohne die wandern die beiden
+            // Pfeile bei jedem Wechsel der Beschriftung („September 2026" gegen „Q3 2026")
+            // ein Stück – man zielt dann jedes Mal woandershin.
+            Menu {
+                eintraege
+            } label: {
+                HStack(spacing: 7) {
+                    Text(sicht.beschriftung)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                }
+                .frame(minWidth: 118)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .padding(.horizontal, 4)
+            .help("Zeitraum wählen")
 
             pfeil("chevron.right", hilfe: "Einen Zeitraum vor") { schiebe { $0.vor() } }
         }
@@ -66,7 +79,7 @@ struct ZeitraumChip: View {
     /// die Bedienelemente, die hier am häufigsten benutzt werden.
     private func pfeil(_ symbol: String, hilfe: String, aktion: @escaping () -> Void) -> some View {
         Button(action: aktion) {
-            Image(systemName: symbol).font(.body.weight(.medium))
+            Image(systemName: symbol).font(.title3.weight(.medium))
         }
         .buttonStyle(PfeilStil())
         .disabled(sicht.modus == .alle)
@@ -173,7 +186,7 @@ private struct PfeilStil: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .frame(width: 24, height: 24)
+                .frame(width: 30, height: 28)
                 .foregroundStyle(aktiv ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
                 .background(Circle().fill(.primary.opacity(deckkraft)))
                 .contentShape(Circle())
