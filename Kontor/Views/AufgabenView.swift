@@ -105,7 +105,6 @@ struct AufgabenView: View {
                 }
             }
             .inspektorGrund()
-            .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
     }
 

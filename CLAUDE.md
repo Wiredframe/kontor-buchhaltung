@@ -463,6 +463,19 @@ Prüfgrößen (synthetisch, exemplarisch):
   gereicht. Richtig ist, den geteilten Zustand beim Erscheinen gar nicht anzufassen: Der Chip
   normalisiert **lesend** auf einer Kopie (`ZeitraumChip.sicht`), geschrieben wird erst bei einer
   echten Nutzeraktion.
+- **Tabellenfokus per Klick ist auf macOS 26/27 kaputt, Kontor reicht ihn selbst weiter
+  (`FokusAbgabe`):** Ein Klick in eine SwiftUI-`Table` (und die Sidebar-`List`) wählt die Zeile,
+  macht die Tabelle aber **nicht** zum First Responder: Auswahl grau statt blau, Pfeiltasten
+  wirken nicht. Reproduziert mit einer Minimal-App (`NavigationSplitView` + `Table`, ohne
+  Inspector), also **kein** Kontor-Fehler; „manchmal geht es" hängt nur davon ab, wer vorher den
+  Fokus hatte. Der ohnehin vorhandene Klick-Monitor `FokusAbgabe` gibt deshalb nach jedem
+  `leftMouseDown` in einer Tabelle den Fokus **asynchron** an die getroffene `NSTableView`, außer
+  der Fokus liegt bereits in ihr (Zelle, Feldeditor). Verifiziert per AX (`AXFocusedUIElement`)
+  und CGEvent-Klicks: Table, Sidebar, Wechsel Textfeld → Tabelle. Beim Prüfen echte Mausklicks
+  (CGEvent) statt `System Events click at` nehmen: Letzteres wählte in der Tabelle nicht einmal
+  die Zeile.
+- **Inspector-Breite = eine Konstante für alle Module** (`Stil.inspektorBreite` 280 / max 460),
+  gesetzt in `inspektorGrund()`; keine `inspectorColumnWidth` mehr je View.
 - **`Table` zwingt dem Fenster eine Mindesthöhe auf – Gegenmittel ist `minHeight: 0`:** Die native
   SwiftUI-`Table` meldet ihre **Inhaltshöhe als Mindesthöhe** nach oben durch. Steht sie in einem
   Detailbereich, wächst das **Fenster** mit und lässt sich nicht mehr kleiner ziehen (gemessen in

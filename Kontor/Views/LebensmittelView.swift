@@ -121,7 +121,6 @@ struct LebensmittelView: View {
                 }
             }
             .inspektorGrund()
-            .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }
 

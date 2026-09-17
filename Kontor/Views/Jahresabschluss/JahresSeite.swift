@@ -100,7 +100,6 @@ struct JahresSeite<Inhalt: View, KopfRechts: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .inspektorGrund()
-            .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
     }
 }

@@ -426,7 +426,6 @@ struct AusgabenView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .inspektorGrund()
-            .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
         }
         .sheet(item: $batchAuftrag) { auftrag in
             BelegBatchView(modus: .ausgabe, urls: auftrag.urls) { datum in

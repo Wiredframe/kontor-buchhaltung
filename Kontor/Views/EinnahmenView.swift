@@ -183,7 +183,6 @@ struct EinnahmenView: View {
                 }
             }
             .inspektorGrund()
-            .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
         }
         .sheet(item: $batchAuftrag) { auftrag in
             BelegBatchView(modus: .einnahme, urls: auftrag.urls) { datum in
@@ -418,7 +417,7 @@ struct EinnahmeInspektor: View {
             if eintrag.status == .ausgefallen {
                 DatePicker("Ausfalldatum (§17)", selection: ausfall, displayedComponents: .date)
             }
-            TextField("Rechnungsnummer", text: rechnungsnummer)
+            TextField("Rechnungsnr.", text: rechnungsnummer)
             Section("Beleg") {
                 if let p = eintrag.belegPfad, Belege.existiert(p) {
                     BelegVorschau(pfad: p)

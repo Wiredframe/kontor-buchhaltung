@@ -6,6 +6,12 @@ import SwiftUI
 enum Stil {
     static let eckRadius: CGFloat = 12
 
+    /// Start- und Mindestbreite des Inspectors (rechte Seitenleiste), **ein** Wert für alle
+    /// Module. Bewusst so schmal wie die Formulare erlauben; breiter zieht der Nutzer selbst.
+    static let inspektorBreite: CGFloat = 280
+    /// Obergrenze beim Aufziehen des Inspectors.
+    static let inspektorBreiteMax: CGFloat = 460
+
     /// Signalfarbe „positiv" (Erstattung/Gutschrift, positive Differenz).
     static let positiv = Color.green
     /// Signalfarbe „negativ" (negatives Ergebnis, Budget-Überzug).
@@ -31,6 +37,8 @@ extension View {
 
     /// Inspector-/rechte-Sidebar-Hintergrund, an die globale Einstellung „Seitenleiste
     /// undurchsichtig" gekoppelt: opak (kein Durchscheinen des Inhalts) oder System-Vibrancy.
+    /// Setzt zugleich die **eine** Inspector-Breite der App (`Stil.inspektorBreite`): Der
+    /// Inspector startet überall so schmal wie möglich und ist in jedem Modul gleich breit.
     func inspektorGrund() -> some View {
         modifier(InspektorGrund())
     }
@@ -65,6 +73,8 @@ private struct InspektorGrund: ViewModifier {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(sidebarOpak ? Color(nsColor: .windowBackgroundColor) : Color.clear)
+            .inspectorColumnWidth(
+                min: Stil.inspektorBreite, ideal: Stil.inspektorBreite, max: Stil.inspektorBreiteMax)
     }
 }
 

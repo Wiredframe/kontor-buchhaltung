@@ -257,7 +257,6 @@ struct MonatsabschlussView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .inspektorGrund()
-            .inspectorColumnWidth(min: 260, ideal: 300, max: 380)
         }
         #if DEBUG
         // Screenshot-Automatik (nur Dev): Startargument `-startJahr YES` öffnet direkt die
