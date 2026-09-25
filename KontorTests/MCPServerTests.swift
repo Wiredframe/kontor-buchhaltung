@@ -497,6 +497,65 @@ struct MCPServerTests {
         #expect(ksk.contains("2026;2;130.00;230.00;60.00;36000.00;420.00"))
     }
 
+    /// Ein KSK-Wert gilt ab dem gesetzten Monat, Folgemonate erben ihn, Vormonate bleiben.
+    @Test func kskAktualisierenSetztAbMonat() async throws {
+        let c = try container()
+        try seed(c)
+        let s = try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2026 }!
+        s.setzeKSKBetrag(monat: 1, .rv, dez("232.50"))
+        s.setzeKSKBetrag(monat: 1, .kv, dez("216.13"))
+        s.setzeKSKBetrag(monat: 1, .pv, dez("60.00"))
+        s.setzeJAE(monat: 1, dez("30000"))
+        try c.mainContext.save()
+
+        let antwort = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": [
+                    "typ": "ksk", "jahr": 2026, "monat": 10,
+                    "felder": ["rv": 271.25, "kv": "252,15", "pv": 70, "jae": 35000],
+                ],
+            ])
+        #expect((antwort["result"] as? [String: Any])?["isError"] as? Bool != true)
+        #expect(toolText(antwort).contains("summe 593.40"))
+        #expect(s.ksk(monat: 9) == dez("508.63"))
+        #expect(s.ksk(monat: 10) == dez("593.40"))
+        #expect(s.ksk(monat: 12) == dez("593.40"))
+        #expect(s.jae(monat: 11) == dez("35000"))
+
+        // Zurücksetzen: Oktober erbt wieder vom Vormonat.
+        _ = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_aktualisieren",
+                "arguments": ["typ": "ksk", "jahr": 2026, "monat": 10, "felder": ["zuruecksetzen": true]],
+            ])
+        #expect(s.ksk(monat: 10) == dez("508.63"))
+        #expect(!s.hatEigenenKSK(monat: 10))
+    }
+
+    /// Ohne Monat, mit ungültigem Betrag oder im abgeschlossenen Monat wird nichts geschrieben.
+    @Test func kskAktualisierenLehntUngueltigesAb() async throws {
+        let c = try container()
+        try seed(c)
+        let s = try c.mainContext.fetch(FetchDescriptor<YearSettings>()).first { $0.jahr == 2026 }!
+        s.abschlussProMonat["3"] = Date()
+        try c.mainContext.save()
+
+        func fehler(_ args: [String: Any]) async -> Bool {
+            let antwort = await ruf(c, "tools/call", ["name": "kontor_aktualisieren", "arguments": args])
+            return (antwort["result"] as? [String: Any])?["isError"] as? Bool == true
+        }
+        #expect(await fehler(["typ": "ksk", "jahr": 2026, "felder": ["rv": 1]]))
+        #expect(await fehler(["typ": "ksk", "jahr": 2026, "monat": 13, "felder": ["rv": 1]]))
+        #expect(await fehler(["typ": "ksk", "jahr": 2026, "monat": 4, "felder": ["rv": 1, "kv": "abc"]]))
+        #expect(await fehler(["typ": "ksk", "jahr": 2026, "monat": 3, "felder": ["rv": 1]]))
+        #expect(await fehler(["typ": "ksk", "jahr": 2026, "monat": 4, "felder": ["foo": 1]]))
+        #expect(!s.hatEigenenKSK(monat: 4))
+        #expect(!s.hatEigenenKSK(monat: 3))
+    }
+
     // MARK: - Jahres-Einstellungen (typ = jahr)
 
     @Test func jahrListeCSV() async throws {

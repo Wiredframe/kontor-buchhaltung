@@ -148,7 +148,8 @@ bewusst beachtet werden:
   Resources `kontor://…`. **Schreiben spiegelbildlich über alle Module** (selten nötig):
   `kontor_anlegen`/`kontor_aktualisieren`/`kontor_loeschen` mit demselben `typ`-Vokabular;
   Ändern/Löschen adressieren über eine `id`, die `kontor_liste` nur mit `mit_id=true`
-  mitliefert (Lese-Pfad bleibt schlank). Vor dem ersten Schreibzugriff je Sitzung wird
+  mitliefert (Lese-Pfad bleibt schlank). KSK-Monatswerte (KV/RV/PV/JAE) setzt
+  `kontor_aktualisieren` mit `typ: ksk`, `jahr` und `monat`, sie gelten ab diesem Monat. Vor dem ersten Schreibzugriff je Sitzung wird
   automatisch ein Backup angelegt. Den Kontoabgleich übernimmt **nicht** das MCP, sondern
   der In-App-CSV-Import.
 

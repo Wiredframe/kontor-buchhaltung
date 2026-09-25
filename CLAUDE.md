@@ -417,7 +417,9 @@ Prüfgrößen (synthetisch, exemplarisch):
   `estLautBescheid`): `YearSettings` ist ein Singleton je Jahr (`@Attribute(.unique)`), wird deshalb über die
   **Jahreszahl** adressiert – der Zweig liegt in `aktualisieren` **vor** dem id-Guard – und ist bewusst **nicht
   löschbar** (die Einstellungen tragen die KSK-/ESt-Monatswerte und die Monats-Snapshots). Nicht gesetzte
-  optionale Beträge bleiben in der CSV **leer**, JSON-`null`/`""` löschen sie wieder. Dazu Resources (`kontor://uebersicht`,
+  optionale Beträge bleiben in der CSV **leer**, JSON-`null`/`""` löschen sie wieder. **`typ: "ksk"`** ist ebenso
+  ohne id: `kontor_aktualisieren` mit `jahr` + `monat` setzt kv/rv/pv/jae ab diesem Monat (Folgemonate erben,
+  `zuruecksetzen=true` entfernt die eigenen Werte), abgeschlossene Monate sind wie in der UI gesperrt. Dazu Resources (`kontor://uebersicht`,
   `…/eur/{jahr}`, `…/ustva/{jahr}/{quartal}`, `…/monat/{jahr}/{monat}`); **Antworten = fertige Engine-Zahlen
   (`Steuer`/`Auswertung`) bzw. dichte CSV (`;`-getrennt, Punkt-Dezimal), keine Rohzeilen-Dumps.** Der
   **Kontoabgleich gehört bewusst NICHT ins MCP** (betragsbasiertes Matching war fehleranfällig) – das macht
