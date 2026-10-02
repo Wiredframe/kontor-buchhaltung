@@ -8,11 +8,11 @@ Lokale, offline-first Buchhaltungs-App für macOS – zugeschnitten auf einen
 freiberuflichen UI-Designer (KSK-versichert, EÜR, Soll-Versteuerung,
 vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät.
 
-[![App Store](https://img.shields.io/badge/App_Store-Laden-0D96F6?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/kontor-buchhaltung/id6788498504) [![GitHub-Release](https://img.shields.io/badge/GitHub-Release-2563eb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Wiredframe/kontor-buchhaltung/releases) [![Website](https://img.shields.io/badge/Website-Landingpage-7c3aed?style=for-the-badge&logo=safari&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/) [![Spenden](https://img.shields.io/badge/Spenden-Stripe-e11d48?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/#spenden) [![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm_Perimeter-64748b?style=for-the-badge)](LICENSE)
+[![GitHub-Release](https://img.shields.io/badge/GitHub-Release-2563eb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Wiredframe/kontor-buchhaltung/releases) [![Website](https://img.shields.io/badge/Website-Landingpage-7c3aed?style=for-the-badge&logo=safari&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/) [![Spenden](https://img.shields.io/badge/Spenden-Stripe-e11d48?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://wiredframe.github.io/kontor-landingpage/#spenden) [![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm_Perimeter-64748b?style=for-the-badge)](LICENSE)
 
 **macOS 15+** · SwiftUI + SwiftData · Bundle-ID `de.wiredframe.Kontor` · keine Telemetrie
 
-**[Im App Store laden](https://apps.apple.com/app/kontor-buchhaltung/id6788498504)** · **[Website & Direkt-Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)**
+**[Website & Direkt-Download → wiredframe.github.io/kontor-landingpage](https://wiredframe.github.io/kontor-landingpage/)**
 
 <p align="center">
   <img src="docs/screenshot.png" alt="Kontor – Übersicht auf macOS" width="720">
@@ -21,17 +21,14 @@ vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät
 
 ## Installation
 
-Kontor ist **kostenlos & quelloffen** und auf **drei Wegen** installierbar – überall **macOS 15+**:
+Kontor ist **kostenlos & quelloffen** und auf **zwei Wegen** installierbar, beide **macOS 15+**:
 
-### 1. App Store (am einfachsten)
+> **Nicht mehr im Mac App Store (seit Oktober 2026).** Kontor bleibt über GitHub-Releases und
+> Homebrew verfügbar, mit vollem Funktionsumfang. Wer die App aus dem Store installiert hat, kann
+> sie weiter nutzen, bekommt dort aber keine Updates mehr. Zum Umstieg vorher in Kontor ein
+> **JSON-Backup exportieren** und es nach der Installation über GitHub oder Homebrew wieder einlesen.
 
-**[Kontor Buchhaltung im App Store laden →](https://apps.apple.com/app/kontor-buchhaltung/id6788498504)**
-
-Signiert, automatische Updates, kein Gatekeeper-Umweg. Funktional identisch zu den anderen beiden
-Wegen, **inklusive** [KI-Zugriff (MCP)](#funktionen); es fehlt allein der Spendenhinweis (App-Store-
-Richtlinie 3.1.1). (App Store derzeit nur auf Deutsch.)
-
-### 2. GitHub-Release (voller Funktionsumfang, inkl. MCP)
+### 1. GitHub-Release
 
 Fertige Builds gibt es unter [Releases](https://github.com/Wiredframe/kontor-buchhaltung/releases).
 
@@ -51,7 +48,7 @@ Fertige Builds gibt es unter [Releases](https://github.com/Wiredframe/kontor-buc
 Ab dem ersten erfolgreichen Start öffnet Kontor ganz normal. Wer dem Binary nicht traut, baut es
 selbst (siehe [Build & Entwicklung](#build--entwicklung)) – der Quelltext liegt offen.
 
-### 3. Per Homebrew (voller Funktionsumfang, inkl. MCP)
+### 2. Per Homebrew
 
 ```bash
 brew tap wiredframe/tap
@@ -138,7 +135,7 @@ bewusst beachtet werden:
   erhalten (Dashboard zeigt stets „heute").
 - **Backup:** tägliches Auto-Backup (JSON, letzte 14 Tage), manueller Export/Import
   (dedupliziert, ohne Überschreiben) sowie Komplett-Backup samt Belegen.
-- **KI-Zugriff (MCP, optional, in allen drei Varianten):** schlanker lokaler MCP-Server (HTTP/JSON-RPC auf
+- **KI-Zugriff (MCP, optional):** schlanker lokaler MCP-Server (HTTP/JSON-RPC auf
   `127.0.0.1`, Bearer-Token, nur Loopback) für externe Clients wie Claude Code –
   einschaltbar unter Einstellungen → KI-Zugriff. **Tokensparend** ausgelegt: wenige
   grobe Tools, Antworten sind fertige Engine-Zahlen bzw. dichte CSV statt Rohzeilen.
