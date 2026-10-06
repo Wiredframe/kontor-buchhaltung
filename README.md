@@ -19,6 +19,26 @@ vierteljährliche UStVA). SwiftUI + SwiftData, alle Daten bleiben auf dem Gerät
 </p>
 
 
+## Projektstatus
+
+Kontor ist ein privates Projekt, kein Produkt. Ich habe es für meine eigene Buchhaltung als
+Freiberufler gebaut, zum großen Teil gemeinsam mit einer KI. Die Rechenlogik ist durch Tests
+abgesichert, eine Zusage für die Zukunft gibt es trotzdem nicht: Ich kann nicht versprechen,
+dass Kontor über Jahre gepflegt wird, Änderungen im Steuerrecht zeitnah nachzieht oder Fehler
+schnell behoben werden.
+
+Ich selbst arbeite inzwischen an einem neuen Projekt, einer einzigen App, in der Zeiten,
+Rechnungen, Aufgaben, Mail, Termine und Steuern als verbundene Datensätze zusammenlaufen. Für
+mich ersetzt sie Kontor, deshalb pflege ich Kontor nur noch nach Möglichkeit weiter.
+
+Kontor ersetzt weder Zeiterfassung noch Rechnungsprogramm, es ergänzt sie: Zeiten und
+Rechnungen entstehen anderswo, in Kontor laufen Einnahmen, Ausgaben, Kontoauszug und Steuern
+zusammen.
+
+Wenn dir das reicht, nutze Kontor gern. Sichere deine Daten regelmäßig per Export und prüfe
+die Zahlen vor jeder Abgabe selbst, siehe [Haftungsausschluss](#geltungsbereich--haftungsausschluss).
+
+
 ## Installation
 
 Kontor ist **kostenlos & quelloffen** und auf **zwei Wegen** installierbar, beide **macOS 15+**:
