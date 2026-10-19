@@ -16,6 +16,9 @@ struct MonatsAuswertung: Hashable {
     var betriebsausgabenNetto: Decimal
     var fixkostenPrivat: Decimal  // wiederkehrende private Kosten (Fixkosten + Subscriptions), brutto
     var privatVariabel: Decimal  // Lebensmittel + Anschaffungen des Monats
+    /// Netto der im Monat ausgefallenen Rechnungen (§17), nach dem Ausfall doch bezahlte negativ.
+    /// Mindert den betrieblichen Gewinn; `rn` bleibt der Soll-Umsatz des Monats.
+    var ausfallNetto: Decimal = 0
 
     var brutto: Decimal { rn + ust }
     var ustZahllast: Decimal { ust - vst + ustKorrektur }
@@ -24,7 +27,7 @@ struct MonatsAuswertung: Hashable {
 
     // MARK: Gewinn-Waterfall (CLAUDE.md: „echter Gewinn nach betrieblichen UND privaten Ausgaben")
 
-    var betrieblicherGewinn: Decimal { rn - betriebsausgabenNetto }
+    var betrieblicherGewinn: Decimal { rn - ausfallNetto - betriebsausgabenNetto }
     var nachSteuer: Decimal { betrieblicherGewinn - ksk - est - estKorrektur }
     var privatGesamt: Decimal { fixkostenPrivat + privatVariabel }
 
@@ -83,7 +86,8 @@ extension Steuer {
                 kskFuer: kskFuer, satzFuer: pauschalSatz),
             betriebsausgabenNetto: betrieblichNetto(ausgaben, in: p),
             fixkostenPrivat: fixkostenPrivat,
-            privatVariabel: privatVariabel)
+            privatVariabel: privatVariabel,
+            ausfallNetto: ausfallNettoGesamt(einnahmen, in: p))
     }
 
     /// Geschätzte ESt-Jahresrücklage = Σ (`est` + `estKorrektur`) über alle zwölf Monate.

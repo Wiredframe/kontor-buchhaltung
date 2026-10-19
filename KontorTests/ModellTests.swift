@@ -84,7 +84,9 @@ struct ModellTests {
         #expect(e.zahlungsdatum == nil)  // ausgefallen → kein Zufluss
         #expect(e.ausfalldatum != nil)  // ausgefallen → Ausfalldatum gesetzt (§17 greift)
         e.setze(status: .bezahlt)
-        #expect(e.ausfalldatum == nil)  // wieder bezahlt → Ausfalldatum gelöscht
+        // Nach dem Ausfall bezahlt → Ausfalldatum bleibt (§17 Abs. 2 Nr. 1 Satz 2: Rücknahme im
+        // Zahlungszeitraum, der Ausfallzeitraum bleibt wie angemeldet).
+        #expect(e.ausfalldatum != nil && e.zahlungsdatum != nil)
     }
 
     @Test func mischrechnungBucketsUndAggregate() {

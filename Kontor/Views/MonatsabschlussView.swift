@@ -97,6 +97,7 @@ struct MonatsabschlussView: View {
         var est: Decimal { a.est }
         var estKorrektur: Decimal { a.estKorrektur }
         var betriebsausgabenNetto: Decimal { a.betriebsausgabenNetto }
+        var ausfallNetto: Decimal { a.ausfallNetto }
         var privatFix: Decimal { a.fixkostenPrivat }
         var privatVariabel: Decimal { a.privatVariabel }
 
@@ -113,14 +114,16 @@ struct MonatsabschlussView: View {
                 rn: s.rn, ust: s.ust, vst: s.vst, ustKorrektur: s.ustKorrektur,
                 ksk: s.ksk, est: s.est, estKorrektur: s.estKorrektur,
                 betriebsausgabenNetto: s.betriebsausgabenNetto,
-                fixkostenPrivat: s.privatFix, privatVariabel: s.privatVariabel),
+                fixkostenPrivat: s.privatFix, privatVariabel: s.privatVariabel,
+                ausfallNetto: s.ausfallNetto ?? 0),
             umlagefaehig: s.umlagefaehig)
     }
     private func snapshotAus(_ z: Zahlen) -> MonatsSnapshot {
         MonatsSnapshot(
             rn: z.rn, ust: z.ust, vst: z.vst, ustKorrektur: z.ustKorrektur, ksk: z.ksk,
             est: z.est, estKorrektur: z.estKorrektur, betriebsausgabenNetto: z.betriebsausgabenNetto,
-            umlagefaehig: z.umlagefaehig, privatFix: z.privatFix, privatVariabel: z.privatVariabel)
+            umlagefaehig: z.umlagefaehig, privatFix: z.privatFix, privatVariabel: z.privatVariabel,
+            ausfallNetto: z.a.ausfallNetto)
     }
 
     /// Posten-Arrays werden vom Aufrufer **einmal** gemappt übergeben (in der Jahresansicht
@@ -332,6 +335,12 @@ struct MonatsabschlussView: View {
                 Kartenzeile(label: "USt", wert: z.ust, icon: "building.columns")
                 Kartenzeile(label: "Umsatz (RN netto)", wert: z.rn, icon: "eurosign.circle")
                 Kartenzeile(label: "Vorsteuer", wert: z.vst, icon: "arrow.down.left.circle")
+                if z.ausfallNetto != 0 {
+                    // Negativ = nach dem Ausfall doch bezahlt: der verlorene Umsatz kommt zurück.
+                    Kartenzeile(
+                        label: z.ausfallNetto > 0 ? "Forderungsausfall (§17)" : "Nach Ausfall bezahlt",
+                        wert: abs(z.ausfallNetto), icon: "exclamationmark.triangle", minus: z.ausfallNetto > 0)
+                }
                 Kartenzeile(label: "Betriebsausgaben", wert: z.betriebsausgabenNetto, icon: "creditcard", minus: true)
                 Summenzeile(
                     label: "Betrieblicher Gewinn", wert: z.betrieblicherGewinn,

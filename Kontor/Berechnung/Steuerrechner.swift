@@ -75,11 +75,8 @@ enum Steuer {
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
         let ausfall =
             einnahmen
-            .filter {
-                $0.umsatzart == art && $0.status == .ausgefallen
-                    && ($0.ausfalldatum.map(periode.enthaelt) ?? false)
-            }
-            .reduce(Decimal(0)) { $0 + $1.rnNetto }
+            .filter { $0.umsatzart == art }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto * $1.ausfallFaktor(in: periode) }
         return umsatz - ausfall
     }
 
@@ -114,23 +111,28 @@ enum Steuer {
     /// gespeicherte USt, zurückgelegt – deshalb wird hier genau die wieder freigegeben).
     /// Für die **UStVA** ist `ausfallNetto` maßgeblich: das Formular kennt keine
     /// §17-Zeile, dort mindert der Ausfall die Bemessungsgrundlage KZ 81/86.
+    ///
+    /// Eine nach dem Ausfall doch bezahlte Rechnung zählt im Zahlungszeitraum mit umgekehrtem
+    /// Vorzeichen (`ausfallFaktor`): Die Steuer lebt dort wieder auf.
     static func ustKorrekturAusfall(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
-        let summe =
-            einnahmen
-            .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
-            .reduce(Decimal(0)) { $0 + $1.ust }
+        let summe = einnahmen.reduce(Decimal(0)) { $0 + $1.ust * $1.ausfallFaktor(in: periode) }
         return -summe
     }
 
     /// §17: Netto-Bemessung der uneinbringlichen Forderungen eines Satzes, deren **Ausfalldatum**
-    /// in der Periode liegt. Mindert dort KZ 81 bzw. KZ 86.
+    /// in der Periode liegt. Mindert dort KZ 81 bzw. KZ 86. Wird eine solche Rechnung später doch
+    /// bezahlt, geht ihr Netto im Zahlungszeitraum negativ ein – die Bemessung steigt dort wieder.
     static func ausfallNetto(_ einnahmen: [EinnahmePosten], satz: UStSatz, in periode: Periode) -> Decimal {
         einnahmen
-            .filter {
-                $0.umsatzart == .inland && $0.satz == satz && $0.ust != 0 && $0.status == .ausgefallen
-                    && ($0.ausfalldatum.map(periode.enthaelt) ?? false)
-            }
-            .reduce(Decimal(0)) { $0 + $1.rnNetto }
+            .filter { $0.umsatzart == .inland && $0.satz == satz && $0.ust != 0 }
+            .reduce(Decimal(0)) { $0 + $1.rnNetto * $1.ausfallFaktor(in: periode) }
+    }
+
+    /// Netto aller in der Periode ausgefallenen Rechnungen (jede Umsatzart, beide Sätze), nach dem
+    /// Ausfall doch bezahlte negativ. Mindert den Soll-Gewinn des Monats: Der Umsatz wurde im
+    /// Rechnungsmonat als Gewinn gezeigt, im Ausfallmonat ist er verloren.
+    static func ausfallNettoGesamt(_ einnahmen: [EinnahmePosten], in periode: Periode) -> Decimal {
+        einnahmen.reduce(Decimal(0)) { $0 + $1.rnNetto * $1.ausfallFaktor(in: periode) }
     }
 
     /// Jahr+Monat als hashbarer Schlüssel – zum Gruppieren der Ausfälle nach Rechnungsmonat.
@@ -159,9 +161,9 @@ enum Steuer {
         kskFuer: (Int, Int) -> Decimal,
         satzFuer: (Int, Int) -> Decimal
     ) -> Decimal {
-        let ausgefallen =
-            einnahmen
-            .filter { $0.status == .ausgefallen && ($0.ausfalldatum.map(periode.enthaelt) ?? false) }
+        // Nach dem Ausfall doch bezahlte Rechnungen tragen Faktor −1: Im Zahlungsmonat wird die
+        // aufgelöste Rücklage in derselben Höhe wieder gebildet.
+        let ausgefallen = einnahmen.filter { $0.ausfallFaktor(in: periode) != 0 }
         guard !ausgefallen.isEmpty else { return 0 }
 
         let nachRechnungsmonat = Dictionary(grouping: ausgefallen) {
@@ -181,7 +183,7 @@ enum Steuer {
             // Decimal-Division durch 0 trappt nicht, sondern liefert NaN – das liefe still als
             // „NaN €" durch Rücklage und Jahres-ESt und wäre schlimmer als ein Absturz.
             guard gebildet.rn > 0 else { return teil }
-            let ausgefallenNetto = posten.reduce(Decimal(0)) { $0 + $1.rnNetto }
+            let ausgefallenNetto = posten.reduce(Decimal(0)) { $0 + $1.rnNetto * $1.ausfallFaktor(in: periode) }
             return teil + (gebildet.est * ausgefallenNetto / gebildet.rn).gerundet()
         }
         return -summe

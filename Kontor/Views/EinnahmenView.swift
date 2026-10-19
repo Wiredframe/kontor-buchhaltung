@@ -410,12 +410,18 @@ struct EinnahmeInspektor: View {
             Picker("Status", selection: $eintrag.status) {
                 ForEach(InvoiceStatus.allCases) { Text($0.bezeichnung).tag($0) }
             }
-            .onChange(of: eintrag.status) { _, neu in eintrag.setze(status: neu) }
+            .onChange(of: eintrag.status) { alt, neu in eintrag.setze(status: neu, vorher: alt) }
             if eintrag.zahlungsdatum != nil {
                 DatePicker("Zahlungsdatum", selection: zahlung, displayedComponents: .date)
             }
-            if eintrag.status == .ausgefallen {
+            if eintrag.status == .ausgefallen || eintrag.nachAusfallBezahlt {
                 DatePicker("Ausfalldatum (§17)", selection: ausfall, displayedComponents: .date)
+            }
+            if eintrag.nachAusfallBezahlt {
+                Text(
+                    "Nach dem Ausfall bezahlt: Die §17-Minderung bleibt im Ausfallzeitraum stehen und wird im Zahlungszeitraum zurückgenommen. War der Ausfall ein Versehen, erst auf „offen“ und dann auf „bezahlt“ stellen."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
             TextField("Rechnungsnr.", text: rechnungsnummer)
             Section("Beleg") {

@@ -29,6 +29,33 @@ struct EinnahmePosten: Hashable {
     var ausfalldatum: Date?
 
     var brutto: Decimal { rnNetto + ust }
+
+    /// Siehe `forderungsausfallFaktor(status:ausfalldatum:zahlungsdatum:in:)`.
+    func ausfallFaktor(in periode: Periode) -> Decimal {
+        forderungsausfallFaktor(status: status, ausfalldatum: ausfalldatum, zahlungsdatum: zahlungsdatum, in: periode)
+    }
+}
+
+/// Wie eine Periode von einem Forderungsausfall (§17 UStG) betroffen ist:
+/// **+1**, wenn die Rechnung in der Periode ausgefallen ist, **−1**, wenn sie in der Periode
+/// nach dem Ausfall doch noch bezahlt wurde, sonst 0. Liegt beides in derselben Periode, hebt
+/// es sich auf.
+///
+/// Die Rücknahme folgt §17 Abs. 2 Nr. 1 Satz 2 UStG: Wird das Entgelt nach der Berichtigung
+/// doch vereinnahmt, sind Steuer und Bemessungsgrundlage **im Zeitraum der Zahlung** erneut zu
+/// berichtigen. Der Ausfallzeitraum bleibt dabei unangetastet – dessen Voranmeldung ist längst
+/// abgegeben. Früher löschte „bezahlt" das Ausfalldatum, die Minderung verschwand damit
+/// rückwirkend aus dem Ausfallquartal und tauchte im Zahlungsquartal nie als Rücknahme auf.
+///
+/// Ausgefallen ist eine Rechnung, die ein Ausfalldatum trägt und nicht (wieder) offen ist;
+/// „nach dem Ausfall bezahlt" heißt Status bezahlt **mit** Ausfall- und Zahlungsdatum.
+func forderungsausfallFaktor(status: InvoiceStatus, ausfalldatum: Date?, zahlungsdatum: Date?, in periode: Periode)
+    -> Decimal
+{
+    guard let ausfall = ausfalldatum, status != .offen else { return 0 }
+    var faktor: Decimal = periode.enthaelt(ausfall) ? 1 : 0
+    if status == .bezahlt, let z = zahlungsdatum, periode.enthaelt(z) { faktor -= 1 }
+    return faktor
 }
 
 /// Eine Ausgangsrechnung, so wie die **Zusammenfassende Meldung** sie sieht: Kunde, dessen
@@ -44,6 +71,11 @@ struct ZMPosten: Hashable {
     var rechnungsdatum: Date
     var status: InvoiceStatus
     var ausfalldatum: Date?
+    var zahlungsdatum: Date? = nil
+
+    func ausfallFaktor(in periode: Periode) -> Decimal {
+        forderungsausfallFaktor(status: status, ausfalldatum: ausfalldatum, zahlungsdatum: zahlungsdatum, in: periode)
+    }
 }
 
 /// Eingefrorener Monatsstand: alle Beträge eines Monats, gespeichert beim Abschließen.
@@ -52,6 +84,8 @@ struct ZMPosten: Hashable {
 struct MonatsSnapshot: Codable, Hashable {
     var rn, ust, vst, ustKorrektur, ksk, est, estKorrektur: Decimal
     var betriebsausgabenNetto, umlagefaehig, privatFix, privatVariabel: Decimal
+    /// Optional: Snapshots von vor dieser Kennzahl kennen sie nicht (`decodeIfPresent`).
+    var ausfallNetto: Decimal? = nil
 }
 
 // MARK: - Konverter aus den @Model-Klassen
@@ -90,7 +124,8 @@ extension Income {
         guard umsatzartEffektiv.meldepflichtigZM else { return nil }
         return ZMPosten(
             kunde: kunde, ustIdNr: ustIdNrKunde, netto: nettoGesamt,
-            rechnungsdatum: rechnungsdatum, status: status, ausfalldatum: ausfalldatum)
+            rechnungsdatum: rechnungsdatum, status: status, ausfalldatum: ausfalldatum,
+            zahlungsdatum: zahlungsdatum)
     }
 }
 

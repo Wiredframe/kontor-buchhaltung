@@ -162,7 +162,13 @@ Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
 - **Steuerrücklage (Monat)** = `(USt − VSt) + KSK + ESt-Anteil`. „Gehalt"/Liquidität
   separat = Σ private wiederkehrende Buchungen (`ExpenseEntry.wiederkehrendBrutto(...betrieblich:false)`).
 - **Forderungsausfall** (`InvoiceStatus.ausgefallen`): USt-Korrektur **§17 UStG** im
-  Quartal des Ausfalls.
+  Quartal des Ausfalls. **Doch noch bezahlt** (§17 Abs. 2 Nr. 1 Satz 2): „bezahlt" nach einem
+  Ausfall behält das `ausfalldatum` (`Income.setze(status:vorher:)`, `nachAusfallBezahlt`), die
+  Engine nimmt die Berichtigung dann im **Zahlungszeitraum** zurück, der Ausfallzeitraum bleibt
+  wie angemeldet. Eine Regel für alle Pfade: `forderungsausfallFaktor` (+1 Ausfall, −1 Zahlung
+  danach) in KZ 81/86/21, ZM, §17-USt der Rücklage und ESt-Auflösung. Vorher löschte „bezahlt"
+  das Ausfalldatum und veränderte damit rückwirkend eine abgegebene Voranmeldung. Der Ausfall
+  mindert außerdem den **Monatsgewinn** (`MonatsAuswertung.ausfallNetto`, im Snapshot optional).
 
 ## Datenquellen & Verifikation (für Tests)
 Die Unit-Tests prüfen die **Formeln** der Engine gegen **synthetische Fixtures** (durchgängige

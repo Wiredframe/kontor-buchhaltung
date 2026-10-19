@@ -85,8 +85,9 @@ extension Steuer {
                 betrag += p.netto
                 trifft = true
             }
-            if p.status == .ausgefallen, let a = p.ausfalldatum, periode.enthaelt(a) {
-                betrag -= p.netto
+            let ausfall = p.ausfallFaktor(in: periode)
+            if ausfall != 0 {
+                betrag -= p.netto * ausfall
                 trifft = true
             }
             guard trifft else { continue }

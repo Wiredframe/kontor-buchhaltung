@@ -452,15 +452,22 @@ final class Income {
     }
 
     /// Setzt den Status und hält Zahlungs-/Ausfalldatum konsistent:
-    /// bezahlt → Zahlungsdatum (heute, falls leer), kein Ausfall; offen → beides leer;
+    /// bezahlt → Zahlungsdatum (heute, falls leer); offen → beides leer;
     /// ausgefallen → kein Zahlungsdatum, Ausfalldatum (heute, falls leer) – damit die
     /// §17-USt-Korrektur ohne manuelles Nachtragen greift.
-    func setze(status neu: InvoiceStatus) {
+    ///
+    /// **Bezahlt nach einem Ausfall behält das Ausfalldatum.** Der Ausfall ist dann längst in
+    /// einer abgegebenen Voranmeldung berichtigt; die Zahlung nimmt die Berichtigung im
+    /// Zahlungszeitraum zurück (§17 Abs. 2 Nr. 1 Satz 2 UStG, `forderungsausfallFaktor`).
+    /// `vorher` gibt den Status vor der Änderung an, wenn er schon überschrieben ist (ein
+    /// `Picker` schreibt direkt in `status`, `onChange` kommt erst danach).
+    func setze(status neu: InvoiceStatus, vorher: InvoiceStatus? = nil) {
+        let alt = vorher ?? status
         status = neu
         switch neu {
         case .bezahlt:
             if zahlungsdatum == nil { zahlungsdatum = Date() }
-            ausfalldatum = nil
+            if alt != .ausgefallen && alt != .bezahlt { ausfalldatum = nil }
         case .offen:
             zahlungsdatum = nil
             ausfalldatum = nil
@@ -469,6 +476,9 @@ final class Income {
             if ausfalldatum == nil { ausfalldatum = Date() }
         }
     }
+
+    /// Wurde die Rechnung nach einem Ausfall doch noch bezahlt?
+    var nachAusfallBezahlt: Bool { status == .bezahlt && ausfalldatum != nil }
 }
 
 // MARK: - Steuern & Abgaben (Zahlungen/Termine)
