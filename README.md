@@ -105,17 +105,23 @@ bewusst beachtet werden:
 
 **Übersicht (Dashboard)** – die Einstiegsseite über allen Bereichen
 - Betrieblicher Gewinn, Frei verfügbar, Steuerrücklage; KPIs (offene Rechnungen, USt-Zahllast,
-  Umsatz, nächste Frist); Gewinn-Trend-Chart; automatische Insights.
+  Umsatz); **nächste Steuerfristen** (UStVA, ZM, ESt-Vorauszahlungen, bei Wochenende oder
+  Feiertag nach §108 AO auf den nächsten Werktag verschoben, Feiertage je Bundesland);
+  Gewinn-Trend-Chart.
 
 **Erfassen**
 - **Einnahmen:** Ausgangsrechnungen (Kunde, netto/USt/brutto, Rechnungs-/Zahlungsdatum,
   Status offen/bezahlt/ausgefallen, sortierbare Rechnungsnummer). Der Status führt
-  Zahlungs- und Ausfalldatum automatisch. Beleg per OCR-Drop.
+  Zahlungs- und Ausfalldatum automatisch; wird eine ausgefallene Rechnung doch bezahlt, nimmt
+  Kontor die §17-Korrektur im Zahlungszeitraum zurück. Beleg per Drop: eingebettete
+  E-Rechnungen (ZUGFeRD/Factur-X) werden exakt gelesen, sonst per Texterkennung.
 - **Ausgaben (gemeinsamer Ledger):** **ein** Modul für **alle** Abflüsse – Betriebsausgaben,
   Fixkosten, Subscriptions sowie Vorsorge (KSK) und Steuern (`TaxPayment`), gefiltert nach
   Art · Sparte · Monat. Pro Ausgabe brutto/VSt/netto, Steuerart (Inland 19 %, Reverse-Charge
   §13b, steuerfrei), Kategorie (laufend/jährlich/Anschaffung), umlagefähig; privat (Liquidität)
-  vs. betrieblich (EÜR) getrennt. Wiederkehrende Kosten als **datierte Buchungen** – rechts
+  vs. betrieblich (EÜR) getrennt. Zahlungsdatum (aus dem Kontoauszug oder von Hand) für die EÜR
+  nach Abfluss; Anschaffungen über 800 € netto lassen sich über eine **Nutzungsdauer
+  abschreiben** (AfA linear und monatsgenau, Vorsteuer voll beim Kauf). Wiederkehrende Kosten als **datierte Buchungen** – rechts
   wahlweise der Eintrags-Editor oder die **Vorlagen-Sidebar** (Vorlage per Klick in den Monat
   buchen) bzw. „Vormonat duplizieren". Vorsorge/Steuern bilden den **Ist**-Ledger (negativer
   Betrag = Erstattung), primär aus dem Kontoauszug-Import. KSK steht damit doppelt: **Soll**
@@ -124,7 +130,8 @@ bewusst beachtet werden:
   per Karten-Triage selbst zugeordnet (Einnahme, Betriebsausgabe, privat, KSK, Steuer,
   Steuererstattung …); die App **lernt** je Gläubiger/Händler die Zuordnung und schlägt
   sie beim nächsten Mal vor. Auto-Vorsteuer, idempotent (kein Doppelimport), bereits
-  importierte Auszüge lassen sich erneut durchgehen („Neu zuordnen").
+  importierte Auszüge lassen sich erneut durchgehen („Neu zuordnen"). Vorgemerkte Umsätze
+  werden ausgelassen, gleiche Umsätze einer Datei bleiben getrennt.
 - **Aufgaben:** einmalig / monatlich / quartalsweise / jährlich (Reminders-Logik – beim
   Abhaken einer wiederkehrenden Aufgabe erscheint automatisch die nächste fällige).
   Monats- und Jahresabschluss zeigen die fälligen Aufgaben als Sidebar.
@@ -137,9 +144,14 @@ bewusst beachtet werden:
 - **UStVA:** formular-getreu nach ELSTER-Kennzahlen – KZ 81 (Netto-Bemessung) → USt 19 % **und
   KZ 86 → USt 7 %** (inkl. Mischrechnungen), KZ 66 (Vorsteuer Inland), KZ 84/85 (§13b), KZ 67,
   §17-Korrektur, Zahllast KZ 83. Quartal oder Monat, gruppiert wie das Formular mit KZ-Badge und
-  Erklärung je Zeile.
-- **Jahresabschluss (EÜR):** Einnahmen (Zufluss), Ausgaben nach Kategorie, Gewinn,
-  Vorsteuer; Steuerlast ESt+USt, KSK-Jahr, ESt-Abgleich, read-only Zahlungsblock;
+  Erklärung je Zeile, Abgabefrist des Zeitraums. **Export für Mein ELSTER:** Voranmeldung als
+  XML (Datenübernahme, auch berichtigt) und Zusammenfassende Meldung als CSV; gesendet wird in
+  Mein ELSTER.
+- **Jahresabschluss:** Übersicht plus Unterseiten EÜR (Einnahmen nach Zufluss, Ausgaben nach
+  Abfluss, AfA, **Anlagenverzeichnis**), Einkommensteuer (Rücklage, voraussichtliche ESt mit
+  Grundfreibetrag und privater Vorsorge, Bescheid), Umsatzsteuer, Vorsorge (KSK Soll/Ist,
+  Hochrechnung des Arbeitseinkommens gegen das gemeldete JAE) und **Steuererklärung**
+  (USt-Jahreserklärung, Anlage EÜR nach Bruttomethode, Vorprüfung offener Punkte);
   **Beleg-Export als ZIP** pro Jahr.
 
 **Privat**
