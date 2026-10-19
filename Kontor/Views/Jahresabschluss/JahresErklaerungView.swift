@@ -77,28 +77,39 @@ struct JahresErklaerungView: View {
     private func ustKarte(_ u: UStJahreserklaerung, voranmeldungen: Decimal) -> some View {
         Panel(titel: "Umsatzsteuer-Jahreserklärung") {
             VStack(spacing: 2) {
-                Kartenzeile(label: "Steuerpflichtige Umsätze 19 % (Bemessung)", wert: u.bemessung19)
-                Kartenzeile(label: "darauf Umsatzsteuer", wert: u.ust19)
+                Kartenzeile(
+                    label: "Steuerpflichtige Umsätze 19 % (Bemessung)", wert: u.bemessung19, icon: "eurosign.circle")
+                Kartenzeile(label: "darauf Umsatzsteuer", wert: u.ust19, icon: "building.columns")
                 if u.bemessung7 != 0 {
-                    Kartenzeile(label: "Steuerpflichtige Umsätze 7 % (Bemessung)", wert: u.bemessung7)
-                    Kartenzeile(label: "darauf Umsatzsteuer", wert: u.ust7)
+                    Kartenzeile(
+                        label: "Steuerpflichtige Umsätze 7 % (Bemessung)", wert: u.bemessung7, icon: "eurosign.circle")
+                    Kartenzeile(label: "darauf Umsatzsteuer", wert: u.ust7, icon: "building.columns")
                 }
                 if u.euLeistungen != 0 {
-                    Kartenzeile(label: "Sonstige Leistungen an EU-Unternehmer (nicht steuerbar)", wert: u.euLeistungen)
+                    Kartenzeile(
+                        label: "Sonstige Leistungen an EU-Unternehmer (nicht steuerbar)", wert: u.euLeistungen,
+                        icon: "globe.europe.africa")
                 }
                 if u.drittland != 0 {
-                    Kartenzeile(label: "Übrige nicht steuerbare Umsätze (Drittland)", wert: u.drittland)
+                    Kartenzeile(label: "Übrige nicht steuerbare Umsätze (Drittland)", wert: u.drittland, icon: "globe")
                 }
                 if u.rcBemessung != 0 {
-                    Kartenzeile(label: "§13b als Leistungsempfänger (Bemessung)", wert: u.rcBemessung)
-                    Kartenzeile(label: "darauf Umsatzsteuer", wert: u.rcUSt)
+                    Kartenzeile(
+                        label: "§13b als Leistungsempfänger (Bemessung)", wert: u.rcBemessung,
+                        icon: "arrow.left.arrow.right")
+                    Kartenzeile(label: "darauf Umsatzsteuer", wert: u.rcUSt, icon: "building.columns")
                 }
-                Kartenzeile(label: "Vorsteuer aus Rechnungen anderer Unternehmer", wert: u.vorsteuer, minus: true)
+                Kartenzeile(
+                    label: "Vorsteuer aus Rechnungen anderer Unternehmer", wert: u.vorsteuer, icon: "percent",
+                    minus: u.vorsteuer != 0)
                 if u.rcUSt != 0 {
-                    Kartenzeile(label: "Vorsteuer aus §13b-Leistungen", wert: u.rcUSt, minus: true)
+                    Kartenzeile(
+                        label: "Vorsteuer aus §13b-Leistungen", wert: u.rcUSt, icon: "percent", minus: u.rcUSt != 0)
                 }
                 Summenzeile(label: "Umsatzsteuer des Jahres", wert: u.steuer)
-                Kartenzeile(label: "Geleistete Vorauszahlungen", wert: u.vorauszahlungen, minus: u.vorauszahlungen != 0)
+                Kartenzeile(
+                    label: "Geleistete Vorauszahlungen", wert: u.vorauszahlungen, icon: "tray.and.arrow.up",
+                    minus: u.vorauszahlungen != 0)
                 Summenzeile(
                     label: u.nochZuZahlen >= 0 ? "Abschlusszahlung" : "Erstattung", wert: u.nochZuZahlen,
                     akzent: true)
@@ -121,15 +132,19 @@ struct JahresErklaerungView: View {
                 }
                 Summenzeile(label: "Summe Betriebseinnahmen", wert: e.einnahmen)
                 Kartenzeile(
-                    label: "Betriebsausgaben (netto, ohne AfA)", wert: e.ausgabenNetto, icon: "creditcard", minus: true)
+                    label: "Betriebsausgaben (netto, ohne AfA)", wert: e.ausgabenNetto, icon: "creditcard",
+                    minus: e.ausgabenNetto != 0)
                 if e.afa != 0 {
                     Kartenzeile(
-                        label: "Abschreibungen (AfA)", wert: e.afa, icon: "chart.line.downtrend.xyaxis", minus: true)
+                        label: "Abschreibungen (AfA)", wert: e.afa, icon: "chart.line.downtrend.xyaxis",
+                        minus: e.afa != 0)
                 }
-                Kartenzeile(label: "Gezahlte Vorsteuer", wert: e.vorsteuerGezahlt, icon: "percent", minus: true)
+                Kartenzeile(
+                    label: "Gezahlte Vorsteuer", wert: e.vorsteuerGezahlt, icon: "percent",
+                    minus: e.vorsteuerGezahlt != 0)
                 Kartenzeile(
                     label: "An das Finanzamt gezahlte Umsatzsteuer", wert: e.ustGezahlt, icon: "building.columns",
-                    minus: true)
+                    minus: e.ustGezahlt != 0)
                 Summenzeile(label: "Summe Betriebsausgaben", wert: e.ausgaben)
                 Summenzeile(label: "Gewinn", wert: e.gewinn, akzent: true)
                 Text(
