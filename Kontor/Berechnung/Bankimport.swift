@@ -13,6 +13,9 @@ struct Bankbuchung: Hashable, Identifiable {
     var mandatsreferenz: String
     var kundenreferenz: String  // End-to-End-Referenz
     var waehrung: String
+    /// Das wievielte Mal derselbe Umsatz (ohne Kundenreferenz) in **einer** Datei vorkommt – zweimal
+    /// Parkhaus 3,00 € am selben Tag sind zwei Buchungen, keine Dublette.
+    var vorkommen: Int = 1
 
     var id: String { dedupSchluessel }
     var istEingang: Bool { betrag > 0 }
@@ -31,11 +34,17 @@ struct Bankbuchung: Hashable, Identifiable {
     /// (oder „NOTPROVIDED") und wiederholt sich monatlich – allein darauf zu schlüsseln würde
     /// Folgebuchungen fälschlich als „schon importiert" ausblenden. Die Referenz dient nur als
     /// zusätzliche Unterscheidung, falls die Bank eine echte eindeutige liefert.
+    ///
+    /// Der Tag geht als Epoche der **Mitternacht in Berlin** ein, nicht der Zeitzone des Rechners:
+    /// Ein Import auf Reisen hätte sonst andere Schlüssel und legte alles doppelt an. Für Importe
+    /// in deutscher Zeit ist der Wert derselbe wie früher, bestehende Schlüssel bleiben gültig.
+    /// Ab dem zweiten gleichen Umsatz einer Datei kommt `|#n` dazu, der erste bleibt unverändert.
     var dedupSchluessel: String {
-        let basis = "\(Int(buchungstag.timeIntervalSince1970))|\(betrag)"
+        let basis = "\(Bankimport.berlinerMitternacht(buchungstag))|\(betrag)"
         if !kundenreferenz.isEmpty { return "k:\(kundenreferenz)|\(basis)" }
         let z = verwendungszweck.prefix(40).lowercased()
-        return "h:\(basis)|\(gegenpartei.lowercased())|\(z)"
+        let schluessel = "h:\(basis)|\(gegenpartei.lowercased())|\(z)"
+        return vorkommen == 1 ? schluessel : "\(schluessel)|#\(vorkommen)"
     }
 
     /// Schlüssel für lernende Zuordnungs-Vorschläge: Gläubiger-ID (sehr stabil bei
@@ -69,6 +78,9 @@ enum Bankimport {
         var buchungen: [Bankbuchung]
         /// Datenzeilen mit unlesbarem Betrag/Datum. Werden übersprungen – aber nicht lautlos.
         var verworfen: Int
+        /// Vorgemerkte Umsätze (Spalte „Info"): kommen später gebucht wieder, mit anderem Datum und
+        /// Text – würden sie jetzt importiert, entstünde dann eine Dublette.
+        var vorgemerkt: Int = 0
         /// Wurden die tragenden Spalten (Betrag, Buchungstag) im Kopf gefunden?
         /// `false` heißt: falsche Datei oder fremdes Format, nicht „nichts drin".
         var kopfErkannt: Bool
@@ -96,10 +108,15 @@ enum Bankimport {
 
         var ergebnis: [Bankbuchung] = []
         var verworfen = 0
+        var vorgemerkt = 0
         for zeile in zeilen.dropFirst() {
             let row = felder(zeile)
             // Komplett leere Zeile (Trailing-Newline o. Ä.) ist kein Fehler, nur nichts.
             if row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) { continue }
+            if feld(row, "Info").lowercased().contains("vorgemerkt") {
+                vorgemerkt += 1
+                continue
+            }
             guard let betrag = dezimal(feld(row, "Betrag")),
                 let datum = datum(feld(row, "Buchungstag"))
             else {
@@ -119,7 +136,26 @@ enum Bankimport {
                     kundenreferenz: feld(row, "Kundenreferenz (End-to-End)"),
                     waehrung: feld(row, "Waehrung")))
         }
-        return Ergebnis(buchungen: ergebnis, verworfen: verworfen, kopfErkannt: kopfErkannt)
+        // Gleiche Umsätze ohne Referenz innerhalb einer Datei sind keine Dubletten.
+        var gesehen: [String: Int] = [:]
+        for i in ergebnis.indices where ergebnis[i].kundenreferenz.isEmpty {
+            let k = ergebnis[i].dedupSchluessel
+            gesehen[k, default: 0] += 1
+            ergebnis[i].vorkommen = gesehen[k]!
+        }
+        return Ergebnis(buchungen: ergebnis, verworfen: verworfen, vorgemerkt: vorgemerkt, kopfErkannt: kopfErkannt)
+    }
+
+    private static let berlin: Calendar = {
+        var k = Calendar(identifier: .gregorian)
+        k.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .current
+        return k
+    }()
+
+    /// Epoche der Mitternacht in Berlin für den Kalendertag von `datum` (in der Zeitzone der App).
+    static func berlinerMitternacht(_ datum: Date) -> Int {
+        let c = appKalender.dateComponents([.year, .month, .day], from: datum)
+        return Int((berlin.date(from: c) ?? datum).timeIntervalSince1970)
     }
 
     static func parse(_ data: Data) -> [Bankbuchung] { lies(data).buchungen }

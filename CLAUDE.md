@@ -383,6 +383,10 @@ Prüfgrößen (synthetisch, exemplarisch):
   personenbezogener** Start-Regel-Satz (verbreitete SaaS-Tools + KSK) wird per `seedeStartRegeln`
   idempotent beim App-Start angelegt; im JSON-Backup enthalten). **Idempotenz:**
   `ImportBuchung` (Dedup über stabilen Bank-Schlüssel → schon Importiertes wird ausgeblendet).
+  Der Schlüssel rechnet mit **Mitternacht in Berlin** (`Bankimport.berlinerMitternacht`, sonst legte
+  ein Import auf Reisen alles doppelt an), gleiche Umsätze ohne Referenz in **einer** Datei bekommen
+  ab dem zweiten `|#n` (`Bankbuchung.vorkommen`, der erste bleibt wie bisher), **vorgemerkte** Umsätze
+  (Spalte „Info") werden ausgelassen und gemeldet – sie kommen später gebucht mit anderem Datum wieder.
   UI: `ImportView` (Karten-Triage, Sidebar-Gruppe Erfassen). `ImportKategorie` = Triage-Enum (inkl. `ksk`/`steuer`/`steuererstattung`/`erstattung`). **Re-Triage / erneuter Import:** dieselbe CSV erneut
   laden (CSV nötig). „Erledigte zeigen" ist **immer** verfügbar, sobald Zeilen geladen sind (auch wenn
   *alle* schon importiert sind); pro Zeile „Neu zuordnen" oder Bulk **„Alle erneut zuordnen"** öffnet

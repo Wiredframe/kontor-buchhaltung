@@ -227,10 +227,10 @@ struct ImportView: View {
     }
 
     private func lade(_ ergebnis: Bankimport.Ergebnis, name: String) {
-        lade(ergebnis.buchungen, name: name, verworfen: ergebnis.verworfen)
+        lade(ergebnis.buchungen, name: name, verworfen: ergebnis.verworfen, vorgemerkt: ergebnis.vorgemerkt)
     }
 
-    private func lade(_ buchungen: [Bankbuchung], name: String, verworfen: Int = 0) {
+    private func lade(_ buchungen: [Bankbuchung], name: String, verworfen: Int = 0, vorgemerkt: Int = 0) {
         let regeln = (try? context.fetch(FetchDescriptor<ZuordnungsRegel>())) ?? []
         zeilen =
             buchungen
@@ -246,10 +246,16 @@ struct ImportView: View {
         let neu = zeilen.filter { !$0.bereitsImportiert }.count
         // Verworfene Zeilen (unlesbarer Betrag/Datum) gehören sichtbar gemacht: stillschweigend
         // übersprungen sähe eine teilkorrupte CSV aus wie eine vollständig importierte.
-        let hinweis =
+        var hinweis =
             verworfen > 0
             ? " · \(verworfen) Zeile\(verworfen == 1 ? "" : "n") übersprungen (Betrag/Datum unlesbar)"
             : ""
+        // Vorgemerkte Umsätze kommen später gebucht (mit anderem Datum und Text) wieder; jetzt
+        // importiert, wären sie dann eine Dublette.
+        if vorgemerkt > 0 {
+            hinweis +=
+                " · \(vorgemerkt) vorgemerkte Buchung\(vorgemerkt == 1 ? "" : "en") ausgelassen (kommen gebucht wieder)"
+        }
         if neu == 0 && !zeilen.isEmpty {
             zeigeErledigte = true  // komplett importierter Auszug → Zeilen direkt sichtbar machen
             status =

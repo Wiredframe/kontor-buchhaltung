@@ -21,6 +21,41 @@ struct BankimportTests {
         #expect(b.count == 4)  // Header wird nicht als Buchung gezählt
     }
 
+    // MARK: - Härtungen aus wiredframe
+
+    /// Vorgemerkte Umsätze kommen später gebucht mit anderem Datum wieder – nicht importieren.
+    @Test func vorgemerkteUmsaetzeWerdenAusgelassen() {
+        let e = Bankimport.lies(
+            text: """
+                "Buchungstag";"Verwendungszweck";"Beguenstigter/Zahlungspflichtiger";"Betrag";"Info"
+                "25.06.26";"Einkauf";"BIOMARKT NORD";"-10,22";"Umsatz vorgemerkt"
+                "24.06.26";"Einkauf";"BIOMARKT NORD";"-8,10";"Umsatz gebucht"
+                """)
+        #expect(e.buchungen.count == 1 && e.vorgemerkt == 1 && e.verworfen == 0)
+    }
+
+    /// Zweimal Parkhaus 3,00 € am selben Tag: zwei Buchungen mit eigenem Schlüssel, der erste
+    /// bleibt wie bisher (bestehende Importe gelten weiter als erledigt).
+    @Test func gleicheUmsaetzeEinerDateiSindKeineDubletten() {
+        let b = Bankimport.parse(
+            text: """
+                "Buchungstag";"Verwendungszweck";"Beguenstigter/Zahlungspflichtiger";"Betrag"
+                "25.06.26";"Parken";"PARKHAUS MITTE";"-3,00"
+                "25.06.26";"Parken";"PARKHAUS MITTE";"-3,00"
+                """)
+        #expect(b.count == 2)
+        #expect(Set(b.map(\.dedupSchluessel)).count == 2)
+        #expect(!b[0].dedupSchluessel.contains("|#") && b[1].dedupSchluessel.hasSuffix("|#2"))
+    }
+
+    /// Der Schlüssel rechnet mit Mitternacht in Berlin – auch wenn der Rechner woanders steht.
+    @Test func dedupSchluesselUnabhaengigVonDerZeitzone() {
+        let tagBerlin = Bankimport.berlinerMitternacht(tag(2026, 6, 25))
+        var k = Calendar(identifier: .gregorian)
+        k.timeZone = TimeZone(identifier: "Europe/Berlin")!
+        #expect(tagBerlin == Int(k.date(from: DateComponents(year: 2026, month: 6, day: 25))!.timeIntervalSince1970))
+    }
+
     // MARK: - Malformed Input (nichts still verschlucken, nichts still verfälschen)
 
     /// Regression: Ein englisch formatierter Betrag wurde stillschweigend **hundertfach**
