@@ -202,8 +202,14 @@ final class ExpenseEntry {
     var art: AusgabeArt?
     /// Rechnungsnummer (z. B. aus OCR) – stabilster Schlüssel für den Kontoauszug-Abgleich.
     var rechnungsnummer: String?
-    /// Zahltag aus dem Kontoauszug (rein informativ – die EÜR zählt weiterhin nach `datum`).
+    /// Tag des Abflusses: aus dem Kontoauszug oder von Hand (bar, Karte). Maßgeblich für die
+    /// **EÜR** (§11 Abs. 2 EStG); Vorsteuer, Monatsgewinn und ESt-Rücklage bleiben bei `datum`.
+    /// `nil` = am Belegdatum bezahlt.
     var zahlungsdatum: Date?
+    /// Nutzungsdauer in Jahren, wenn die Ausgabe ein abnutzbares Anlagegut ist und abgeschrieben
+    /// wird (lineare AfA, §7 Abs. 1 EStG, monatsgenau ab dem Kaufmonat). `nil`/0 = sofort
+    /// abziehbar. Die Vorsteuer zählt in jedem Fall voll beim Kauf. Optional → migrationssicher.
+    var nutzungsdauer: Int? = nil
 
     // MARK: Fremdwährung (Rechnung in USD & Co.)
     //
@@ -236,6 +242,17 @@ final class ExpenseEntry {
     }
     /// Effektive Art (Altbestand ohne `art` = Betriebsausgabe).
     var artEffektiv: AusgabeArt { art ?? .betriebsausgabe }
+    /// Nutzungsdauer, die die Engine ansetzt: nur bei betrieblichen Betriebsausgaben, sonst 0.
+    /// Bleibt der Wert nach einem Wechsel auf privat oder Fixkosten stehen, wirkt er nicht.
+    var nutzungsdauerEffektiv: Int {
+        guard betrieblich, artEffektiv == .betriebsausgabe, let n = nutzungsdauer, n > 0 else { return 0 }
+        return n
+    }
+    /// Darf die Ausgabe abgeschrieben werden? Ab 800 € netto (GWG-Grenze, §6 Abs. 2 EStG) ist
+    /// die AfA Pflicht, darunter der Sofortabzug erlaubt – angeboten wird sie deshalb erst darüber.
+    var kannAbgeschriebenWerden: Bool {
+        betrieblich && artEffektiv == .betriebsausgabe && netto > Steuer.gwgGrenze
+    }
 
     /// Erzwingt die Invariante **„Steuerart ohne Vorsteuerabzug ⇒ `vst` = 0"**.
     ///
@@ -265,8 +282,10 @@ final class ExpenseEntry {
         rechnungsnummer: String? = nil,
         zahlungsdatum: Date? = nil,
         fremdwaehrung: String? = nil,
-        fremdBetrag: Decimal = 0
+        fremdBetrag: Decimal = 0,
+        nutzungsdauer: Int? = nil
     ) {
+        self.nutzungsdauer = nutzungsdauer
         self.datum = datum
         self.bezeichnung = bezeichnung
         self.anbieter = anbieter

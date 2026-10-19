@@ -11,8 +11,20 @@ struct AusgabePosten: Hashable {
     var steuerart: Steuerart
     var betrieblich: Bool
     var datum: Date
+    /// Abfluss (§11 Abs. 2 EStG) – maßgeblich nur für die EÜR. Vorsteuer, Monatsgewinn und
+    /// ESt-Rücklage bleiben beim Belegdatum. `nil` = am Belegdatum bezahlt.
+    var zahlungsdatum: Date? = nil
+    /// Nutzungsdauer in Jahren für die AfA (§7 Abs. 1 EStG); 0 = sofort abziehbar.
+    var nutzungsdauer: Int = 0
+    /// Wiederkehrende Ausgabe (Fixkosten/Subscription) – für die Zehn-Tage-Regel um den
+    /// Jahreswechsel (§11 Abs. 2 Satz 2 EStG).
+    var wiederkehrend: Bool = false
+    /// Nur für das Anlagenverzeichnis.
+    var bezeichnung: String = ""
 
     var netto: Decimal { brutto - vst }
+    /// Abnutzbares Anlagegut: betrieblich und mit Nutzungsdauer.
+    var istAnlagegut: Bool { betrieblich && nutzungsdauer > 0 }
 }
 
 struct EinnahmePosten: Hashable {
@@ -94,7 +106,10 @@ extension ExpenseEntry {
     var posten: AusgabePosten {
         AusgabePosten(
             brutto: brutto, vst: vst, steuerart: steuerart,
-            betrieblich: betrieblich, datum: datum)
+            betrieblich: betrieblich, datum: datum, zahlungsdatum: zahlungsdatum,
+            nutzungsdauer: nutzungsdauerEffektiv,
+            wiederkehrend: artEffektiv == .fixkosten || artEffektiv == .subscription,
+            bezeichnung: bezeichnung.isEmpty ? anbieter : bezeichnung)
     }
 }
 

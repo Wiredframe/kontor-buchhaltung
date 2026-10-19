@@ -43,8 +43,12 @@ struct MonatsAuswertung: Hashable {
 /// Aggregierte Jahreswerte für die EÜR-Übersicht.
 struct JahresAuswertung: Hashable {
     var einnahmenBezahlt: Decimal
+    /// Betriebliche Ausgaben netto mit Abfluss im Jahr, **darin** die AfA des Jahres.
     var ausgabenNetto: Decimal
+    /// Vorsteuer nach **Belegdatum** (wie die Voranmeldungen), nicht nach Abfluss.
     var vstGesamt: Decimal
+    /// AfA des Jahres (in `ausgabenNetto` enthalten).
+    var afa: Decimal = 0
 
     var gewinn: Decimal { einnahmenBezahlt - ausgabenNetto }
 }
@@ -114,7 +118,8 @@ extension Steuer {
         }
     }
 
-    /// EÜR-Jahresauswertung (Einnahmen nach Zufluss, betriebliche Ausgaben netto).
+    /// EÜR-Jahresauswertung: Einnahmen nach Zufluss, betriebliche Ausgaben netto nach Abfluss
+    /// (§11 EStG), Anlagegüter mit ihrer AfA. Die Vorsteuer bleibt beim Belegdatum.
     static func jahresauswertung(jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten]) -> JahresAuswertung
     {
         let p = Periode.jahr(jahr)
@@ -122,10 +127,10 @@ extension Steuer {
             einnahmen
             .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
-        let betrieblich = ausgaben.filter { $0.betrieblich && p.enthaelt($0.datum) }
         return JahresAuswertung(
             einnahmenBezahlt: einnahmenBezahlt,
-            ausgabenNetto: betrieblich.reduce(Decimal(0)) { $0 + $1.netto },
-            vstGesamt: betrieblich.reduce(Decimal(0)) { $0 + $1.vst })
+            ausgabenNetto: betrieblichNetto(ausgaben, in: p, abfluss: true),
+            vstGesamt: vorsteuer(ausgaben, in: p),
+            afa: afa(ausgaben, in: p))
     }
 }

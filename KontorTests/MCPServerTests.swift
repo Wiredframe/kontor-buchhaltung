@@ -705,6 +705,42 @@ struct MCPServerTests {
         #expect(neu?.artEffektiv == .betriebsausgabe)
     }
 
+    /// Nutzungsdauer und Zahlungsdatum gehen über MCP rein; 0 bzw. Unsinn wird sauber behandelt.
+    @Test func anlegenAusgabeMitNutzungsdauerUndZahlung() async throws {
+        let c = try container()
+        try seed(c)
+        let text = toolText(
+            await ruf(
+                c, "tools/call",
+                [
+                    "name": "kontor_anlegen",
+                    "arguments": [
+                        "typ": "ausgaben",
+                        "felder": [
+                            "datum": "2026-10-14", "bezeichnung": "Kamera", "brutto": "2499", "steuerart": "inland19",
+                            "nutzungsdauer": 7, "zahlungsdatum": "2026-10-20",
+                        ],
+                    ],
+                ]))
+        #expect(text.contains("Angelegt (ausgaben)"))
+        let neu = try #require(
+            try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first { $0.bezeichnung == "Kamera" })
+        #expect(neu.nutzungsdauer == 7 && neu.zahlungsdatum == tag(2026, 10, 20))
+        let eur = toolText(await ruf(c, "tools/call", ["name": "kontor_eur", "arguments": ["jahr": 2026]]))
+        #expect(eur.contains("darin AfA"))
+
+        let falsch = await ruf(
+            c, "tools/call",
+            [
+                "name": "kontor_anlegen",
+                "arguments": [
+                    "typ": "ausgaben",
+                    "felder": ["datum": "2026-10-14", "bezeichnung": "X", "brutto": "10", "nutzungsdauer": -3],
+                ],
+            ])
+        #expect((falsch["result"] as! [String: Any])["isError"] as? Bool == true)
+    }
+
     @Test func anlegenAusgabe7ProzentAutoVorsteuer() async throws {
         let c = try container()
         try seed(c)
@@ -969,7 +1005,8 @@ struct MCPServerTests {
                 await ruf(c, "tools/call", ["name": "kontor_liste", "arguments": ["typ": "ausgaben", "jahr": 2026]]))
             #expect(
                 liste.split(separator: "\n").first
-                    == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg;waehrung;fremdbetrag")
+                    == "datum;bezeichnung;anbieter;brutto;vst;netto;steuerart;betrieblich;beleg;waehrung;fremdbetrag;bezahlt;nutzungsdauer"
+            )
             #expect(liste.contains(pfad))
 
             // entfernen=true löst den Verweis (Datei darf bleiben).

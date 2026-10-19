@@ -86,6 +86,8 @@ enum Backup {
         // Fremdwährungsrechnung (USD & Co.) – optional, damit ältere Backups weiter dekodieren.
         var fremdwaehrung: String? = nil
         var fremdBetrag: Decimal? = nil
+        /// AfA-Nutzungsdauer in Jahren – optional, ältere Backups kennen sie nicht.
+        var nutzungsdauer: Int? = nil
     }
     struct EinnahmeDTO: Codable {
         var kunde: String
@@ -160,7 +162,8 @@ enum Backup {
                     betrieblich: $0.betrieblich,
                     umlagefaehig: $0.umlagefaehig, belegPfad: $0.belegPfad, art: $0.art,
                     rechnungsnummer: $0.rechnungsnummer, zahlungsdatum: $0.zahlungsdatum,
-                    fremdwaehrung: $0.fremdwaehrung, fremdBetrag: $0.fremdBetrag)
+                    fremdwaehrung: $0.fremdwaehrung, fremdBetrag: $0.fremdBetrag,
+                    nutzungsdauer: $0.nutzungsdauer)
             },
             einnahmen: try context.fetch(FetchDescriptor<Income>()).map {
                 EinnahmeDTO(
@@ -391,7 +394,8 @@ enum Backup {
                     betrieblich: d.betrieblich, umlagefaehig: d.umlagefaehig ?? false,
                     belegPfad: d.belegPfad, art: d.art,
                     rechnungsnummer: d.rechnungsnummer, zahlungsdatum: d.zahlungsdatum,
-                    fremdwaehrung: d.fremdwaehrung, fremdBetrag: d.fremdBetrag ?? 0))
+                    fremdwaehrung: d.fremdwaehrung, fremdBetrag: d.fremdBetrag ?? 0,
+                    nutzungsdauer: d.nutzungsdauer))
             neu += 1
         }
         var vorlageKeys = Set(

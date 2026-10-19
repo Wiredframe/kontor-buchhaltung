@@ -44,7 +44,7 @@ enum KontorMCP {
             Werkzeug(
                 name: "kontor_eur",
                 beschreibung:
-                    "EÜR-Jahresrechnung (Zuflussprinzip): bezahlte Einnahmen, Betriebsausgaben (netto), Vorsteuer, Gewinn.",
+                    "EÜR-Jahresrechnung (Zu- und Abflussprinzip): bezahlte Einnahmen, Betriebsausgaben (netto, Anlagegüter als AfA), Vorsteuer, Gewinn.",
                 schema: obj(props: ["jahr": zahl("Kalenderjahr.")], required: ["jahr"])),
             Werkzeug(
                 name: "kontor_ustva",
@@ -85,7 +85,7 @@ enum KontorMCP {
                 beschreibung: """
                     Legt einen Datensatz in einem Modul an. Datum als YYYY-MM-DD, Geld brutto in EUR. 'felder' je typ:
                     einnahmen: kunde, rnNetto, ust, rechnungsdatum [, satz(satz19|satz7, Default satz19), zahlungsdatum, status(offen|bezahlt|ausgefallen), ausfalldatum, rechnungsnummer, rnNetto2, ust2, satz2(satz19|satz7) für Mischrechnungen, umsatzart(inland|euReverseCharge|drittland, Default inland), ustIdNrKunde]. umsatzart≠inland ist nicht steuerbar: ust/ust2 werden auf 0 gesetzt (KZ 21 bzw. KZ 45 statt KZ 81/86), euReverseCharge braucht ustIdNrKunde für die Zusammenfassende Meldung;
-                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst automatisch berechnet), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung)];
+                    ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst automatisch berechnet), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung), zahlungsdatum(Abfluss, zählt für die EÜR), nutzungsdauer(Jahre, AfA für betriebliche Anlagegüter über 800 € netto; 0 = sofort)];
                     fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst automatisch berechnet), steuerart, betrieblich, umlagefaehig];
                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
                     zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
@@ -259,7 +259,7 @@ enum KontorMCP {
         return """
             EÜR \(jahr)
             Einnahmen (bezahlt, netto):  \(g(a.einnahmenBezahlt)) €
-            Betriebsausgaben (netto):    \(g(a.ausgabenNetto)) €
+            Betriebsausgaben (netto):    \(g(a.ausgabenNetto)) € (Abfluss, darin AfA \(g(a.afa)) €)
             Vorsteuer gesamt:            \(g(a.vstGesamt)) €
             Gewinn:                      \(g(a.gewinn)) €
             """
@@ -407,7 +407,7 @@ enum KontorMCP {
             return csv(
                 kopf([
                     "datum", "bezeichnung", "anbieter", "brutto", "vst", "netto", "steuerart", "betrieblich", "beleg",
-                    "waehrung", "fremdbetrag",
+                    "waehrung", "fremdbetrag", "bezahlt", "nutzungsdauer",
                 ]),
                 rows.map {
                     zeile(
@@ -416,6 +416,8 @@ enum KontorMCP {
                             tagText($0.datum), $0.bezeichnung, $0.anbieter, g($0.brutto), g($0.vst), g($0.netto),
                             $0.steuerart.rawValue, $0.betrieblich ? "ja" : "nein", $0.belegPfad ?? "",
                             $0.fremdwaehrung ?? "", $0.fremdBetrag == 0 ? "" : g($0.fremdBetrag),
+                            $0.zahlungsdatum.map(tagText) ?? "",
+                            $0.nutzungsdauerEffektiv == 0 ? "" : String($0.nutzungsdauerEffektiv),
                         ])
                 })
         case "fixkosten", "subscriptions":
@@ -686,6 +688,8 @@ enum KontorMCP {
                 // dokumentieren nur die Originalrechnung.
                 fremdwaehrung: (f["waehrung"] as? String)?.uppercased(),
                 fremdBetrag: dezArg(f["fremdbetrag"]) ?? 0)
+            neueAusgabe.zahlungsdatum = datum(f["zahlungsdatum"])
+            neueAusgabe.nutzungsdauer = try nutzungsdauerArg(f["nutzungsdauer"])
             // Ein mitgegebenes `vst` darf die Steuerart nicht aushebeln (§13b/steuerfrei = 0).
             neueAusgabe.normalisiereVorsteuer()
             obj = neueAusgabe
@@ -814,6 +818,8 @@ enum KontorMCP {
             if hat("rechnungsnummer") { o.rechnungsnummer = f["rechnungsnummer"] as? String }
             if hat("waehrung") { o.fremdwaehrung = (f["waehrung"] as? String)?.uppercased() }
             if let v = dezArg(f["fremdbetrag"]) { o.fremdBetrag = v }
+            if let v = try datumFeld(f, "zahlungsdatum") { o.zahlungsdatum = v }
+            if hat("nutzungsdauer") { o.nutzungsdauer = try nutzungsdauerArg(f["nutzungsdauer"]) }
             // Steuerart und `vst` werden hier einzeln gesetzt: ohne diesen Abschluss bliebe beim
             // Wechsel auf Reverse-Charge/steuerfrei die alte Vorsteuer stehen.
             o.normalisiereVorsteuer()
@@ -1040,6 +1046,14 @@ enum KontorMCP {
         }
         if let n = v as? NSNumber { return Decimal(string: n.stringValue, locale: Locale(identifier: "en_US_POSIX")) }
         return nil
+    }
+    /// Nutzungsdauer für die AfA: fehlt/`null`/0 = sofort abziehbar (`nil`), sonst 1…50 Jahre.
+    private static func nutzungsdauerArg(_ v: Any?) throws -> Int? {
+        guard let v, !(v is NSNull) else { return nil }
+        guard let n = intArg(v), (0...50).contains(n) else {
+            throw MCPFehler("'nutzungsdauer' muss eine ganze Zahl von 0 bis 50 (Jahre) sein, war: \(v).")
+        }
+        return n == 0 ? nil : n
     }
     private static func pflichtInt(_ a: [String: Any], _ schluessel: String) throws -> Int {
         guard let i = intArg(a[schluessel]) else {

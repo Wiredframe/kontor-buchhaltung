@@ -96,12 +96,15 @@ enum Steuer {
             .reduce(Decimal(0)) { $0 + $1.rnNetto }
     }
 
-    /// Σ Netto der **betrieblichen** Ausgaben in der Periode – gemeinsame Basis von
-    /// EÜR-Gewinn und ESt-Rücklage. Privates bleibt draußen.
-    static func betrieblichNetto(_ ausgaben: [AusgabePosten], in periode: Periode) -> Decimal {
+    /// Σ Netto der **betrieblichen** Ausgaben in der Periode – Basis von Monatsgewinn und
+    /// ESt-Rücklage (nach Belegdatum) bzw. mit `abfluss` der EÜR (nach Zahlung, §11 EStG).
+    /// Anlagegüter gehen mit ihrer AfA ein. Privates bleibt draußen.
+    static func betrieblichNetto(_ ausgaben: [AusgabePosten], in periode: Periode, abfluss: Bool = false)
+        -> Decimal
+    {
         ausgaben
-            .filter { $0.betrieblich && periode.enthaelt($0.datum) }
-            .reduce(Decimal(0)) { $0 + $1.netto }
+            .filter(\.betrieblich)
+            .reduce(Decimal(0)) { $0 + $1.betriebsausgabe(in: periode, abfluss: abfluss) }
     }
 
     /// §17-Korrektur (negativ): USt uneinbringlicher Forderungen, deren
@@ -278,14 +281,10 @@ enum Steuer {
 
     // MARK: - EÜR
 
-    /// EÜR-Gewinn (Zuflussprinzip): Σ bezahlter Netto-Einnahmen − Σ betrieblicher Netto-Ausgaben im Jahr.
+    /// EÜR-Gewinn (Zu- und Abflussprinzip): Σ bezahlter Netto-Einnahmen − Σ betrieblicher
+    /// Netto-Ausgaben mit Abfluss im Jahr (Anlagegüter mit ihrer AfA).
     static func euerGewinn(einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], jahr: Int) -> Decimal {
-        let p = Periode.jahr(jahr)
-        let einnahmenSumme =
-            einnahmen
-            .filter { if let z = $0.zahlungsdatum { p.enthaelt(z) } else { false } }
-            .reduce(Decimal(0)) { $0 + $1.rnNetto }
-        return einnahmenSumme - betrieblichNetto(ausgaben, in: p)
+        jahresauswertung(jahr: jahr, einnahmen: einnahmen, ausgaben: ausgaben).gewinn
     }
 
     // MARK: - Einkommensteuer-Rücklage

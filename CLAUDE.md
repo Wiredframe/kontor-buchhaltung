@@ -124,7 +124,21 @@ Ein Sammelbefehl, lokale Git-Hooks, bewusst ohne GitHub Actions:
   (`estSatzProMonat`). Keine globale Einstellung, **keine `KSKEntry`-Sätze-Tabelle/KSK-Modul mehr**.
   Bearbeitung im Monatsabschluss-Sidebar-Tab „Werte" (JAE-Info + drei Betragsfelder, Summe automatisch).
 - **EÜR-Gewinn (Jahr)** = Σ `Income.rnNetto` mit *Zahlungsdatum* im Jahr
-  − Σ betriebliche `ExpenseEntry.netto` im Jahr.
+  − Σ betriebliche `ExpenseEntry.netto` mit **Abfluss** im Jahr (§11 Abs. 2 EStG:
+  `zahlungsdatum ?? datum`, von Hand im Inspector „Bezahlt am" oder aus dem Kontoauszug).
+  Zehn-Tage-Regel für Fixkosten/Subscriptions (Beleg und Zahlung 22.12.–10.01. → Jahr des
+  Belegs, `AusgabePosten.abflussdatum`). **Nur die EÜR** zählt nach Abfluss; Vorsteuer, Monatsgewinn
+  und ESt-Rücklage bleiben beim Belegdatum.
+- **AfA (§7 Abs. 1 EStG) – ENTSCHIEDEN, kein Anlagenmodul:** `ExpenseEntry.nutzungsdauer: Int?`
+  (Jahre, optional → migrationssicher), wirksam nur bei betrieblicher Betriebsausgabe
+  (`nutzungsdauerEffektiv`), angeboten ab 800 € netto (GWG-Grenze, `kannAbgeschriebenWerden`).
+  Linear, **monatsgenau ab dem Kaufmonat** (der Kaufmonat zählt voll), kumuliert gerundet, damit die
+  Raten exakt das Netto ergeben (`Berechnung/Abschreibung.swift`, Vorbild: wiredframe
+  `tax_engine.depreciated`). Monatsgewinn, ESt-Rücklage und EÜR zählen nur die AfA
+  (`AusgabePosten.betriebsausgabe(in:abfluss:)`, Basis von `betrieblichNetto`), die **Vorsteuer
+  zählt voll beim Kauf**. Jahresabschluss › EÜR zeigt „darin AfA" und das **Anlagenverzeichnis**
+  (`Steuer.anlagen`, Werte für die Anlage AVEÜR). Backup und MCP (`nutzungsdauer`,
+  `zahlungsdatum`) nachgezogen.
 - **ESt-Rücklage – ENTSCHIEDEN:** **ausschließlich pauschal `(Gewinn − KSK) × Satz`**, Basis =
   **betrieblicher Gewinn** (RN − betriebliche Ausgaben netto); KSK ist als Vorsorgeaufwand
   (Sonderausgabe) abziehbar – beim KSK-Versicherten praktisch in voller Höhe (RV bis weit unter

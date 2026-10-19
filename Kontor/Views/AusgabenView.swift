@@ -600,6 +600,20 @@ struct AusgabeInspektor: View {
             eintrag.art = $0
         }
     }
+    private var zahlung: Binding<Date> {
+        Binding {
+            eintrag.zahlungsdatum ?? eintrag.datum
+        } set: {
+            eintrag.zahlungsdatum = $0
+        }
+    }
+    private var nutzungsdauer: Binding<Int> {
+        Binding {
+            eintrag.nutzungsdauer ?? 0
+        } set: {
+            eintrag.nutzungsdauer = $0 > 0 ? $0 : nil
+        }
+    }
 
     var body: some View {
         Form {
@@ -625,8 +639,38 @@ struct AusgabeInspektor: View {
                 .disabled(!eintrag.steuerart.ziehtVorsteuer)
             }
             LabeledContent("Netto", value: eintrag.netto.euro)
-            if let z = eintrag.zahlungsdatum {
-                LabeledContent("Bezahlt am", value: z.formatted(.dateTime.day().month().year()))
+            if eintrag.zahlungsdatum != nil {
+                HStack {
+                    DatePicker("Bezahlt am", selection: zahlung, displayedComponents: .date)
+                    Button("Entfernen") { eintrag.zahlungsdatum = nil }
+                        .help("Ohne Zahlungsdatum gilt die Ausgabe am Belegdatum als bezahlt.")
+                }
+            } else {
+                LabeledContent("Bezahlt am") {
+                    Button("eintragen") { eintrag.zahlungsdatum = eintrag.datum }
+                        .help("Für bar oder mit Karte Bezahltes. Die EÜR zählt die Ausgabe im Jahr der Zahlung.")
+                }
+            }
+            if eintrag.kannAbgeschriebenWerden || eintrag.nutzungsdauerEffektiv > 0 {
+                Picker("Abschreiben über", selection: nutzungsdauer) {
+                    Text("sofort (kein Anlagegut)").tag(0)
+                    ForEach(Steuer.nutzungsdauern, id: \.self) { Text("\($0) Jahre").tag($0) }
+                }
+                if eintrag.nutzungsdauerEffektiv > 0 {
+                    let posten = eintrag.posten
+                    let jahr = appKalender.component(.year, from: eintrag.datum)
+                    LabeledContent(
+                        "AfA \(String(jahr))", value: posten.afa(in: Periode.jahr(jahr)).euro)
+                    Text(
+                        "Linear und monatsgenau ab dem Kaufmonat. Gewinn und EÜR zählen nur die Abschreibung, die Vorsteuer zählt voll beim Kauf."
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
+                } else if eintrag.netto > Steuer.gwgGrenze {
+                    Text(
+                        "Über 800 € netto ist ein abnutzbares Anlagegut abzuschreiben (Möbel 13, Kamera 7, Smartphone 5 Jahre). Rechner, Monitore und Software bleiben sofort (BMF: ein Jahr)."
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Toggle("Umlagefähig", isOn: $eintrag.umlagefaehig)
             fremdwaehrung

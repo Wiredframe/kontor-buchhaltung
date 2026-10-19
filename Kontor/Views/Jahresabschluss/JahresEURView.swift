@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Jahresabschluss → EÜR: die Gewinnermittlung. Einnahmen (Zufluss) − betriebliche Ausgaben
-/// (netto) = Gewinn.
+/// (netto, Abfluss, Anlagegüter als AfA) = Gewinn. Darunter das Anlagenverzeichnis.
 struct JahresEURView: View {
     @Environment(Zeitkontext.self) private var zeit
     @Environment(Navigation.self) private var nav
@@ -19,9 +19,15 @@ struct JahresEURView: View {
                     Kartenzeile(
                         label: "Betriebsausgaben (netto)", wert: w.a.ausgabenNetto, icon: "creditcard",
                         minus: true)
+                    if w.a.afa != 0 {
+                        Kartenzeile(
+                            label: "darin Abschreibungen (AfA)", wert: w.a.afa, icon: "chart.line.downtrend.xyaxis")
+                    }
                     Summenzeile(label: "Gewinn (EÜR)", wert: w.a.gewinn)
-                    Text("Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto.")
-                        .erklaerung()
+                    Text(
+                        "Einnahmen nach Zahlungseingang (Zufluss), betriebliche Ausgaben netto nach Zahlung (Abfluss). Anlagegüter gehen mit ihrer Abschreibung ein, nicht mit dem Kaufpreis."
+                    )
+                    .erklaerung()
                     Divider().padding(.vertical, 6)
                     HStack(spacing: 16) {
                         Button("Einnahmen \(String(w.jahr)) öffnen") {
@@ -36,6 +42,9 @@ struct JahresEURView: View {
                     .padding(.vertical, 2)
                 }
             }
+
+            let anlagen = Steuer.anlagen(w.ausP, jahr: w.jahr)
+            if !anlagen.isEmpty { AnlagenverzeichnisKarte(anlagen: anlagen) }
 
             Panel(
                 titel: "Vorsteuer im Jahr",
@@ -53,6 +62,41 @@ struct JahresEURView: View {
                     )
                     .erklaerung()
                 }
+            }
+        }
+    }
+}
+
+/// Anlagenverzeichnis (Anlage AVEÜR): je Anlagegut Anschaffung, Buchwert zu Beginn, AfA des
+/// Jahres und Restbuchwert. Klick auf einen Betrag kopiert ihn.
+struct AnlagenverzeichnisKarte: View {
+    let anlagen: [Anlagegut]
+
+    var body: some View {
+        Panel(titel: "Anlagenverzeichnis") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(anlagen, id: \.self) { a in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(a.bezeichnung.isEmpty ? "Anlagegut" : a.bezeichnung).fontWeight(.medium)
+                        Text(
+                            "angeschafft \(a.angeschafft.formatted(.dateTime.day().month().year())) · \(a.kosten.euro) · \(a.nutzungsdauer) Jahre"
+                        )
+                        .font(.caption).foregroundStyle(.secondary)
+                        if a.zugang {
+                            Kartenzeile(label: "Zugang", wert: a.kosten, icon: "plus.circle")
+                        } else {
+                            Kartenzeile(label: "Buchwert zu Jahresbeginn", wert: a.buchwertAnfang, icon: "shippingbox")
+                        }
+                        Kartenzeile(label: "AfA", wert: a.afa, icon: "chart.line.downtrend.xyaxis", minus: true)
+                        Kartenzeile(label: "Buchwert zum Jahresende", wert: a.buchwertEnde, icon: "shippingbox.fill")
+                    }
+                    if a != anlagen.last { Divider() }
+                }
+                Summenzeile(label: "AfA gesamt", wert: anlagen.reduce(Decimal(0)) { $0 + $1.afa })
+                Text(
+                    "Linear und monatsgenau ab dem Kaufmonat (§7 Abs. 1 EStG). Die Vorsteuer zählt voll beim Kauf. Diese Werte gehören in die Anlage AVEÜR."
+                )
+                .erklaerung()
             }
         }
     }

@@ -88,6 +88,21 @@ struct BackupTests {
         #expect(e.kurs == dez("0.9354"))
     }
 
+    @Test func nutzungsdauerUeberlebtExportUndImport() throws {
+        let quelle = ModelContext(try container())
+        quelle.insert(
+            ExpenseEntry(
+                datum: tag(2026, 10, 14), bezeichnung: "Kamera", anbieter: "Fotohaus", brutto: dez("2499"),
+                vst: dez("399"), steuerart: .inland19, art: .betriebsausgabe, zahlungsdatum: tag(2026, 10, 20),
+                nutzungsdauer: 7))
+        try quelle.save()
+        let ziel = ModelContext(try container())
+        _ = try Backup.importData(try Backup.exportData(quelle), in: ziel)
+        let e = try #require(try ziel.fetch(FetchDescriptor<ExpenseEntry>()).first)
+        #expect(e.nutzungsdauer == 7)
+        #expect(e.zahlungsdatum == tag(2026, 10, 20))
+    }
+
     /// Ein Backup aus der Zeit vor den Fremdwährungs-Feldern muss weiter importierbar sein.
     @Test func altesBackupOhneFremdwaehrungBleibtLesbar() throws {
         let json = """
