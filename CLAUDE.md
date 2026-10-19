@@ -510,6 +510,14 @@ Prüfgrößen (synthetisch, exemplarisch):
   **Vorprüfung** (`Steuer.vorpruefung`): fehlende Jahres-Einstellungen, Kontoauszug unvollständig,
   offene bzw. jahresübergreifend bezahlte Rechnungen, Fremdwährung vorläufig, Beleg-/Zahljahr
   verschieden, Anschaffungen > 800 € ohne AfA, fehlende Belege, USt-VZ gezahlt ≠ berechnet, KSK Soll ≠ Ist.
+- **ELSTER-Export (`Berechnung/ElsterExport.swift`, Menü in der UStVA-Toolbar):** UStVA als XML für
+  die Datenübernahme in Mein ELSTER (nur `<Anmeldungssteuern>` mit Jahresversion, ISO-8859-15,
+  Kennzahlen aufsteigend, leere fehlen, KZ 83 immer, KZ 10 = berichtigt), ZM als CSV (UTF-8,
+  Versionszeilen `#v3.0`/`#ve3.2.1`, Art „S"). Format aus wiredframe übernommen, dort gegen das Portal
+  erprobt. **Kontor sendet nichts** – geprüft und gesendet wird in Mein ELSTER. Steuernummer und
+  Absender unter Einstellungen › Finanzamt (`@AppStorage`, Schlüssel in `ElsterExport.Absender`);
+  die Steuernummer wird nach Bundesland ins 13-stellige ELSTER-Format umgerechnet (Landesziffer +
+  Finanzamt + 0 + Rest), die Einstellungen zeigen das Ergebnis zur Kontrolle an.
 - **Steuerfristen nach §108 Abs. 3 AO (`Berechnung/Fristen.swift`):** UStVA am 10. nach dem
   Zeitraum (+1 Monat mit Dauerfrist), ZM am 25. nach Quartalsende (ohne Dauerfrist), ESt-VZ
   10.3./6./9./12.; fällt das Ende auf Wochenende oder Feiertag, gilt der nächste Werktag. Feiertage

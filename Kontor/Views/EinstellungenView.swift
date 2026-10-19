@@ -51,6 +51,11 @@ private struct EinstellungenForm: View {
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
     @AppStorage("sidebarOpak") private var sidebarOpak = false
     @AppStorage(Bundesland.einstellung) private var bundesland = ""
+    @AppStorage(ElsterExport.Absender.schluessel.steuernummer) private var steuernummer = ""
+    @AppStorage(ElsterExport.Absender.schluessel.name) private var absenderName = ""
+    @AppStorage(ElsterExport.Absender.schluessel.strasse) private var absenderStrasse = ""
+    @AppStorage(ElsterExport.Absender.schluessel.plz) private var absenderPLZ = ""
+    @AppStorage(ElsterExport.Absender.schluessel.ort) private var absenderOrt = ""
 
     /// Grundfreibetrag zum Editieren: zeigt den gesetzlichen Standard des Jahres, bis der Nutzer
     /// einen eigenen Wert setzt (dann lokaler Override in `settings.grundfreibetrag`).
@@ -114,6 +119,25 @@ private struct EinstellungenForm: View {
                 }
                 Text(
                     "Fällt eine Steuerfrist auf ein Wochenende oder einen Feiertag, endet sie am nächsten Werktag (§108 Abs. 3 AO). Maßgeblich sind die Feiertage am Sitz des Finanzamts."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+                TextField("Steuernummer", text: $steuernummer, prompt: Text("wie auf dem Bescheid"))
+                if !steuernummer.isEmpty {
+                    switch Result(catching: {
+                        try ElsterExport.steuernummer(steuernummer, land: Bundesland(rawValue: bundesland))
+                    }) {
+                    case .success(let n):
+                        LabeledContent("im ELSTER-Format", value: n).font(.caption)
+                    case .failure(let f):
+                        Text(f.localizedDescription).font(.caption).foregroundStyle(.orange)
+                    }
+                }
+                TextField("Name", text: $absenderName)
+                TextField("Straße und Hausnummer", text: $absenderStrasse)
+                TextField("PLZ", text: $absenderPLZ)
+                TextField("Ort", text: $absenderOrt)
+                Text(
+                    "Für den ELSTER-Export der UStVA (Datenübernahme in Mein ELSTER). Die Daten bleiben auf diesem Mac."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }

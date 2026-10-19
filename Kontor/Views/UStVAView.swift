@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -54,6 +55,52 @@ struct UStVAView: View {
         let ende = f.ende.deutsch(mitWochentag: true)
         guard f.verschoben else { return ende }
         return ende + " (regulär \(f.regulaer.deutsch()), Wochenende oder Feiertag)"
+    }
+
+    private var zeitraumName: String {
+        monatlich ? "\(monatsName(monat)) \(String(jahr))" : "Q\(quartal) \(String(jahr))"
+    }
+
+    /// Speichert die Voranmeldung des gezeigten Zeitraums als XML für Mein ELSTER.
+    private func exportiereUStVA(berichtigt: Bool) {
+        let d = UserDefaults.standard
+        let k = ElsterExport.Absender.schluessel
+        do {
+            let nummer = try ElsterExport.steuernummer(d.string(forKey: k.steuernummer) ?? "", land: bundesland)
+            let absender = ElsterExport.Absender(
+                name: d.string(forKey: k.name) ?? "", strasse: d.string(forKey: k.strasse) ?? "",
+                plz: d.string(forKey: k.plz) ?? "", ort: d.string(forKey: k.ort) ?? "")
+            let code = monatlich ? ElsterExport.zeitraumCode(monat: monat) : ElsterExport.zeitraumCode(quartal: quartal)
+            let daten = try ElsterExport.ustvaXML(
+                ergebnis, jahr: jahr, zeitraum: code, steuernummer: nummer, absender: absender, berichtigt: berichtigt)
+            let teil = monatlich ? String(format: "%02d", monat) : "Q\(quartal)"
+            speichere(daten, name: "UStVA \(jahr) \(teil)\(berichtigt ? " berichtigt" : "").xml")
+        } catch {
+            meldeFehler(error)
+        }
+    }
+
+    /// Speichert die ZM des Quartals als CSV für „Einträge importieren" in Mein ELSTER.
+    private func exportiereZM() {
+        do {
+            speichere(try ElsterExport.zmCSV(zmMeldung), name: "ZM \(jahr) Q\(zmQuartal).csv")
+        } catch {
+            meldeFehler(error)
+        }
+    }
+
+    private func speichere(_ daten: Data, name: String) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = name
+        guard panel.runModal() == .OK, let ziel = panel.url else { return }
+        do { try daten.write(to: ziel, options: .atomic) } catch { meldeFehler(error) }
+    }
+
+    private func meldeFehler(_ fehler: Error) {
+        let alert = NSAlert()
+        alert.messageText = "Export nicht möglich"
+        alert.informativeText = fehler.localizedDescription
+        alert.runModal()
     }
 
     /// Das Quartal, für das die ZM abzugeben ist – **auch in der Monatsansicht**.
@@ -318,6 +365,18 @@ struct UStVAView: View {
                 // Jahr und Gesamt wären hier sinnlos: Eine Voranmeldung gilt je Monat oder
                 // Quartal.
                 ZeitraumChip(filter: $zeit.filter, umfang: .monatQuartal)
+            }
+            ToolbarItem {
+                Menu {
+                    Button("UStVA \(zeitraumName) als XML …") { exportiereUStVA(berichtigt: false) }
+                    Button("Berichtigte UStVA \(zeitraumName) als XML …") { exportiereUStVA(berichtigt: true) }
+                    Divider()
+                    Button("ZM Q\(zmQuartal) \(String(jahr)) als CSV …") { exportiereZM() }
+                        .disabled(zm.istLeer)
+                } label: {
+                    Label("Für ELSTER exportieren", systemImage: "square.and.arrow.up")
+                }
+                .help("Datei für die Datenübernahme in Mein ELSTER – geprüft und gesendet wird dort.")
             }
         }
         .onChange(of: jahr, initial: true) { _, _ in
