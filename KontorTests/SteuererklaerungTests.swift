@@ -48,10 +48,18 @@ struct SteuererklaerungTests {
         #expect(
             Steuer.abflussJahr(ustZahlung("100", steuerjahr: 2025, faellig: tag(2026, 1, 10), am: tag(2026, 1, 14)))
                 == 2026)
-        // Mit Dauerfrist fällig 10.02. → nicht um den Jahreswechsel fällig → 2026.
+        // Mit Dauerfrist fällig 10.02. → nicht um den Jahreswechsel fällig → 2026. Die Fälligkeit
+        // kommt aus den Einstellungen, nicht aus `faellig` (der Import setzt dort den Buchungstag).
+        let dauerfrist: Steuer.UStEinstellungen = { _ in (.vierteljaehrlich, true) }
         #expect(
-            Steuer.abflussJahr(ustZahlung("100", steuerjahr: 2025, faellig: tag(2026, 2, 10), am: tag(2026, 1, 8)))
-                == 2026)
+            Steuer.abflussJahr(
+                ustZahlung("100", steuerjahr: 2025, faellig: tag(2026, 1, 8), am: tag(2026, 1, 8)),
+                einstellungen: dauerfrist) == 2026)
+        // Monatlich mit Dauerfrist: im Januar ist die November-VA fällig (10.01.) → Vorjahr.
+        #expect(
+            Steuer.abflussJahr(
+                ustZahlung("100", steuerjahr: 2025, faellig: tag(2026, 1, 8), am: tag(2026, 1, 8)),
+                einstellungen: { _ in (.monatlich, true) }) == 2025)
     }
 
     @Test func euerBruttomethode() {

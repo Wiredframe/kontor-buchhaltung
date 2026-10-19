@@ -347,10 +347,12 @@ enum ImportAnwendung {
                 let titel = b.istEingang ? "Erstattung: \(name)" : name
                 let fremd = b.fremdbetragHinweis
                 if let e: ExpenseEntry = hole(ziel, ctx) {
-                    // `datum` bleibt das EÜR-maßgebliche (Abfluss-)Datum = Buchungstag (wie bisher),
-                    // `zahlungsdatum` hält den Zahltag zusätzlich fest; eine bereits erfasste
+                    // Nur das Zahlungsdatum kommt von der Bank, `datum` bleibt das **Belegdatum**:
+                    // Vorsteuer, AfA und Monatsgewinn hängen daran, die EÜR zählt nach
+                    // `zahlungsdatum` (Abfluss, Zehn-Tage-Regel). Früher überschrieb der Import das
+                    // Belegdatum mit dem Buchungstag – eine Rechnung vom 29.12., bezahlt am 02.01.,
+                    // wanderte so mit ihrer Vorsteuer ins Folgequartal. Eine bereits erfasste
                     // Rechnungsnummer (OCR) wird nicht überschrieben.
-                    e.datum = b.buchungstag
                     e.zahlungsdatum = b.buchungstag
                     // **Der Bankbetrag ist die Wahrheit.** Bei einer Fremdwährungsrechnung ersetzt er
                     // den vorläufig umgerechneten Wert: für die EÜR zählt der tatsächliche Abfluss
@@ -412,7 +414,11 @@ enum ImportAnwendung {
                 }
             case .steuererstattung:
                 // Eingang vom Finanzamt = Erstattung → negativer Betrag (mindert die Steuersumme).
-                let zJahr = appKalender.component(.year, from: b.buchungstag)
+                // Steuerjahr wie bei Zahlungen: Eine USt-Erstattung für Q4 im Januar gehört ins Vorjahr.
+                let zJahr = steuerzuordnung(
+                    kind: z.steuerKind, zahlMonat: appKalender.component(.month, from: b.buchungstag),
+                    zahlJahr: appKalender.component(.year, from: b.buchungstag), ctx
+                ).jahr
                 if let t: TaxPayment = hole(ziel, ctx) {
                     t.kind = z.steuerKind
                     t.betrag = -betrag

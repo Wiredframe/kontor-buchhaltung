@@ -89,12 +89,33 @@ struct Pruefpunkt: Hashable, Identifiable {
 
 extension Steuer {
 
+    /// Rhythmus und Dauerfristverlängerung eines Steuerjahres (aus dessen `YearSettings`).
+    typealias UStEinstellungen = (Int) -> (rhythmus: UStVARhythmus, dauerfrist: Bool)
+    static let ohneEinstellungen: UStEinstellungen = { _ in (.vierteljaehrlich, false) }
+
     /// Jahr, in dem eine USt-Zahlung in der EÜR zählt: im Jahr der Zahlung, außer Zahlung **und**
-    /// Fälligkeit liegen in den zehn Tagen um den Jahreswechsel – dann im Jahr, zu dem sie
-    /// wirtschaftlich gehört (§11 Abs. 2 Satz 2 EStG; Q4 am 10. Januar gezahlt: Vorjahr).
-    static func abflussJahr(_ z: SteuerzahlungPosten) -> Int {
+    /// gesetzliche Fälligkeit liegen in den zehn Tagen um den Jahreswechsel – dann im Jahr, zu dem
+    /// sie wirtschaftlich gehört (§11 Abs. 2 Satz 2 EStG; Q4 am 8. Januar gezahlt: Vorjahr).
+    ///
+    /// Die Fälligkeit wird aus Steuerjahr, Rhythmus und Dauerfrist **abgeleitet**, nicht aus
+    /// `faellig` gelesen: Der Kontoauszug-Import setzt dort den Buchungstag, das Fenster wäre damit
+    /// immer erfüllt. Mit Dauerfristverlängerung ist Q4 erst am 10.02. fällig – eine Zahlung am
+    /// 8. Januar zählt dann im Zahlungsjahr (BFH X R 44/16). Maßgeblich ist der **reguläre** 10.,
+    /// nicht der nach §108 Abs. 3 AO verschobene Werktag (so verstehen wir die BFH-Linie; bewusst
+    /// so entschieden, im Zweifel gegen den Steuerberater prüfen).
+    static func abflussJahr(_ z: SteuerzahlungPosten, einstellungen: UStEinstellungen = ohneEinstellungen) -> Int {
         let zahlJahr = appKalender.component(.year, from: z.zahltag)
-        if umJahreswechsel(z.zahltag), umJahreswechsel(z.faellig), abs(zahlJahr - z.jahr) <= 1 {
+        var faellig = z.faellig
+        if z.kind == .ustVz, zahlJahr == z.jahr + 1 {
+            let e = einstellungen(z.jahr)
+            // Letzter Zeitraum des Steuerjahres, der im Folgejahr gezahlt wird.
+            let januar = appKalender.component(.month, from: z.zahltag) == 1
+            let bisMonat = (e.rhythmus == .monatlich && e.dauerfrist && januar) ? 11 : 12
+            faellig =
+                Fristen.ustva(jahr: z.jahr, bisMonat: bisMonat, dauerfrist: e.dauerfrist, land: nil, titel: "")
+                .regulaer
+        }
+        if umJahreswechsel(z.zahltag), umJahreswechsel(faellig), abs(zahlJahr - z.jahr) <= 1 {
             return z.jahr
         }
         return zahlJahr
@@ -114,12 +135,15 @@ extension Steuer {
     }
 
     static func euerErklaerung(
-        jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], zahlungen: [SteuerzahlungPosten]
+        jahr: Int, einnahmen: [EinnahmePosten], ausgaben: [AusgabePosten], zahlungen: [SteuerzahlungPosten],
+        einstellungen: UStEinstellungen = ohneEinstellungen
     ) -> EUeRErklaerung {
         let p = Periode.jahr(jahr)
         let bezahlt = einnahmen.filter { $0.zahlungsdatum.map(p.enthaelt) ?? false }
         let betrieblich = ausgaben.filter(\.betrieblich)
-        let ust = zahlungen.filter { $0.kind == .ustVz && $0.bezahlt && abflussJahr($0) == jahr }
+        let ust = zahlungen.filter {
+            $0.kind == .ustVz && $0.bezahlt && abflussJahr($0, einstellungen: einstellungen) == jahr
+        }
         return EUeRErklaerung(
             einnahmenNetto: bezahlt.reduce(Decimal(0)) { $0 + $1.rnNetto },
             ustVereinnahmt: bezahlt.reduce(Decimal(0)) { $0 + $1.ust },

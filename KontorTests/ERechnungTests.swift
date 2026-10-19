@@ -87,6 +87,20 @@ struct ERechnungTests {
         #expect(sieben.steuerart == .inland7)
     }
 
+    /// Schon bezahlte Shop-Rechnung: Zahlbetrag 0, maßgeblich bleibt der Rechnungsbetrag.
+    @Test func bezahlteRechnungNimmtGesamtbetrag() throws {
+        let xml = cii().replacingOccurrences(
+            of: "<ram:DuePayableAmount>2499.00</ram:DuePayableAmount>",
+            with:
+                "<ram:TotalPrepaidAmount>2499.00</ram:TotalPrepaidAmount><ram:DuePayableAmount>0.00</ram:DuePayableAmount>"
+        )
+        #expect(ERechnung.ausCII(Data(xml.utf8))?.brutto == dez("2499"))
+        let usd = cii().replacingOccurrences(
+            of: "<rsm:SupplyChainTradeTransaction>",
+            with: "<rsm:SupplyChainTradeTransaction><ram:InvoiceCurrencyCode>USD</ram:InvoiceCurrencyCode>")
+        #expect(ERechnung.ausCII(Data(usd.utf8)) == nil)
+    }
+
     @Test func ohneAnhangOderFremdesXMLNil() throws {
         let fremd = try pdf(mitAnhang: "<?xml version=\"1.0\"?><Bestellung><ID>1</ID></Bestellung>", name: "daten.xml")
         defer { try? FileManager.default.removeItem(at: fremd) }

@@ -31,6 +31,14 @@ struct AusfallRuecknahmeTests {
         #expect(aus.ausfallFaktor(in: Periode.quartal(2026, 3)) == 0)
     }
 
+    /// Lag die Zahlung **vor** dem Ausfall, war der Ausfall ein Irrtum – keine Rücknahme.
+    @Test func zahlungVorDemAusfallNimmtNichtsZurueck() {
+        var p = posten
+        p.zahlungsdatum = tag(2026, 3, 15)
+        #expect(p.ausfallFaktor(in: Periode.quartal(2026, 1)) == 0)
+        #expect(p.ausfallFaktor(in: Periode.quartal(2026, 2)) == 1)
+    }
+
     @Test func ustvaNimmtDieMinderungImZahlungsquartalZurueck() {
         let e = [posten]
         let q1 = Steuer.ustva(einnahmen: e, ausgaben: [], periode: Periode.quartal(2026, 1))

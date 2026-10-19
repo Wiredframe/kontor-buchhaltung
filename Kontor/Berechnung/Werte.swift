@@ -66,7 +66,9 @@ func forderungsausfallFaktor(status: InvoiceStatus, ausfalldatum: Date?, zahlung
 {
     guard let ausfall = ausfalldatum, status != .offen else { return 0 }
     var faktor: Decimal = periode.enthaelt(ausfall) ? 1 : 0
-    if status == .bezahlt, let z = zahlungsdatum, periode.enthaelt(z) { faktor -= 1 }
+    // Nur eine Zahlung **nach** dem Ausfall nimmt ihn zurück. Lag das Geld schon vorher da, war
+    // der Ausfall ein Irrtum; eine Rücknahme in der Zahlungsperiode höbe KZ 81 dort über den Umsatz.
+    if status == .bezahlt, let z = zahlungsdatum, z >= ausfall, periode.enthaelt(z) { faktor -= 1 }
     return faktor
 }
 

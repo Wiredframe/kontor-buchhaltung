@@ -654,7 +654,13 @@ struct AusgabeInspektor: View {
             if eintrag.kannAbgeschriebenWerden || eintrag.nutzungsdauerEffektiv > 0 {
                 Picker("Abschreiben über", selection: nutzungsdauer) {
                     Text("sofort (kein Anlagegut)").tag(0)
-                    ForEach(Steuer.nutzungsdauern, id: \.self) { Text("\($0) Jahre").tag($0) }
+                    // Über MCP oder Backup kann eine Dauer außerhalb der Auswahl kommen – zeigen statt verschlucken.
+                    let n = eintrag.nutzungsdauer ?? 0
+                    ForEach(
+                        Steuer.nutzungsdauern + (n > 0 && !Steuer.nutzungsdauern.contains(n) ? [n] : []), id: \.self
+                    ) {
+                        Text("\($0) Jahre").tag($0)
+                    }
                 }
                 if eintrag.nutzungsdauerEffektiv > 0 {
                     let posten = eintrag.posten

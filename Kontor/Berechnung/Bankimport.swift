@@ -13,7 +13,7 @@ struct Bankbuchung: Hashable, Identifiable {
     var mandatsreferenz: String
     var kundenreferenz: String  // End-to-End-Referenz
     var waehrung: String
-    /// Das wievielte Mal derselbe Umsatz (ohne Kundenreferenz) in **einer** Datei vorkommt – zweimal
+    /// Das wievielte Mal derselbe Umsatz in **einer** Datei vorkommt – zweimal
     /// Parkhaus 3,00 € am selben Tag sind zwei Buchungen, keine Dublette.
     var vorkommen: Int = 1
 
@@ -41,9 +41,10 @@ struct Bankbuchung: Hashable, Identifiable {
     /// Ab dem zweiten gleichen Umsatz einer Datei kommt `|#n` dazu, der erste bleibt unverändert.
     var dedupSchluessel: String {
         let basis = "\(Bankimport.berlinerMitternacht(buchungstag))|\(betrag)"
-        if !kundenreferenz.isEmpty { return "k:\(kundenreferenz)|\(basis)" }
         let z = verwendungszweck.prefix(40).lowercased()
-        let schluessel = "h:\(basis)|\(gegenpartei.lowercased())|\(z)"
+        let schluessel =
+            kundenreferenz.isEmpty
+            ? "h:\(basis)|\(gegenpartei.lowercased())|\(z)" : "k:\(kundenreferenz)|\(basis)"
         return vorkommen == 1 ? schluessel : "\(schluessel)|#\(vorkommen)"
     }
 
@@ -136,9 +137,11 @@ enum Bankimport {
                     kundenreferenz: feld(row, "Kundenreferenz (End-to-End)"),
                     waehrung: feld(row, "Waehrung")))
         }
-        // Gleiche Umsätze ohne Referenz innerhalb einer Datei sind keine Dubletten.
+        // Gleiche Umsätze innerhalb einer Datei sind keine Dubletten – auch mit Referenz, denn
+        // Banken liefern dort oft Platzhalter wie „NOTPROVIDED". Eine echte, eindeutige Referenz
+        // kommt nie zweimal vor und bleibt damit unverändert.
         var gesehen: [String: Int] = [:]
-        for i in ergebnis.indices where ergebnis[i].kundenreferenz.isEmpty {
+        for i in ergebnis.indices {
             let k = ergebnis[i].dedupSchluessel
             gesehen[k, default: 0] += 1
             ergebnis[i].vorkommen = gesehen[k]!

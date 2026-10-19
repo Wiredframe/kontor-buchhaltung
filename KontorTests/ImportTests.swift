@@ -302,6 +302,18 @@ struct ImportTests {
         #expect(try c.mainContext.fetchCount(FetchDescriptor<ExpenseEntry>()) == 1)  // keine Dublette
         let e = try #require(try c.mainContext.fetch(FetchDescriptor<ExpenseEntry>()).first)
         #expect(e.zahlungsdatum == tag(2026, 6, 20))  // Zahltag festgehalten
+        #expect(e.datum == tag(2026, 6, 1))  // Belegdatum bleibt: Vorsteuer und AfA hängen daran
+    }
+
+    /// Eine USt-Erstattung im Januar gehört wie die Zahlung ins Vorjahr (Q4-Überhang).
+    @Test func ustErstattungImJanuarZaehltFuersVorjahr() throws {
+        let c = try container()
+        let b = buchung("250,00", text: "GUTSCHRIFT", name: "FINANZAMT", monat: 1, am: 15)
+        _ = try ImportAnwendung.anwenden(
+            b, Zuordnung(kategorie: .steuererstattung, betrieblich: false, steuerKind: .ustVz), aktion: .neu,
+            c.mainContext)
+        let t = try #require(try c.mainContext.fetch(FetchDescriptor<TaxPayment>()).first)
+        #expect(t.jahr == 2025 && t.betrag == dez("-250"))
     }
 
     // MARK: - Scoring (Treffersuche)

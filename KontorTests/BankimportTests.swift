@@ -48,6 +48,18 @@ struct BankimportTests {
         #expect(!b[0].dedupSchluessel.contains("|#") && b[1].dedupSchluessel.hasSuffix("|#2"))
     }
 
+    /// Platzhalter-Referenz („NOTPROVIDED"): zwei gleiche Umsätze bleiben trotzdem zwei.
+    @Test func gleicheUmsaetzeMitPlatzhalterReferenz() {
+        let b = Bankimport.parse(
+            text: """
+                "Buchungstag";"Beguenstigter/Zahlungspflichtiger";"Kundenreferenz (End-to-End)";"Betrag"
+                "25.06.26";"STADTWERKE";"NOTPROVIDED";"-30,00"
+                "25.06.26";"VERSICHERUNG";"NOTPROVIDED";"-30,00"
+                """)
+        #expect(Set(b.map(\.dedupSchluessel)).count == 2)
+        #expect(b[0].dedupSchluessel == "k:NOTPROVIDED|\(Bankimport.berlinerMitternacht(tag(2026, 6, 25)))|-30")
+    }
+
     /// Der Schlüssel rechnet mit Mitternacht in Berlin – auch wenn der Rechner woanders steht.
     @Test func dedupSchluesselUnabhaengigVonDerZeitzone() {
         let tagBerlin = Bankimport.berlinerMitternacht(tag(2026, 6, 25))

@@ -389,6 +389,10 @@ Prüfgrößen (synthetisch, exemplarisch):
   ein Import auf Reisen alles doppelt an), gleiche Umsätze ohne Referenz in **einer** Datei bekommen
   ab dem zweiten `|#n` (`Bankbuchung.vorkommen`, der erste bleibt wie bisher), **vorgemerkte** Umsätze
   (Spalte „Info") werden ausgelassen und gemeldet – sie kommen später gebucht mit anderem Datum wieder.
+  Der Vorkommen-Zähler gilt auch mit Kundenreferenz (Platzhalter „NOTPROVIDED"). Ein Treffer auf
+  eine vorhandene Ausgabe setzt **nur `zahlungsdatum`**, das Belegdatum bleibt (Vorsteuer, AfA und
+  Monatsgewinn hängen daran). USt-Erstattungen bekommen das Steuerjahr wie Zahlungen
+  (`steuerzuordnung`, Januar → Vorjahr).
   UI: `ImportView` (Karten-Triage, Sidebar-Gruppe Erfassen). `ImportKategorie` = Triage-Enum (inkl. `ksk`/`steuer`/`steuererstattung`/`erstattung`). **Re-Triage / erneuter Import:** dieselbe CSV erneut
   laden (CSV nötig). „Erledigte zeigen" ist **immer** verfügbar, sobald Zeilen geladen sind (auch wenn
   *alle* schon importiert sind); pro Zeile „Neu zuordnen" oder Bulk **„Alle erneut zuordnen"** öffnet
@@ -406,8 +410,8 @@ Prüfgrößen (synthetisch, exemplarisch):
   Asymmetrie: falsches Überschreiben zerstört, ein verpasster Treffer legt nur eine löschbare
   Dublette an. `BelegDublette` teilt sich die Nummern-Normalisierung (`zifferSchluessel`).
 - **E-Rechnung vor Texterkennung (`Berechnung/ERechnung.swift`):** Trägt ein PDF eine eingebettete
-  ZUGFeRD/Factur-X-Rechnung (CII-XML unter `/Names /EmbeddedFiles`), kommen Betrag (DuePayable bzw.
-  GrandTotal), Steuer, Steuerart (Kategorie AE = §13b, E/Z/O/K/G = steuerfrei, S nach Satz), Datum,
+  ZUGFeRD/Factur-X-Rechnung (CII-XML unter `/Names /EmbeddedFiles`), kommen Betrag (GrandTotal, nicht
+  DuePayable: bezahlte Shop-Rechnungen hätten 0 €; Fremdwährung → `nil`, dann Texterkennung), Steuer, Steuerart (Kategorie AE = §13b, E/Z/O/K/G = steuerfrei, S nach Satz), Datum,
   Nummer und Verkäufer bzw. Käufer **exakt** daraus; Gutschrift (Typ 381) negativ. Erst ohne
   E-Rechnung läuft `BelegOCR` wie bisher – an dessen Heuristiken ändert das nichts. Eigener
   XMLParser-Baum ohne Fremdbibliothek, externe Entitäten aus. An zwei echten ZUGFeRD-Rechnungen
@@ -520,7 +524,8 @@ Prüfgrößen (synthetisch, exemplarisch):
   Voranmeldungen; Vorauszahlungen = bezahlte `ustVz` mit diesem Steuerjahr. **Anlage EÜR =
   Bruttomethode:** vereinnahmte USt und USt-Erstattungen als Einnahme, gezahlte Vorsteuer und an das
   FA gezahlte USt als Ausgabe (`Steuer.abflussJahr`: Zahlung **und** Fälligkeit im 22.12.–10.01.-Fenster
-  → Steuerjahr). Weicht vom Netto-Gewinn der EÜR-Seite um den USt-Saldo ab, das ist Absicht.
+  → Steuerjahr; die Fälligkeit wird aus Steuerjahr, Rhythmus und Dauerfrist **abgeleitet** – der
+  Import setzt `faellig` = Buchungstag –, maßgeblich der reguläre 10., nicht der §108-Werktag). Weicht vom Netto-Gewinn der EÜR-Seite um den USt-Saldo ab, das ist Absicht.
   **Vorprüfung** (`Steuer.vorpruefung`): fehlende Jahres-Einstellungen, Kontoauszug unvollständig,
   offene bzw. jahresübergreifend bezahlte Rechnungen, Fremdwährung vorläufig, Beleg-/Zahljahr
   verschieden, Anschaffungen > 800 € ohne AfA, fehlende Belege, USt-VZ gezahlt ≠ berechnet, KSK Soll ≠ Ist.

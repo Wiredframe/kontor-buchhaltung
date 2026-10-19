@@ -11,13 +11,19 @@ struct JahresErklaerungView: View {
     @Query private var einnahmen: [Income]
     @Query private var ausgaben: [ExpenseEntry]
     @Query private var zahlungen: [TaxPayment]
+    @Query private var jahre: [YearSettings]
     @Query(sort: \ImportBuchung.buchungstag, order: .reverse) private var bankbuchungen: [ImportBuchung]
 
     var body: some View {
         JahresSeite(titel: "Steuererklärung") { w in
             let zp = zahlungen.map(\.posten)
             let ust = Steuer.ustJahreserklaerung(jahr: w.jahr, einnahmen: w.einP, ausgaben: w.ausP, zahlungen: zp)
-            let euer = Steuer.euerErklaerung(jahr: w.jahr, einnahmen: w.einP, ausgaben: w.ausP, zahlungen: zp)
+            let euer = Steuer.euerErklaerung(
+                jahr: w.jahr, einnahmen: w.einP, ausgaben: w.ausP, zahlungen: zp,
+                einstellungen: { j in
+                    let s = jahre.first { $0.jahr == j }
+                    return (s?.ustvaRhythmus ?? .vierteljaehrlich, s?.dauerfristverlaengerung ?? false)
+                })
             let punkte = Steuer.vorpruefung(
                 jahr: w.jahr, einnahmen: einnahmen, ausgaben: ausgaben, zahlungen: zahlungen,
                 hatJahresEinstellungen: w.hatJahresEinstellungen,

@@ -166,8 +166,15 @@ enum ERechnung {
             return Decimal(string: v, locale: Locale(identifier: "en_US_POSIX"))
         }
         let summe = w.erstes("SpecifiedTradeSettlementHeaderMonetarySummation")
+        // Fremdwährung: Kontor bucht nur Euro (`brutto` = Abfluss in Euro) – dann rät die
+        // Texterkennung bzw. der Nutzer, nicht das XML.
+        if let code = w.erstes("InvoiceCurrencyCode")?.wert, !code.isEmpty, code.uppercased() != "EUR" {
+            return nil
+        }
+        // Rechnungsbetrag, **nicht** der Zahlbetrag: Eine schon bezahlte Shop-Rechnung hat
+        // `DuePayableAmount` 0,00, eine mit Anzahlung nur den Rest (wiredframe nimmt ebenso GrandTotal).
         var brutto =
-            (summe?.kind("DuePayableAmount")?.wert).flatMap {
+            (summe?.kind("GrandTotalAmount")?.wert).flatMap {
                 Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX"))
             }
             ?? betrag("GrandTotalAmount")
