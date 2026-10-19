@@ -530,6 +530,11 @@ Prüfgrößen (synthetisch, exemplarisch):
   Absender unter Einstellungen › Finanzamt (`@AppStorage`, Schlüssel in `ElsterExport.Absender`);
   die Steuernummer wird nach Bundesland ins 13-stellige ELSTER-Format umgerechnet (Landesziffer +
   Finanzamt + 0 + Rest), die Einstellungen zeigen das Ergebnis zur Kontrolle an.
+- **KSK-Assistent (`Berechnung/KSKAssistent.swift`, Karte auf Jahresabschluss › Vorsorge):** EÜR-Gewinn
+  der **abgeschlossenen** Monate auf zwölf hochgerechnet (abgelaufenes Jahr: Jahresgewinn) gegen das
+  gemeldete JAE; ab 20 % Abweichung der Hinweis, die Schätzung bei der KSK zu ändern (wirkt ab
+  Folgemonat), Meldung fürs Folgejahr bis 1. Dezember. Nur Information, das JAE bleibt wie gehabt
+  keine Berechnungsgrundlage.
 - **Steuerfristen nach §108 Abs. 3 AO (`Berechnung/Fristen.swift`):** UStVA am 10. nach dem
   Zeitraum (+1 Monat mit Dauerfrist), ZM am 25. nach Quartalsende (ohne Dauerfrist), ESt-VZ
   10.3./6./9./12.; fällt das Ende auf Wochenende oder Feiertag, gilt der nächste Werktag. Feiertage
