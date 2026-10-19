@@ -37,8 +37,8 @@ struct KISicherungTests {
         }
     }
 
-    @Test func legtSitzungsBackupAn() throws {
-        try mitTemporaerenBelegen { _ in
+    @Test func legtSitzungsBackupAn() async throws {
+        try await mitTemporaerenBelegen { _ in
             let ctx = try testKontext()
             KISicherung.neueSitzung()
             #expect(kiBackupAnzahl() == 0)
@@ -49,8 +49,8 @@ struct KISicherungTests {
 
     /// Der zweite Aufruf derselben Sitzung darf NICHT erneut sichern. Beweis ohne
     /// Sekunden-Kollision: Backup loeschen, erneut sichern – es bleibt geloescht.
-    @Test func sichertNurEinmalProSitzung() throws {
-        try mitTemporaerenBelegen { _ in
+    @Test func sichertNurEinmalProSitzung() async throws {
+        try await mitTemporaerenBelegen { _ in
             let ctx = try testKontext()
             KISicherung.neueSitzung()
             try KISicherung.sichereVorSchreibzugriff(ctx)
@@ -65,8 +65,8 @@ struct KISicherungTests {
 
     /// `neueSitzung()` scharft das Sicherheitsnetz wieder: nach dem Loeschen sichert der
     /// naechste Schreibzugriff erneut.
-    @Test func neueSitzungBewirktErneutesSichern() throws {
-        try mitTemporaerenBelegen { _ in
+    @Test func neueSitzungBewirktErneutesSichern() async throws {
+        try await mitTemporaerenBelegen { _ in
             let ctx = try testKontext()
             KISicherung.neueSitzung()
             try KISicherung.sichereVorSchreibzugriff(ctx)

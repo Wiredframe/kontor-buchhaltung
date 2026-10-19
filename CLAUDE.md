@@ -21,9 +21,12 @@ stillen Annahmen bei Steuer-/Berechnungslogik:
 - Tests mit **Swift Testing** (`import Testing`, `@Test`, `#expect`), deutsche Namen ohne `test`-Präfix.
   Geteilte Infrastruktur liegt in **`KontorTests/Testhelfer.swift`**: `testContainer()`/`testKontext()`
   (in-memory, volles Schema – **muss** mit `KontorApp.macheContainer()` mitwachsen) und
-  `mitTemporaerenBelegen { }`. Letzteres ist Pflicht, sobald ein Test `Belege.basis` auch nur **liest**:
+  `await mitTemporaerenBelegen { }`. Letzteres ist Pflicht, sobald ein Test `Belege.basis` auch nur **liest**:
   Die Property legt ihr Verzeichnis bei jedem Zugriff an und schriebe sonst in
   `~/Library/Application Support/Belege` des Nutzers (`Belege.basisUeberschreibung` ist der Seam).
+  Der Helfer ist **async, `@MainActor` und serialisiert** (`OrdnerSperre`): Die Überschreibungen
+  sind global, parallele Tests bogen sie sich vorher gegenseitig um (sporadisch rote
+  `belegPfadBleibtImOrdner`/`legtSitzungsBackupAn`).
 - Swift-Sprachmodus aktuell **5.0** (bewusst, um Concurrency-Reibung zu vermeiden;
   später auf 6 hebbar).
 - **String-Delimiter IMMER ASCII `"` (U+0022) — NIE typografische `“` `”` (U+201C/U+201D).**

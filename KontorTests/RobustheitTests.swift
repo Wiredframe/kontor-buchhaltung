@@ -11,8 +11,8 @@ struct RobustheitTests {
 
     /// Läuft im Temp-Verzeichnis: `Belege.basis` legt sein Verzeichnis bei jedem Zugriff an,
     /// ein bloßes Lesen hätte also im echten App-Support-Ordner des Nutzers herumgeschrieben.
-    @Test func belegPfadBleibtImOrdner() {
-        mitTemporaerenBelegen { _ in
+    @Test func belegPfadBleibtImOrdner() async {
+        await mitTemporaerenBelegen { _ in
             let basis = Belege.basis.standardizedFileURL.path
             // Normaler relativer Pfad → innerhalb der Basis.
             #expect(Belege.url(fuer: "2026/rechnung.pdf").path.hasPrefix(basis + "/"))

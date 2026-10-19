@@ -56,37 +56,56 @@ func testKontext() throws -> ModelContext { ModelContext(try testContainer()) }
 ///   `Application Support/Backups/KI-Backups` ab – pro Testlauf eine Datei.
 ///
 /// Räumt am Ende auf und stellt beide Überschreibungen zurück.
-private func mitTempPfaden<T>(_ block: (URL) throws -> T) rethrows -> T {
-    let ordner = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent("kontor-test-\(UUID().uuidString)", isDirectory: true)
-    let belegeVorher = Belege.basisUeberschreibung
-    let backupVorher = Backup.ordnerUeberschreibung
-    Belege.basisUeberschreibung = ordner.appendingPathComponent("Belege", isDirectory: true)
-    Backup.ordnerUeberschreibung = ordner
-    defer {
-        Belege.basisUeberschreibung = belegeVorher
-        Backup.ordnerUeberschreibung = backupVorher
-        try? FileManager.default.removeItem(at: ordner)
-    }
-    return try block(Belege.basis)
-}
-
-func mitTemporaerenBelegen<T>(_ block: (URL) throws -> T) rethrows -> T {
-    try mitTempPfaden(block)
-}
-
-/// Async-Variante von `mitTemporaerenBelegen`.
+///
+/// **Ein Test nach dem anderen** (`OrdnerSperre`): Beide Überschreibungen sind globale Zustände,
+/// und Swift Testing lässt Tests parallel laufen. Ohne Sperre bog ein zweiter Test die Ablage
+/// mitten im ersten um oder stellte sie beim Aufräumen auf `nil` zurück –
+/// `belegPfadBleibtImOrdner` schlug dadurch sporadisch fehl, und im ungünstigen Fall landete eine
+/// Datei doch im echten Ordner. Deshalb gibt es den Helfer nur noch asynchron.
+///
+/// `@MainActor`, weil `KISicherung` dort läuft: Umbiegen und ein synchroner Block laufen dann ohne
+/// Unterbrechung, kein anderer MCP-Test schreibt dazwischen sein Sitzungs-Backup in den Temp-Ordner.
+@MainActor
 func mitTemporaerenBelegen<T>(_ block: (URL) async throws -> T) async rethrows -> T {
+    await OrdnerSperre.shared.betreten()
     let ordner = URL(fileURLWithPath: NSTemporaryDirectory())
         .appendingPathComponent("kontor-test-\(UUID().uuidString)", isDirectory: true)
     let belegeVorher = Belege.basisUeberschreibung
     let backupVorher = Backup.ordnerUeberschreibung
     Belege.basisUeberschreibung = ordner.appendingPathComponent("Belege", isDirectory: true)
     Backup.ordnerUeberschreibung = ordner
-    defer {
+    func aufraeumen() async {
         Belege.basisUeberschreibung = belegeVorher
         Backup.ordnerUeberschreibung = backupVorher
         try? FileManager.default.removeItem(at: ordner)
+        await OrdnerSperre.shared.verlassen()
     }
-    return try await block(Belege.basis)
+    do {
+        let ergebnis = try await block(Belege.basis)
+        await aufraeumen()
+        return ergebnis
+    } catch {
+        await aufraeumen()
+        throw error
+    }
+}
+
+/// Wechselseitiger Ausschluss über `await` hinweg (ein `NSLock` darf nicht über eine
+/// Unterbrechung gehalten werden). Wer verlässt, reicht die Sperre direkt an den nächsten weiter.
+actor OrdnerSperre {
+    static let shared = OrdnerSperre()
+    private var belegt = false
+    private var wartende: [CheckedContinuation<Void, Never>] = []
+
+    func betreten() async {
+        guard belegt else {
+            belegt = true
+            return
+        }
+        await withCheckedContinuation { wartende.append($0) }
+    }
+
+    func verlassen() {
+        if wartende.isEmpty { belegt = false } else { wartende.removeFirst().resume() }
+    }
 }
