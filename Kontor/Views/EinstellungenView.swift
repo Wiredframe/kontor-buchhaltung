@@ -50,6 +50,7 @@ private struct EinstellungenForm: View {
     @AppStorage("budgetLebensmittelWoche") private var budgetWoche = 50.0
     @AppStorage("budgetAnschaffungenMonat") private var budgetMonat = 80.0
     @AppStorage("sidebarOpak") private var sidebarOpak = false
+    @AppStorage(Bundesland.einstellung) private var bundesland = ""
 
     /// Grundfreibetrag zum Editieren: zeigt den gesetzlichen Standard des Jahres, bis der Nutzer
     /// einen eigenen Wert setzt (dann lokaler Override in `settings.grundfreibetrag`).
@@ -104,6 +105,17 @@ private struct EinstellungenForm: View {
                 .font(.caption).foregroundStyle(.secondary)
                 Text("KSK-Beitrag und ESt-Satz werden pro Monat im Monatsabschluss gepflegt (Sidebar-Tab „Werte“).")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Finanzamt") {
+                Picker("Bundesland", selection: $bundesland) {
+                    Text("nur bundesweite Feiertage").tag("")
+                    ForEach(Bundesland.allCases) { Text($0.bezeichnung).tag($0.rawValue) }
+                }
+                Text(
+                    "Fällt eine Steuerfrist auf ein Wochenende oder einen Feiertag, endet sie am nächsten Werktag (§108 Abs. 3 AO). Maßgeblich sind die Feiertage am Sitz des Finanzamts."
+                )
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Darstellung") {

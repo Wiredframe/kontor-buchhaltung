@@ -499,6 +499,18 @@ Prüfgrößen (synthetisch, exemplarisch):
   und CGEvent-Klicks: Table, Sidebar, Wechsel Textfeld → Tabelle. Beim Prüfen echte Mausklicks
   (CGEvent) statt `System Events click at` nehmen: Letzteres wählte in der Tabelle nicht einmal
   die Zeile.
+- **Steuerfristen nach §108 Abs. 3 AO (`Berechnung/Fristen.swift`):** UStVA am 10. nach dem
+  Zeitraum (+1 Monat mit Dauerfrist), ZM am 25. nach Quartalsende (ohne Dauerfrist), ESt-VZ
+  10.3./6./9./12.; fällt das Ende auf Wochenende oder Feiertag, gilt der nächste Werktag. Feiertage
+  bundesweit plus das **Bundesland am Sitz des Finanzamts** (Einstellungen › Finanzamt,
+  `@AppStorage(Bundesland.einstellung)`, nur landesweite Feiertage). Angezeigt in der UStVA
+  (Ergebnis + ZM-Panel) und als Karte „Nächste Steuerfristen" im Dashboard (eigene View mit eigenen
+  Queries, das Dashboard fragt `TaxPayment` bewusst nicht ab). Datum in Strings immer über
+  `Date.deutsch()` – in Interpolation greift die SwiftUI-`locale` nicht.
+- **Sichtprüfung ohne Bildschirmaufnahme (`KontorTests/Sichtpruefung.swift`):** rendert Module mit
+  Demodaten offscreen als PNG, nur mit `TEST_RUNNER_KONTOR_SICHT=<Ordner>` (optional
+  `TEST_RUNNER_KONTOR_SICHT_MODULE=dashboard,ustva,…`), sonst übersprungen. Für den Fall, dass
+  `screencapture`/System Events keine TCC-Freigabe haben.
 - **Inspector-Breite = eine Konstante für alle Module** (`Stil.inspektorBreite` 280 / max 460),
   gesetzt in `inspektorGrund()`; keine `inspectorColumnWidth` mehr je View.
 - **`Table` zwingt dem Fenster eine Mindesthöhe auf – Gegenmittel ist `minHeight: 0`:** Die native

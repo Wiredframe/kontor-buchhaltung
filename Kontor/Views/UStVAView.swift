@@ -7,6 +7,8 @@ struct UStVAView: View {
     @Query private var jahre: [YearSettings]
     @Query private var aufgaben: [MonthlyTask]
     @Environment(\.modelContext) private var context
+    @AppStorage(Bundesland.einstellung) private var bundeslandKuerzel = ""
+    private var bundesland: Bundesland? { Bundesland(rawValue: bundeslandKuerzel) }
 
     @Environment(Zeitkontext.self) private var zeit
     private var jahr: Int { zeit.filter.jahr }
@@ -42,6 +44,18 @@ struct UStVAView: View {
             ausgaben: ausgaben.map(\.posten),
             periode: periode)
     }
+    /// Abgabe- und Zahlungsfrist der gezeigten Voranmeldung, nach §108 Abs. 3 AO verschoben.
+    private var ustvaFrist: Steuerfrist {
+        Fristen.ustva(
+            jahr: jahr, bisMonat: monatlich ? monat : quartal * 3,
+            dauerfrist: settings?.dauerfristverlaengerung ?? false, land: bundesland, titel: "UStVA")
+    }
+    private func fristText(_ f: Steuerfrist) -> String {
+        let ende = f.ende.deutsch(mitWochentag: true)
+        guard f.verschoben else { return ende }
+        return ende + " (regulär \(f.regulaer.deutsch()), Wochenende oder Feiertag)"
+    }
+
     /// Das Quartal, für das die ZM abzugeben ist – **auch in der Monatsansicht**.
     /// Meldezeitraum für sonstige Leistungen ist nach `§18a Abs. 2 UStG` das Kalendervierteljahr,
     /// unabhängig davon, in welchem Rhythmus die Voranmeldung läuft.
@@ -181,6 +195,13 @@ struct UStVAView: View {
                                     : "Erstattungsbetrag (Vorsteuer-Überhang) vom Finanzamt."
                             )
                             .erklaerung()
+                            Label(
+                                "Abgabe und Zahlung bis \(fristText(ustvaFrist))"
+                                    + ((settings?.dauerfristverlaengerung ?? false)
+                                        ? " – mit Dauerfristverlängerung" : ""),
+                                systemImage: "calendar"
+                            )
+                            .font(.callout)
                         }
                     }
 
@@ -190,8 +211,9 @@ struct UStVAView: View {
                                 Text(
                                     .init(
                                         "Eigene Meldung ans BZSt, **zusätzlich** zur Voranmeldung – je USt-IdNr. eine "
-                                            + "Zeile. Abgabe bis zum **25. nach Quartalsende**; eine "
-                                            + "Dauerfristverlängerung gilt dafür **nicht**.")
+                                            + "Zeile. Abgabe bis **\(fristText(Fristen.zm(jahr: jahr, quartal: zmQuartal, land: bundesland)))** "
+                                            + "(25. nach Quartalsende); eine Dauerfristverlängerung gilt dafür **nicht**."
+                                    )
                                 )
                                 .erklaerung()
                                 if monatlich {

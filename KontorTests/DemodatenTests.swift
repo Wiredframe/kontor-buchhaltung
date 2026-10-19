@@ -20,7 +20,7 @@ struct DemodatenTests {
         let ctx = c.mainContext
         #expect((1...2).contains(try ctx.fetchCount(FetchDescriptor<YearSettings>())))
         #expect(try ctx.fetchCount(FetchDescriptor<Income>()) == 4)  // 1×19 % (Vor) + 1×7 % (Vor) + 1 Misch + 1×19 % (offen)
-        #expect(try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()) == 22)  // 2×(5 wiederk. betr. + 5 privat) + Laptop + Fachbuch 7 %
+        #expect(try ctx.fetchCount(FetchDescriptor<ExpenseEntry>()) == 23)  // 2×(5 wiederk. betr. + 5 privat) + Laptop + Bürostuhl (AfA) + Fachbuch 7 %
         #expect(try ctx.fetchCount(FetchDescriptor<GroceryEntry>()) == 4)  // 2 je Monat
         #expect(try ctx.fetchCount(FetchDescriptor<PurchaseEntry>()) == 1)
         #expect(try ctx.fetchCount(FetchDescriptor<TaxPayment>()) == 2)  // KSK je Monat

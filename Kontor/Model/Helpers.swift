@@ -87,6 +87,18 @@ private let _deShortMonthSymbols: [String] = {
     return df.shortMonthSymbols ?? []
 }()
 
+extension Date {
+    /// Datum für Fließtext, immer deutsch: „Dienstag, 10. November 2026" (`mitWochentag`) bzw.
+    /// „10.11.2026". In `String`-Interpolation greift die `locale`-Umgebung von SwiftUI nicht,
+    /// `formatted()` nähme sonst die Systemsprache.
+    func deutsch(mitWochentag: Bool = false) -> String {
+        let de = Locale(identifier: "de_DE")
+        return mitWochentag
+            ? formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(de))
+            : formatted(.dateTime.day(.twoDigits).month(.twoDigits).year().locale(de))
+    }
+}
+
 /// Ausgeschriebener Monatsname (z. B. „September"), de_DE.
 func monatsName(_ monat: Int) -> String {
     guard monat >= 1, monat <= _deMonthSymbols.count else { return "\(monat)" }

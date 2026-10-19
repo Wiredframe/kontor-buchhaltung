@@ -79,7 +79,7 @@ struct AnlagenverzeichnisKarte: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(a.bezeichnung.isEmpty ? "Anlagegut" : a.bezeichnung).fontWeight(.medium)
                         Text(
-                            "angeschafft \(a.angeschafft.formatted(.dateTime.day().month().year())) · \(a.kosten.euro) · \(a.nutzungsdauer) Jahre"
+                            "angeschafft \(a.angeschafft.deutsch()) · \(a.kosten.euro) · \(a.nutzungsdauer) Jahre"
                         )
                         .font(.caption).foregroundStyle(.secondary)
                         if a.zugang {

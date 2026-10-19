@@ -125,6 +125,13 @@ enum Demodaten {
                 datum: tag(vor.jahr, vor.monat, 14), bezeichnung: "MacBook Air", anbieter: "Apple",
                 brutto: dez("1428.00"), vst: dez("228.00"), steuerart: .inland19,
                 betrieblich: true, art: .betriebsausgabe))
+        // Abnutzbares Anlagegut: Bürostuhl, netto 1.000,00, über 13 Jahre abgeschrieben (AfA).
+        // Rechner wie das MacBook oben bleiben sofort abziehbar (BMF: Nutzungsdauer ein Jahr).
+        ctx.insert(
+            ExpenseEntry(
+                datum: tag(vor.jahr, vor.monat, 20), bezeichnung: "Bürostuhl ergonomisch", anbieter: "Büromöbel Mitte",
+                brutto: dez("1190.00"), vst: dez("190.00"), steuerart: .inland19,
+                betrieblich: true, art: .betriebsausgabe, nutzungsdauer: 13))
         // Einmalige 7-%-Betriebsausgabe (ermäßigt): Fachbuch im aktuellen Monat, netto 40,00 (VSt 2,80).
         ctx.insert(
             ExpenseEntry(

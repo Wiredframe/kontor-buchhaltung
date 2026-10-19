@@ -112,6 +112,7 @@ struct DashboardView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 kpis(akt: akt, ustVA: ustVA)
+                FristenKarte()
                 GewinnChartKarte(jahr: $chartJahr, reihe: reihe)
                 schnellstartAbschnitt
             }
@@ -183,6 +184,56 @@ struct DashboardView: View {
                         .karte()
                     }
                     .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+/// Die nächsten gesetzlichen Steuerfristen (UStVA, ZM, ESt-Vorauszahlungen), nach §108 Abs. 3 AO
+/// auf den nächsten Werktag verschoben.
+///
+/// Eigene View mit eigenen Queries: Das Dashboard selbst fragt `TaxPayment` bewusst nicht ab (siehe
+/// dort), so baut eine neue Steuerzahlung nur diese Karte neu auf.
+struct FristenKarte: View {
+    @Query private var jahre: [YearSettings]
+    @Query private var einnahmen: [Income]
+    @Query private var zahlungen: [TaxPayment]
+    @AppStorage(Bundesland.einstellung) private var bundeslandKuerzel = ""
+    @Environment(Navigation.self) private var nav
+
+    private var fristen: [Steuerfrist] {
+        let zm = einnahmen.compactMap(\.zmPosten)
+        let estJahre = Set(zahlungen.filter { $0.kind == .estVz }.map(\.jahr))
+        return Fristen.naechste(
+            heute: Date(),
+            einstellungen: { j in
+                let s = jahre.first { $0.jahr == j } ?? jahre.filter { $0.jahr < j }.max { $0.jahr < $1.jahr }
+                return (s?.ustvaRhythmus ?? .vierteljaehrlich, s?.dauerfristverlaengerung ?? false)
+            },
+            zmPflicht: { j, q in !Steuer.zm(zm, in: .quartal(j, q)).istLeer },
+            estVz: { estJahre.contains($0) },
+            land: Bundesland(rawValue: bundeslandKuerzel), anzahl: 3)
+    }
+
+    var body: some View {
+        Panel(titel: "Nächste Steuerfristen", aktion: { nav.modul = .ustva }) {
+            VStack(spacing: 2) {
+                ForEach(fristen) { f in
+                    HStack(spacing: 12) {
+                        Image(systemName: "calendar").foregroundStyle(.secondary)
+                        Text(f.titel)
+                        Spacer()
+                        if f.verschoben {
+                            Text("verschoben").font(.caption).foregroundStyle(.secondary)
+                                .help(
+                                    "Regulär am \(f.regulaer.deutsch()), wegen Wochenende oder Feiertag später (§108 Abs. 3 AO)."
+                                )
+                        }
+                        Text(f.ende, format: .dateTime.weekday(.abbreviated).day().month().year())
+                            .monospacedDigit()
+                    }
+                    .padding(.vertical, 4)
                 }
             }
         }
