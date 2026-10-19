@@ -43,6 +43,10 @@ private struct ESTSollBlock: View {
             Text("Genauere Orientierung (mit Grundfreibetrag)")
                 .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if w.vorsorgeSumme != 0 {
+                Kartenzeile(
+                    label: "Weitere Vorsorge (privat)", wert: w.vorsorgeSumme, icon: "cross.case", minus: true)
+            }
             Kartenzeile(
                 label: "Grundfreibetrag (Grundtarif \(String(w.jahr)))", wert: w.grundfreibetrag,
                 icon: "person.crop.circle", minus: true)
@@ -51,7 +55,7 @@ private struct ESTSollBlock: View {
                 label: "Puffer ggü. Rücklage", wert: w.estRuecklage - w.estVoraussichtlich,
                 icon: "arrow.down.right.circle")
             Text(
-                "Jahresbasiert (Gewinn − KSK − Grundfreibetrag) × Satz, ohne Hochrechnen.\(w.istAktuellesJahr ? " Laufendes Jahr: Stand jetzt." : "") Grobe Orientierung, keine Steuererklärung; Grundfreibetrag in den Einstellungen je Jahr anpassbar."
+                "Jahresbasiert (Gewinn − KSK − weitere Vorsorge − Grundfreibetrag) × Satz, ohne Hochrechnen.\(w.istAktuellesJahr ? " Laufendes Jahr: Stand jetzt." : "") Grobe Orientierung, keine Steuererklärung; Grundfreibetrag in den Einstellungen je Jahr anpassbar."
             )
             .erklaerung()
         }

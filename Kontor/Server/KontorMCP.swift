@@ -88,7 +88,7 @@ enum KontorMCP {
                     ausgaben: datum, bezeichnung, brutto [, anbieter, vst(sonst automatisch berechnet), steuerart(inland19|inland7|reverseCharge|steuerfrei), kategorie(laufend|jaehrlich|anschaffung), betrieblich, umlagefaehig, rechnungsnummer, waehrung+fremdbetrag(Rechnung in Fremdwährung; brutto bleibt der Euro-Betrag der Abbuchung), zahlungsdatum(Abfluss, zählt für die EÜR), nutzungsdauer(Jahre, AfA für betriebliche Anlagegüter über 800 € netto; 0 = sofort)];
                     fixkosten / subscriptions (datierte Buchung): datum, bezeichnung, betrag [, anbieter, vst(sonst automatisch berechnet), steuerart, betrieblich, umlagefaehig];
                     vorlagen (Sidebar-Vorlage): bezeichnung, betrag [, anbieter, steuerart, betrieblich, art(fixkosten|subscription), umlagefaehig];
-                    zahlungen: kind(ustVz|estVz|estBescheid|ksk|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
+                    zahlungen: kind(ustVz|estVz|estBescheid|ksk|vorsorge|sonstige), jahr, faellig [, betrag, bezahlt, bezahltAm, bemerkung];
                     aufgaben: titel, monat [, intervall(einmalig|monatlich|quartalsweise|jaehrlich), faelligTag, quartalsMonate, erledigt];
                     lebensmittel: datum, betrag [, ort];
                     einkaeufe: datum, bezeichnung, preis;

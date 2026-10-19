@@ -159,3 +159,21 @@ struct JahreswerteTests {
         #expect(w.ausP.count == 1)
     }
 }
+
+struct VorsorgeTests {
+    /// Private Vorsorge mindert die voraussichtliche ESt wie die KSK, die Rücklage bleibt.
+    @Test func privateVorsorgeMindertVoraussichtlicheESt() {
+        let s = YearSettings(jahr: 2025, estPauschalSatz: dez("0.2"))
+        let e = Income(
+            kunde: "Agentur Nord", rnNetto: dez("40000"), ust: dez("7600"), rechnungsdatum: tag(2025, 3, 1),
+            zahlungsdatum: tag(2025, 3, 20), status: .bezahlt)
+        let ohne = Jahreswerte.bauen(
+            jahr: 2025, einnahmen: [e], ausgaben: [], zahlungen: [], jahre: [s], heute: tag(2026, 2, 1))
+        let bu = TaxPayment(kind: .vorsorge, jahr: 2025, faellig: tag(2025, 6, 1), betrag: dez("1000"), bezahlt: true)
+        let mit = Jahreswerte.bauen(
+            jahr: 2025, einnahmen: [e], ausgaben: [], zahlungen: [bu], jahre: [s], heute: tag(2026, 2, 1))
+        #expect(ohne.estVoraussichtlich - mit.estVoraussichtlich == dez("200"))
+        #expect(mit.estRuecklage == ohne.estRuecklage)
+        #expect(mit.vorsorgeSumme == dez("1000") && SteuerKind.vorsorge.istVorsorge && !SteuerKind.estVz.istVorsorge)
+    }
+}

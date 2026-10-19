@@ -210,6 +210,9 @@ enum SteuerKind: String, Codable, CaseIterable, Identifiable {
     case estVz  // Einkommensteuer-Vorauszahlung
     case estBescheid  // ESt-Nachzahlung/Erstattung laut Bescheid
     case ksk  // KSK-Beitrag (Vorsorge): Ist-Zahlung; Soll kommt aus dem Beitragssatz
+    /// Weitere Vorsorgeaufwendungen neben der KSK (Basisrente, BU, freiwillige KV/PV). Mindert die
+    /// voraussichtliche ESt im Jahresabschluss (ohne Höchstbeträge), nie EÜR oder USt.
+    case vorsorge
     case sonstige
 
     var id: String { rawValue }
@@ -219,9 +222,13 @@ enum SteuerKind: String, Codable, CaseIterable, Identifiable {
         case .estVz: "ESt-Vorauszahlung"
         case .estBescheid: "ESt-Bescheid"
         case .ksk: "KSK-Beitrag"
+        case .vorsorge: "Vorsorge (privat)"
         case .sonstige: "Sonstige"
         }
     }
+
+    /// KSK und private Vorsorge – im Ledger unter „Vorsorge", nicht unter „Steuern".
+    var istVorsorge: Bool { self == .ksk || self == .vorsorge }
 
     /// Robust gegen unbekannte Werte: → sonstige (die Auffang-Kategorie). Steuerzahlungen
     /// gehen ohnehin nicht in EÜR/USt ein, die Zuordnung bleibt also rechnerisch folgenlos.

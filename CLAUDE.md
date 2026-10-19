@@ -270,7 +270,9 @@ Prüfgrößen (synthetisch, exemplarisch):
   `if let` – ein leerer Header-ViewBuilder erzeugt sonst eine sichtbare Leerzeile darüber.
 - **Ausgaben-Ledger = ein gemeinsames Modul für ALLE Abflüsse:** Die `AusgabenView` zeigt
   `ExpenseEntry` **und** `TaxPayment` in **einer** Tabelle über einen Anzeige-Zeilentyp
-  (`LedgerZeile`), gefiltert nach **Art** (Betriebsausgabe/Fixkosten/Subscription/**Vorsorge**=KSK/
+  (`LedgerZeile`), gefiltert nach **Art** (Betriebsausgabe/Fixkosten/Subscription/**Vorsorge**=KSK und `SteuerKind.vorsorge` (private Vorsorge:
+  Basisrente, BU, freiwillige KV/PV – mindert nur die voraussichtliche ESt im Jahresabschluss, ohne
+  Höchstbeträge, nie EÜR/USt/Monatsrücklage)/
   **Steuern**=Rest), **Sparte** und **Monat**. **`TaxPayment` bleibt das Datenmodell** (kind/
   Steuerjahr/Fälligkeit, **KSK Soll/Ist**, Import-Matching, Jahresabschluss-Gruppierung **unverändert**);
   Vorsorge/Steuern werden nur **mit angezeigt/bearbeitet** (kein eigenes „Zahlungen"-Modul mehr, `ZahlungInspektor`

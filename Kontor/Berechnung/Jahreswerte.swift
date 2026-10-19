@@ -57,6 +57,9 @@ struct Jahreswerte {
     var ustGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ustVz } }
     var estGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .estVz || $0.kind == .estBescheid } }
     var kskGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .ksk } }
+    /// Private Vorsorge neben der KSK (Basisrente, BU …) mit Beitragsjahr = Jahr.
+    var vorsorgeGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .vorsorge } }
+    var vorsorgeSumme: Decimal { vorsorgeGezahlt.filter(\.bezahlt).reduce(Decimal(0)) { $0 + $1.betrag } }
     var sonstigeGezahlt: [TaxPayment] { zahlungen.filter { $0.kind == .sonstige } }
 }
 
@@ -85,8 +88,11 @@ extension Jahreswerte {
         // Standard des Jahres, lokal je Jahr überschreibbar; Satz = zuletzt gültiger (Dez.-effektiv),
         // kein Hochrechnen. Rechnet auf demselben Gewinn/KSK, die oben angezeigt werden.
         let gfb = settings?.grundfreibetrag ?? Steuer.grundfreibetragStandard(jahr: jahr)
+        // Private Vorsorge mindert wie die KSK das zu versteuernde Einkommen (ohne Höchstbeträge).
+        let vorsorge = zahlungen.filter { $0.jahr == jahr && $0.kind == .vorsorge && $0.bezahlt }
+            .reduce(Decimal(0)) { $0 + $1.betrag }
         let voraus = Steuer.estVoraussichtlich(
-            gewinn: a.gewinn, ksk: kskT.gesamt,
+            gewinn: a.gewinn, ksk: kskT.gesamt + vorsorge,
             grundfreibetrag: gfb, satz: jahre.estSatz(jahr: jahr, monat: 12))
         // USt-Zahllast je VA-Zeitraum – Rhythmus aus den Jahres-Einstellungen (monatlich = 12,
         // sonst 4 Quartale). Die Jahressumme ist in beiden Fällen identisch.

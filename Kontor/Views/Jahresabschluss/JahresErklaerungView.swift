@@ -145,6 +145,9 @@ struct JahresErklaerungView: View {
                 Kartenzeile(label: "KSK Pflegeversicherung (Monatswerte)", wert: w.ksk.pv, icon: "cross.case")
                 Summenzeile(label: "KSK gesamt", wert: w.kskGesamt)
                 Kartenzeile(label: "KSK laut Abbuchungen", wert: kskGezahlt, icon: "tray.and.arrow.down")
+                if w.vorsorgeSumme != 0 {
+                    Kartenzeile(label: "Weitere Vorsorge (privat)", wert: w.vorsorgeSumme, icon: "cross.case")
+                }
                 Kartenzeile(label: "Geleistete ESt-Vorauszahlungen", wert: w.estVzBezahlt, icon: "percent")
                 Text(
                     "Die KSK-Beiträge gehören in die Anlage Vorsorgeaufwand, die Vorauszahlungen gleicht das Finanzamt mit dem Bescheid ab."

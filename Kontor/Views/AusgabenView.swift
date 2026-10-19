@@ -44,8 +44,8 @@ enum AusgabenArtFilter: String, CaseIterable, Identifiable {
     func passtZahlung(_ t: TaxPayment) -> Bool {
         switch self {
         case .alle: true
-        case .vorsorge: t.kind == .ksk
-        case .steuern: t.kind != .ksk
+        case .vorsorge: t.kind.istVorsorge
+        case .steuern: !t.kind.istVorsorge
         default: false
         }
     }
@@ -141,7 +141,7 @@ struct AusgabenView: View {
                     LedgerZeile(
                         id: t.id, datum: t.anzeigeDatum,
                         bezeichnung: t.bemerkung.isEmpty ? t.kind.bezeichnung : t.bemerkung,
-                        artLabel: t.kind == .ksk ? "Vorsorgeaufwand" : "Steuer",
+                        artLabel: t.kind.istVorsorge ? "Vorsorgeaufwand" : "Steuer",
                         sparte: nil, betrag: t.betrag, vst: nil, netto: nil, ausgabe: nil, zahlung: t))
             }
         }

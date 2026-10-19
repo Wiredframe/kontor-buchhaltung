@@ -13,6 +13,21 @@ struct JahresVorsorgeView: View {
                 // Die tatsächlichen KSK-Abbuchungen liegen als Vorsorge-Zeilen im Ledger.
                 istAktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .vorsorge, zeit: zeit) },
                 soll: { KSKSollBlock(w: w) }, ist: { KSKIstBlock(w: w) })
+            if !w.vorsorgeGezahlt.isEmpty {
+                Panel(
+                    titel: "Weitere Vorsorge (privat)",
+                    aktion: { nav.zeigeAusgabenJahr(jahr: w.jahr, art: .vorsorge, zeit: zeit) }
+                ) {
+                    VStack(spacing: 2) {
+                        ForEach(w.vorsorgeGezahlt) { ZahlungLeseZeile(eintrag: $0) }
+                        Summenzeile(label: "Gezahlt gesamt", wert: w.vorsorgeSumme)
+                        Text(
+                            "Basisrente, BU, freiwillige Kranken- und Pflegeversicherung neben der KSK. Mindert die voraussichtliche Einkommensteuer (ohne Höchstbeträge gerechnet), nie EÜR oder USt."
+                        )
+                        .erklaerung()
+                    }
+                }
+            }
             if let s = Steuer.kskSchaetzung(
                 jahr: w.jahr, einnahmen: w.einP, ausgaben: w.ausP, settings: jahre.first { $0.jahr == w.jahr })
             {
