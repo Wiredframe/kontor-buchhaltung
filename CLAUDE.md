@@ -403,6 +403,14 @@ Prüfgrößen (synthetisch, exemplarisch):
   die monatlich gleiche Miete den Vormonatseintrag in den neuen Monat. Leitsatz bleibt die
   Asymmetrie: falsches Überschreiben zerstört, ein verpasster Treffer legt nur eine löschbare
   Dublette an. `BelegDublette` teilt sich die Nummern-Normalisierung (`zifferSchluessel`).
+- **E-Rechnung vor Texterkennung (`Berechnung/ERechnung.swift`):** Trägt ein PDF eine eingebettete
+  ZUGFeRD/Factur-X-Rechnung (CII-XML unter `/Names /EmbeddedFiles`), kommen Betrag (DuePayable bzw.
+  GrandTotal), Steuer, Steuerart (Kategorie AE = §13b, E/Z/O/K/G = steuerfrei, S nach Satz), Datum,
+  Nummer und Verkäufer bzw. Käufer **exakt** daraus; Gutschrift (Typ 381) negativ. Erst ohne
+  E-Rechnung läuft `BelegOCR` wie bisher – an dessen Heuristiken ändert das nichts. Eigener
+  XMLParser-Baum ohne Fremdbibliothek, externe Entitäten aus. An zwei echten ZUGFeRD-Rechnungen
+  geprüft (Werte exakt), Tests mit einem von Hand gebauten PDF. Reine XRechnung-Dateien (ohne PDF)
+  sind noch offen.
 - **Belegerkennung (`BelegOCR`) – Änderungen NUR gegen echte Belege messen:** Ein erster
   Härtungsversuch (PDF-Textlayer statt Vision, strengere Betragsfilter, Segment-Logik je Label)
   lief **grün gegen synthetische Fixtures und verschlechterte echte Rechnungen massiv** – am

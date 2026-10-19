@@ -32,12 +32,16 @@ enum BelegOCR {
     /// Wie viele PDF-Seiten höchstens gelesen werden (Beträge/Summen stehen oft erst auf S. 2).
     static let maxSeiten = 2
 
+    /// Belegdaten eines Eingangsbelegs: aus der eingebetteten E-Rechnung, wenn das PDF eine trägt
+    /// (exakt), sonst per Texterkennung.
     static func analysiere(_ url: URL) async -> BelegDaten {
-        extrahiere(fragmente: await fragmente(von: url))
+        if let e = ERechnung.lies(url) { return e }
+        return extrahiere(fragmente: await fragmente(von: url))
     }
 
     static func analysiereEinnahme(_ url: URL) async -> EinnahmeDaten {
-        extrahiereEinnahme(fragmente: await fragmente(von: url))
+        if let e = ERechnung.liesEinnahme(url) { return e }
+        return extrahiereEinnahme(fragmente: await fragmente(von: url))
     }
 
     // MARK: - Bilder laden (bis zu `maxSeiten` PDF-Seiten oder eine Bilddatei)
