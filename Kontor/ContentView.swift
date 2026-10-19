@@ -20,11 +20,12 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
     case monatsabschluss
     case ustva
     case jahresuebersicht
-    // …mit vier Unterseiten (eingerückt unter „Jahresabschluss", siehe `eltern`/`kinder`)
+    // …mit fünf Unterseiten (eingerückt unter „Jahresabschluss", siehe `eltern`/`kinder`)
     case jahresEUR
     case jahresESt
     case jahresUSt
     case jahresVorsorge
+    case jahresErklaerung
     // Privat
     case privatUebersicht
     case lebensmittel
@@ -48,6 +49,7 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
         case .jahresESt: "Einkommensteuer"
         case .jahresUSt: "Umsatzsteuer"
         case .jahresVorsorge: "Vorsorge (KSK)"
+        case .jahresErklaerung: "Steuererklärung"
         case .privatUebersicht: "Privat-Übersicht"
         case .lebensmittel: "Lebensmittel"
         case .anschaffungen: "Einkäufe"
@@ -69,6 +71,7 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
         case .jahresESt: "percent"
         case .jahresUSt: "building.columns"
         case .jahresVorsorge: "cross.case"
+        case .jahresErklaerung: "doc.text.magnifyingglass"
         case .privatUebersicht: "person.crop.circle"
         case .lebensmittel: "cart"
         case .anschaffungen: "bag"
@@ -79,7 +82,7 @@ enum Modul: String, CaseIterable, Identifiable, Hashable {
     /// Übergeordnetes Modul für die Sidebar-Einrückung; `nil` = Zeile auf oberster Ebene.
     var eltern: Modul? {
         switch self {
-        case .jahresEUR, .jahresESt, .jahresUSt, .jahresVorsorge: .jahresuebersicht
+        case .jahresEUR, .jahresESt, .jahresUSt, .jahresVorsorge, .jahresErklaerung: .jahresuebersicht
         default: nil
         }
     }
@@ -328,6 +331,7 @@ struct ContentView: View {
         case .jahresESt: JahresEinkommensteuerView()
         case .jahresUSt: JahresUmsatzsteuerView()
         case .jahresVorsorge: JahresVorsorgeView()
+        case .jahresErklaerung: JahresErklaerungView()
         case .privatUebersicht: PrivatUebersichtView()
         case .lebensmittel: LebensmittelView()
         case .anschaffungen: AnschaffungenView()

@@ -239,7 +239,7 @@ Prüfgrößen (synthetisch, exemplarisch):
 - **Module** (in Sidebar-Reihenfolge, Gruppen in eckigen Klammern): Übersicht (Dashboard, Start,
   titellose Section) · [Erfassen] Einnahmen · Ausgaben (Betriebsausgaben + Fixkosten +
   Subscriptions + Vorsorge + Steuern) · Kontoauszug · Aufgaben · [Auswertungen] Monatsabschluss ·
-  UStVA · Jahresabschluss (+ 4 Unterseiten) · [Privat] Privat-Übersicht · Lebensmittel ·
+  UStVA · Jahresabschluss (+ 5 Unterseiten) · [Privat] Privat-Übersicht · Lebensmittel ·
   Anschaffungen · [System] Einstellungen.
 - **Jahresabschluss = Übersicht + vier Unterseiten** (`Kontor/Views/Jahresabschluss/`): die
   Übersicht zeigt nur noch **Hero (4 Kernzahlen) + Gewinn-Chart + vier Bereichskarten**, die
@@ -499,6 +499,17 @@ Prüfgrößen (synthetisch, exemplarisch):
   und CGEvent-Klicks: Table, Sidebar, Wechsel Textfeld → Tabelle. Beim Prüfen echte Mausklicks
   (CGEvent) statt `System Events click at` nehmen: Letzteres wählte in der Tabelle nicht einmal
   die Zeile.
+- **Jahresabschluss › Steuererklärung (`JahresErklaerungView`, `Berechnung/Steuererklaerung.swift`):**
+  die Größen für USt-Jahreserklärung und Anlage EÜR, nicht die Formularzeilen (Vorbild wiredframe
+  `wf export steuer`). **USt-Jahreserklärung:** Jahres-Bemessungen auf volle Euro gekürzt, Steuer
+  daraus – **auch §13b** (anders als KZ 85 der UStVA), deshalb Cent-Abweichung zur Summe der
+  Voranmeldungen; Vorauszahlungen = bezahlte `ustVz` mit diesem Steuerjahr. **Anlage EÜR =
+  Bruttomethode:** vereinnahmte USt und USt-Erstattungen als Einnahme, gezahlte Vorsteuer und an das
+  FA gezahlte USt als Ausgabe (`Steuer.abflussJahr`: Zahlung **und** Fälligkeit im 22.12.–10.01.-Fenster
+  → Steuerjahr). Weicht vom Netto-Gewinn der EÜR-Seite um den USt-Saldo ab, das ist Absicht.
+  **Vorprüfung** (`Steuer.vorpruefung`): fehlende Jahres-Einstellungen, Kontoauszug unvollständig,
+  offene bzw. jahresübergreifend bezahlte Rechnungen, Fremdwährung vorläufig, Beleg-/Zahljahr
+  verschieden, Anschaffungen > 800 € ohne AfA, fehlende Belege, USt-VZ gezahlt ≠ berechnet, KSK Soll ≠ Ist.
 - **Steuerfristen nach §108 Abs. 3 AO (`Berechnung/Fristen.swift`):** UStVA am 10. nach dem
   Zeitraum (+1 Monat mit Dauerfrist), ZM am 25. nach Quartalsende (ohne Dauerfrist), ESt-VZ
   10.3./6./9./12.; fällt das Ende auf Wochenende oder Feiertag, gilt der nächste Werktag. Feiertage

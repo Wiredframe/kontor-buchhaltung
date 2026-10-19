@@ -56,6 +56,10 @@ struct JahresuebersichtView: View {
             ),
             ("Umsatzsteuer", "Zahllast je Voranmeldung und tatsächlich gezahlt.", "building.columns", .jahresUSt),
             ("Vorsorge (KSK)", "KV, RV, PV im Jahr: Soll gegen Abbuchungen.", "cross.case", .jahresVorsorge),
+            (
+                "Steuererklärung", "Zahlen für USt-Jahreserklärung und Anlage EÜR, Vorprüfung.",
+                "doc.text.magnifyingglass", .jahresErklaerung
+            ),
         ]
         return VStack(alignment: .leading, spacing: 8) {
             Text("Bereiche").font(.title3).fontWeight(.semibold).padding(.horizontal, 4)
